@@ -1,0 +1,1488 @@
+<script>
+    const VDA = {
+      data: { year: null, resumen: null, filter: null },
+      charts: {},
+      chartsMay: {},
+      chartsSup: {},
+      currentSection: 'ejecutivo',
+
+      fmtCLP(v) { return '$' + Math.round(v || 0).toLocaleString('es-CL'); },
+      fmtNum(v) { return Math.round(v || 0).toLocaleString('es-CL'); },
+      fmtPct(v) { return (v || 0).toFixed(1) + '%'; },
+      
+      toast(msg, type = 'success') {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = `toast ${type} active`;
+        setTimeout(() => t.classList.remove('active'), 3000);
+      },
+
+      showSection(section) {
+        this.currentSection = section;
+        
+        document.getElementById('section-ejecutivo').style.display = 'none';
+        document.getElementById('section-mayorista').style.display = 'none';
+        document.getElementById('section-supermercado').style.display = 'none';
+        
+        document.getElementById('section-' + section).style.display = 'block';
+        
+        document.querySelectorAll('.sap-nav-item').forEach(item => {
+          item.classList.remove('active');
+        });
+        const navItems = document.querySelectorAll('.sap-nav-item');
+        if (section === 'ejecutivo') navItems[0]?.classList.add('active');
+        if (section === 'mayorista') navItems[1]?.classList.add('active');
+        if (section === 'supermercado') navItems[2]?.classList.add('active');
+        
+        const titles = {
+          'ejecutivo': 'Análisis Ejecutivo de Ventas',
+          'mayorista': 'Segmento Mayorista',
+          'supermercado': 'Segmento Supermercado'
+        };
+        document.querySelector('.sap-title').textContent = titles[section] || titles['ejecutivo'];
+        
+        setTimeout(() => {
+          if (section === 'mayorista') this.renderChartsMay();
+          if (section === 'supermercado') this.renderChartsSup();
+        }, 100);
+      },
+
+      async init() {
+        console.log('🚀 Iniciando...');
+        await this.loadYears();
+      },
+
+      async loadYears() {
+        try {
+          const years = await this.api('apiVentasExecGetAnios');
+          const sel = document.getElementById('yearSelect');
+          sel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+          if (years.length) {
+            this.data.year = years[0];
+            sel.value = years[0];
+            await this.loadData();
+          }
+        } catch (e) {
+          console.error(e);
+          this.toast('Error cargando años', 'error');
+        }
+      },
+
+      async loadData() {
+        try {
+          console.log('📊 Cargando datos para año:', this.data.year);
+          document.getElementById('loading').style.display = 'flex';
+          document.getElementById('content').style.display = 'none';
+          
+          const res = await this.api('apiVentasExecGetResumen', this.data.year, {});
+          console.log('📊 Respuesta recibida:', res);
+          if (!res?.ok) throw new Error(res?.error || 'Error desconocido');
+          
+          this.data.resumen = res;
+          console.log('📊 Mayorista:', res.mayorista);
+          console.log('📊 Supermercado:', res.supermercado);
+          
+          if (res.fechaInforme) {
+            const fechaObj = new Date(res.fechaInforme);
+            document.getElementById('fechaBadge').textContent = '📅 ' + fechaObj.toLocaleDateString('es-CL');
+            document.getElementById('fechaInforme').innerHTML = '⚡ Datos al:<br><strong>' + fechaObj.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }) + '</strong>';
+          }
+          
+          document.getElementById('colYear1').textContent = this.data.year;
+          document.getElementById('colYear2').textContent = this.data.year - 1;
+          
+          const el1May = document.getElementById('colYear1May');
+          const el2May = document.getElementById('colYear2May');
+          const el1Sup = document.getElementById('colYear1Sup');
+          const el2Sup = document.getElementById('colYear2Sup');
+          if (el1May) el1May.textContent = this.data.year;
+          if (el2May) el2May.textContent = this.data.year - 1;
+          if (el1Sup) el1Sup.textContent = this.data.year;
+          if (el2Sup) el2Sup.textContent = this.data.year - 1;
+          
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('content').style.display = 'block';
+          
+          this.render();
+          this.toast('✓ Datos cargados');
+        } catch (e) {
+          console.error(e);
+          document.getElementById('loading').style.display = 'none';
+          this.toast('Error: ' + e.message, 'error');
+        }
+      },
+
+      async changeYear() {
+        this.data.year = Number(document.getElementById('yearSelect').value);
+        this.clearFilter();
+        await this.loadData();
+      },
+
+      async refreshData() {
+        const btn = document.getElementById('btnRefresh');
+        btn.classList.add('loading');
+        try {
+          await this.api('apiVentasExecClearCache');
+          Object.values(this.charts).forEach(c => c?.destroy?.());
+          this.charts = {};
+          await this.loadData();
+        } catch (e) {
+          this.toast('Error', 'error');
+        }
+        btn.classList.remove('loading');
+      },
+
+      setFilter(f) {
+        if (this.data.filter === f) {
+          this.clearFilter();
+          return;
+        }
+        this.data.filter = f;
+        
+        let filterLabel = f;
+        if (f.startsWith('MES_')) {
+          const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+          const mesNum = parseInt(f.split('_')[1]);
+          filterLabel = 'Mes: ' + meses[mesNum - 1];
+        }
+        
+        document.getElementById('filterText').textContent = 'Filtro: ' + filterLabel;
+        document.getElementById('filterBadge').classList.add('show');
+        document.querySelectorAll('.kpi-card[data-filter]').forEach(c => {
+          c.classList.toggle('active', c.dataset.filter === f);
+        });
+        this.render();
+        this.toast('Filtrado: ' + filterLabel);
+      },
+
+      clearFilter() {
+        this.data.filter = null;
+        document.getElementById('filterBadge').classList.remove('show');
+        document.querySelectorAll('.kpi-card').forEach(c => c.classList.remove('active'));
+        this.render();
+      },
+
+      getMonths() {
+        const r = this.data.resumen;
+        if (!r) return [];
+        
+        if (this.data.filter && this.data.filter.startsWith('MES_')) {
+          const mesNum = parseInt(this.data.filter.split('_')[1]);
+          return (r.months || []).filter(m => m.mes === mesNum);
+        }
+        
+        if (this.data.filter && r.monthsByClasificacion) {
+          return r.monthsByClasificacion[this.data.filter] || r.months;
+        }
+        return r.months || [];
+      },
+
+      getMonthsAnterior() {
+        const r = this.data.resumen;
+        if (!r) return [];
+        
+        if (this.data.filter && this.data.filter.startsWith('MES_')) {
+          const mesNum = parseInt(this.data.filter.split('_')[1]);
+          return (r.monthsAnterior || []).filter(m => m.mes === mesNum);
+        }
+        
+        if (this.data.filter && r.monthsAnteriorByClasificacion) {
+          return r.monthsAnteriorByClasificacion[this.data.filter] || r.monthsAnterior;
+        }
+        return r.monthsAnterior || [];
+      },
+
+      getCategorias() {
+        const r = this.data.resumen;
+        if (!r) return [];
+        
+        // Si hay filtro de mes, usar categoriasByMes del backend
+        if (this.data.filter && this.data.filter.startsWith('MES_')) {
+          const mesNum = parseInt(this.data.filter.split('_')[1]);
+          return r.categoriasByMes?.[mesNum] || [];
+        }
+        
+        if (this.data.filter && r.categoriasByClasificacion) {
+          return r.categoriasByClasificacion[this.data.filter] || r.categorias;
+        }
+        return r.categorias || [];
+      },
+
+      getMarcas() {
+        const r = this.data.resumen;
+        if (!r) return [];
+        
+        // Si hay filtro de mes, usar marcasByMes del backend
+        if (this.data.filter && this.data.filter.startsWith('MES_')) {
+          const mesNum = parseInt(this.data.filter.split('_')[1]);
+          return r.marcasByMes?.[mesNum] || [];
+        }
+        
+        if (this.data.filter && r.marcasByClasificacion) {
+          return r.marcasByClasificacion[this.data.filter] || r.marcas;
+        }
+        return r.marcas || [];
+      },
+
+      getClasificaciones() {
+        const r = this.data.resumen;
+        if (!r) return [];
+        
+        // Si hay filtro de mes, usar clasificacionesByMes del backend
+        if (this.data.filter && this.data.filter.startsWith('MES_')) {
+          const mesNum = parseInt(this.data.filter.split('_')[1]);
+          return r.clasificacionesByMes?.[mesNum] || [];
+        }
+        
+        if (this.data.filter) {
+          return (r.clasificaciones || []).filter(c => 
+            c.clasificacion.toUpperCase() === this.data.filter
+          );
+        }
+        return r.clasificaciones || [];
+      },
+
+      render() {
+        console.log('🎨 Renderizando...');
+        if (!this.data.resumen) {
+          console.error('❌ No hay datos para renderizar');
+          return;
+        }
+        this.renderKPIs();
+        this.renderCharts();
+        this.renderTables();
+        this.renderMay();
+        this.renderSup();
+        console.log('✅ Render completado');
+      },
+
+      renderKPIs() {
+        const r = this.data.resumen;
+        const t = r.totals;
+        const c = r.clasificaciones || [];
+        const m = r.months || [];
+        const mAnt = r.monthsAnterior || [];
+        
+        // Mes de última factura (viene del backend)
+        const mesActual = r.mesActual || new Date().getMonth() + 1;
+        const dataMesActual = m.find(x => x.mes === mesActual) || m[m.length - 1] || {};
+        const dataMesActualAnt = mAnt.find(x => x.mes === mesActual) || {};
+        const mesesNombres = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const mesActualLabel = mesesNombres[mesActual - 1] || 'Mes';
+        
+        const get = (n) => c.find(x => (x.clasificacion || '').toUpperCase() === n.toUpperCase()) || {};
+        
+        // ===== CORRECCIÓN: Calcular variaciones correctas cuando se filtra por mes =====
+        let kpiMesData = dataMesActual;
+        let kpiMesTrend = dataMesActual.yoyVentas;
+        let kpiMesLabel = mesActualLabel.toUpperCase();
+        let kpiMesFilter = 'MES_' + mesActual;
+        
+        // Si hay filtro de mes activo, mostrar datos de ese mes
+        if (this.data.filter && this.data.filter.startsWith('MES_')) {
+          const mesNumFiltrado = parseInt(this.data.filter.split('_')[1]);
+          const mesFiltrado = m.find(x => x.mes === mesNumFiltrado) || {};
+          const mesFiltradoAnt = mAnt.find(x => x.mes === mesNumFiltrado) || {};
+          
+          kpiMesData = mesFiltrado;
+          kpiMesTrend = mesFiltradoAnt.ventaNeta > 0 
+            ? ((mesFiltrado.ventaNeta - mesFiltradoAnt.ventaNeta) / mesFiltradoAnt.ventaNeta) * 100 
+            : 0;
+          kpiMesLabel = mesesNombres[mesNumFiltrado - 1]?.toUpperCase() || 'MES';
+          kpiMesFilter = 'MES_' + mesNumFiltrado;
+        }
+        
+        // Calcular datos y variaciones para clasificaciones cuando hay filtro de mes
+        const getClasifConVariaciones = (clasifName) => {
+          const clasifBase = get(clasifName);
+          
+          // Si hay filtro de mes, buscar en clasificacionesByMes del backend
+          if (this.data.filter && this.data.filter.startsWith('MES_')) {
+            const mesNum = parseInt(this.data.filter.split('_')[1]);
+            const datosMes = r.clasificacionesByMes?.[mesNum] || [];
+            const clasifMes = datosMes.find(c => c.clasificacion.toUpperCase() === clasifName.toUpperCase());
+            if (clasifMes) return clasifMes;
+          }
+          
+          return clasifBase;
+        };
+        
+        const mayConVar = getClasifConVariaciones('Mayorista');
+        const supConVar = getClasifConVariaciones('Supermercado');
+        
+        const kpis = [
+          { icon: '💰', title: 'VENTA TOTAL', value: this.fmtCLP(t.ventaNeta), sub: this.fmtNum(t.facturas) + ' fact', 
+            rows: [['MARGEN', this.fmtCLP(t.margen)], ['RENT.', this.fmtPct(t.rentabilidad), t.rentabilidad >= 25], ['CAJAS', this.fmtNum(t.cajas)]],
+            trend: t.yoyVentas, color: 'green', filter: null },
+          { icon: '📅', title: kpiMesLabel, value: this.fmtCLP(kpiMesData.ventaNeta || 0), sub: 'Mes actual',
+            rows: [['MARGEN', this.fmtCLP(kpiMesData.margen || 0)], ['RENT.', this.fmtPct(kpiMesData.rentabilidad || 0), (kpiMesData.rentabilidad || 0) >= 25], ['CAJAS', this.fmtNum(kpiMesData.cajas || 0)]],
+            trend: kpiMesTrend, color: '', filter: kpiMesFilter },
+          { icon: '🏪', title: 'MAYORISTA', value: this.fmtCLP(mayConVar.ventaNeta || 0), sub: 'Canal mayorista',
+            rows: [['MARGEN', this.fmtCLP(mayConVar.margen || 0)], ['RENT.', this.fmtPct(mayConVar.rentabilidad || 0), (mayConVar.rentabilidad || 0) >= 25], ['CAJAS', this.fmtNum(mayConVar.cajas || 0)]],
+            varMes: mayConVar.varMes, varAcum: mayConVar.varYoYAcum, varYear: mayConVar.varYoY,
+            color: 'green', filter: 'MAYORISTA' },
+          { icon: '🛒', title: 'SUPERMERCADO', value: this.fmtCLP(supConVar.ventaNeta || 0), sub: 'Canal super',
+            rows: [['MARGEN', this.fmtCLP(supConVar.margen || 0)], ['RENT.', this.fmtPct(supConVar.rentabilidad || 0), (supConVar.rentabilidad || 0) >= 25], ['CAJAS', this.fmtNum(supConVar.cajas || 0)]],
+            varMes: supConVar.varMes, varAcum: supConVar.varYoYAcum, varYear: supConVar.varYoY,
+            color: 'orange', filter: 'SUPERMERCADO' }
+        ];
+        
+        c.forEach(cl => {
+          const nombre = (cl.clasificacion || '').toUpperCase();
+          if (nombre !== 'MAYORISTA' && nombre !== 'SUPERMERCADO' && nombre !== 'SIN CLASIFICAR') {
+            const clConVar = getClasifConVariaciones(cl.clasificacion);
+            kpis.push({
+              icon: '📦', 
+              title: cl.clasificacion.toUpperCase(), 
+              value: this.fmtCLP(clConVar.ventaNeta || 0), 
+              sub: 'Canal ' + cl.clasificacion,
+              rows: [['MARGEN', this.fmtCLP(clConVar.margen || 0)], ['RENT.', this.fmtPct(clConVar.rentabilidad || 0), (clConVar.rentabilidad || 0) >= 25], ['CAJAS', this.fmtNum(clConVar.cajas || 0)]],
+              varMes: clConVar.varMes, varAcum: clConVar.varYoYAcum, varYear: clConVar.varYoY,
+              color: 'purple', 
+              filter: nombre
+            });
+          }
+        });
+        
+        document.getElementById('kpiGrid').innerHTML = kpis.map(k => {
+          const active = this.data.filter === k.filter ? 'active' : '';
+          const click = k.filter ? `onclick="VDA.setFilter('${k.filter}')"` : '';
+          const noClick = !k.filter ? 'no-click' : '';
+          
+          let variaciones = '';
+          if (k.varMes !== undefined) {
+            variaciones = `
+              <div class="kpi-variations">
+                <span class="${k.varMes >= 0 ? 'var-up' : 'var-down'}">M: ${k.varMes >= 0 ? '↑' : '↓'}${this.fmtPct(Math.abs(k.varMes || 0))}</span>
+                <span class="${k.varAcum >= 0 ? 'var-up' : 'var-down'}">A: ${k.varAcum >= 0 ? '↑' : '↓'}${this.fmtPct(Math.abs(k.varAcum || 0))}</span>
+                <span class="${k.varYear >= 0 ? 'var-up' : 'var-down'}">Y: ${k.varYear >= 0 ? '↑' : '↓'}${this.fmtPct(Math.abs(k.varYear || 0))}</span>
+              </div>
+            `;
+          }
+          
+          return `
+            <div class="kpi-card ${k.color} ${active} ${noClick}" data-filter="${k.filter || ''}" ${click}>
+              <div class="kpi-icon-title">
+                <span class="kpi-icon">${k.icon}</span>
+                <span class="kpi-title">${k.title}</span>
+              </div>
+              <div class="kpi-value">${k.value}</div>
+              <div class="kpi-subtitle">${k.sub}</div>
+              ${k.rows.map(r => `
+                <div class="kpi-row">
+                  <span class="kpi-label">${r[0]}</span>
+                  <span class="kpi-data ${r[2] === true ? 'green' : r[2] === false ? 'red' : ''}">${r[1]}</span>
+                </div>
+              `).join('')}
+              ${k.trend !== undefined && k.trend !== null ? `
+                <div class="kpi-trend ${k.trend >= 0 ? 'up' : 'down'}">
+                  ${k.trend >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(k.trend))} YoY
+                </div>
+              ` : ''}
+              ${variaciones}
+            </div>
+          `;
+        }).join('');
+      },
+
+      renderCharts() {
+        ['chartVentas', 'chartRentabilidad', 'chartMargen'].forEach(k => this.charts[k]?.destroy?.());
+        
+        const months = this.getMonths();
+        const labels = months.map(m => m.label);
+        
+        const ctx1 = document.getElementById('chartVentas');
+        this.charts.chartVentas = new Chart(ctx1, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [{
+              data: months.map(m => m.ventaNeta),
+              borderColor: '#0854A0',
+              backgroundColor: 'rgba(8,84,160,0.1)',
+              fill: true,
+              tension: 0.4,
+              pointRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              datalabels: { align: 'top', color: '#0854A0', font: { size: 9, weight: 'bold' }, formatter: v => '$' + Math.round(v / 1000000) + 'M' }
+            },
+            scales: {
+              y: { ticks: { callback: v => '$' + Math.round(v / 1000000) + 'M', font: { size: 9 } } },
+              x: { ticks: { font: { size: 9 } } }
+            }
+          },
+          plugins: [ChartDataLabels]
+        });
+        
+        const ctx2 = document.getElementById('chartRentabilidad');
+        this.charts.chartRentabilidad = new Chart(ctx2, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [{
+              data: months.map(m => m.rentabilidad),
+              borderColor: '#107E3E',
+              backgroundColor: 'rgba(16,126,62,0.1)',
+              fill: true,
+              tension: 0.4,
+              pointRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              datalabels: { align: 'top', color: '#107E3E', font: { size: 9, weight: 'bold' }, formatter: v => v.toFixed(1) + '%' }
+            },
+            scales: {
+              y: { ticks: { callback: v => v + '%', font: { size: 9 } } },
+              x: { ticks: { font: { size: 9 } } }
+            }
+          },
+          plugins: [ChartDataLabels]
+        });
+        
+        const ctx3 = document.getElementById('chartMargen');
+        this.charts.chartMargen = new Chart(ctx3, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [{
+              data: months.map(m => m.margen),
+              borderColor: '#107E3E',
+              backgroundColor: 'rgba(16,126,62,0.1)',
+              fill: true,
+              tension: 0.4,
+              pointRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              datalabels: { align: 'top', color: '#107E3E', font: { size: 9, weight: 'bold' }, formatter: v => '$' + Math.round(v / 1000000) + 'M' }
+            },
+            scales: {
+              y: { ticks: { callback: v => '$' + Math.round(v / 1000000) + 'M', font: { size: 9 } } },
+              x: { ticks: { font: { size: 9 } } }
+            }
+          },
+          plugins: [ChartDataLabels]
+        });
+      },
+
+      renderTables() {
+        const r = this.data.resumen;
+        const filterMes = this.data.filter && this.data.filter.startsWith('MES_') 
+          ? parseInt(this.data.filter.split('_')[1]) 
+          : null;
+        
+        // Clasificaciones
+        const clasif = this.getClasificaciones();
+        let totalC = { v: 0, m: 0, c: 0, vAnt: 0, vAcum: 0, vAcumAnt: 0, vMes: 0, vMesAnt: 0 };
+        document.getElementById('tblClasif').innerHTML = clasif.map(x => {
+          totalC.v += x.ventaNeta || 0;
+          totalC.m += x.margen || 0;
+          totalC.c += x.cajas || 0;
+          totalC.vAnt += x.ventaNetaAnt || 0;
+          totalC.vAcum += x.ventaNetaAcum || 0;
+          totalC.vAcumAnt += x.ventaNetaAcumAnt || 0;
+          totalC.vMes += x.ventaNetaMes || 0;
+          totalC.vMesAnt += x.ventaNetaMesAnt || 0;
+          const badge = x.rentabilidad >= 25 ? 'success' : x.rentabilidad >= 15 ? 'warning' : 'danger';
+          const badgeMes = (x.varMes || 0) >= 0 ? 'success' : 'danger';
+          const badgeAcum = (x.varYoYAcum || 0) >= 0 ? 'success' : 'danger';
+          const badgeYear = (x.varYoY || 0) >= 0 ? 'success' : 'danger';
+          return `<tr>
+            <td>${x.clasificacion}</td>
+            <td>${this.fmtNum(x.cajas)}</td>
+            <td>${this.fmtCLP(x.ventaNeta)}</td>
+            <td>${this.fmtCLP(x.margen)}</td>
+            <td><span class="badge badge-${badge}">${this.fmtPct(x.rentabilidad)}</span></td>
+            <td><span class="badge badge-${badgeMes}">${(x.varMes || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varMes || 0))}</span></td>
+            <td><span class="badge badge-${badgeAcum}">${(x.varYoYAcum || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varYoYAcum || 0))}</span></td>
+            <td><span class="badge badge-${badgeYear}">${(x.varYoY || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varYoY || 0))}</span></td>
+          </tr>`;
+        }).join('');
+        
+        // Calcular variaciones del TOTAL
+        let rentC, varMesC, varAcumC, varYearC;
+        if (filterMes) {
+          // Si hay filtro de mes, obtener la venta del año anterior desde monthsAnterior
+          const mesAnterior = (r.monthsAnterior || []).find(m => m.mes === filterMes) || {};
+          const totalVAnt = mesAnterior.ventaNeta || 0;
+          rentC = totalC.v > 0 ? (totalC.m / totalC.v) * 100 : 0;
+          varMesC = totalVAnt > 0 ? ((totalC.v - totalVAnt) / totalVAnt) * 100 : (totalC.v > 0 ? 100 : 0);
+          varAcumC = varMesC;
+          varYearC = varMesC;
+        } else {
+          rentC = totalC.v > 0 ? (totalC.m / totalC.v) * 100 : 0;
+          varMesC = totalC.vMesAnt > 0 ? ((totalC.vMes - totalC.vMesAnt) / totalC.vMesAnt) * 100 : 0;
+          varAcumC = totalC.vAcumAnt > 0 ? ((totalC.vAcum - totalC.vAcumAnt) / totalC.vAcumAnt) * 100 : 0;
+          varYearC = totalC.vAnt > 0 ? ((totalC.v - totalC.vAnt) / totalC.vAnt) * 100 : 0;
+        }
+        document.getElementById('tblClasifTotal').innerHTML = `<tr>
+          <td>TOTAL</td><td>${this.fmtNum(totalC.c)}</td><td>${this.fmtCLP(totalC.v)}</td><td>${this.fmtCLP(totalC.m)}</td><td>${this.fmtPct(rentC)}</td>
+          <td>${varMesC >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varMesC))}</td>
+          <td>${varAcumC >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varAcumC))}</td>
+          <td>${varYearC >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varYearC))}</td>
+        </tr>`;
+        
+        // ===== TABLA MESES CON % RENTABILIDAD =====
+        const months = this.getMonths();
+        const monthsAnt = this.getMonthsAnterior();
+        let totalM = { v1: 0, v2: 0, c: 0, m1: 0, m2: 0 };
+        document.getElementById('tblMeses').innerHTML = months.map((m, i) => {
+          const ant = monthsAnt.find(a => a.mes === m.mes) || {};
+          const v1 = m.ventaNeta || 0;
+          const v2 = ant.ventaNeta || 0;
+          const rent1 = m.rentabilidad || 0;
+          const rent2 = ant.rentabilidad || 0;
+          totalM.v1 += v1;
+          totalM.v2 += v2;
+          totalM.c += m.cajas || 0;
+          totalM.m1 += m.margen || 0;
+          totalM.m2 += ant.margen || 0;
+          const varPct = v2 > 0 ? ((v1 - v2) / v2) * 100 : 0;
+          const badge = varPct >= 0 ? 'success' : 'danger';
+          const badgeRent1 = rent1 >= 25 ? 'success' : rent1 >= 15 ? 'warning' : 'danger';
+          const badgeRent2 = rent2 >= 25 ? 'success' : rent2 >= 15 ? 'warning' : 'danger';
+          return `<tr>
+            <td>${m.label}</td>
+            <td>${this.fmtNum(m.cajas)}</td>
+            <td>${this.fmtCLP(v1)}</td>
+            <td><span class="badge badge-${badgeRent1}">${this.fmtPct(rent1)}</span></td>
+            <td>${this.fmtCLP(v2)}</td>
+            <td><span class="badge badge-${badgeRent2}">${this.fmtPct(rent2)}</span></td>
+            <td><span class="badge badge-${badge}">${varPct >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varPct))}</span></td>
+          </tr>`;
+        }).join('');
+        const rentTotal1 = totalM.v1 > 0 ? (totalM.m1 / totalM.v1) * 100 : 0;
+        const rentTotal2 = totalM.v2 > 0 ? (totalM.m2 / totalM.v2) * 100 : 0;
+        const varTotal = totalM.v2 > 0 ? ((totalM.v1 - totalM.v2) / totalM.v2) * 100 : 0;
+        document.getElementById('tblMesesTotal').innerHTML = `<tr>
+          <td>TOTAL</td>
+          <td>${this.fmtNum(totalM.c)}</td>
+          <td>${this.fmtCLP(totalM.v1)}</td>
+          <td>${this.fmtPct(rentTotal1)}</td>
+          <td>${this.fmtCLP(totalM.v2)}</td>
+          <td>${this.fmtPct(rentTotal2)}</td>
+          <td>${varTotal >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varTotal))}</td>
+        </tr>`;
+        
+        // Categorías
+        const cats = this.getCategorias();
+        document.getElementById('tblCategorias').innerHTML = cats.map(x => {
+          const badge = x.rentabilidad >= 25 ? 'success' : x.rentabilidad >= 15 ? 'warning' : 'danger';
+          const badgeMes = (x.varMes || 0) >= 0 ? 'success' : 'danger';
+          const badgeAcum = (x.varYoYAcum || 0) >= 0 ? 'success' : 'danger';
+          const badgeYear = (x.varYoY || 0) >= 0 ? 'success' : 'danger';
+          return `<tr>
+            <td>${x.categoria}</td>
+            <td>${this.fmtNum(x.cajas)}</td>
+            <td>${this.fmtCLP(x.ventaNeta)}</td>
+            <td>${this.fmtCLP(x.margen)}</td>
+            <td><span class="badge badge-${badge}">${this.fmtPct(x.rentabilidad)}</span></td>
+            <td><span class="badge badge-${badgeMes}">${(x.varMes || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varMes || 0))}</span></td>
+            <td><span class="badge badge-${badgeAcum}">${(x.varYoYAcum || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varYoYAcum || 0))}</span></td>
+            <td><span class="badge badge-${badgeYear}">${(x.varYoY || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varYoY || 0))}</span></td>
+          </tr>`;
+        }).join('');
+        document.getElementById('tblCategoriasTotal').innerHTML = `<tr>
+          <td>TOTAL</td><td>${this.fmtNum(totalC.c)}</td><td>${this.fmtCLP(totalC.v)}</td><td>${this.fmtCLP(totalC.m)}</td><td>${this.fmtPct(rentC)}</td>
+          <td>${varMesC >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varMesC))}</td>
+          <td>${varAcumC >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varAcumC))}</td>
+          <td>${varYearC >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varYearC))}</td>
+        </tr>`;
+        
+        // Marcas
+        const marcas = this.getMarcas();
+        document.getElementById('tblMarcas').innerHTML = marcas.map(x => {
+          const badge = x.rentabilidad >= 25 ? 'success' : x.rentabilidad >= 15 ? 'warning' : 'danger';
+          const badgeMes = (x.varMes || 0) >= 0 ? 'success' : 'danger';
+          const badgeAcum = (x.varYoYAcum || 0) >= 0 ? 'success' : 'danger';
+          const badgeYear = (x.varYoY || 0) >= 0 ? 'success' : 'danger';
+          return `<tr>
+            <td>${x.marca}</td>
+            <td>${this.fmtNum(x.cajas)}</td>
+            <td>${this.fmtCLP(x.ventaNeta)}</td>
+            <td>${this.fmtCLP(x.margen)}</td>
+            <td><span class="badge badge-${badge}">${this.fmtPct(x.rentabilidad)}</span></td>
+            <td><span class="badge badge-${badgeMes}">${(x.varMes || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varMes || 0))}</span></td>
+            <td><span class="badge badge-${badgeAcum}">${(x.varYoYAcum || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varYoYAcum || 0))}</span></td>
+            <td><span class="badge badge-${badgeYear}">${(x.varYoY || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varYoY || 0))}</span></td>
+          </tr>`;
+        }).join('');
+        document.getElementById('tblMarcasTotal').innerHTML = `<tr>
+          <td>TOTAL</td><td>${this.fmtNum(totalC.c)}</td><td>${this.fmtCLP(totalC.v)}</td><td>${this.fmtCLP(totalC.m)}</td><td>${this.fmtPct(rentC)}</td>
+          <td>${varMesC >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varMesC))}</td>
+          <td>${varAcumC >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varAcumC))}</td>
+          <td>${varYearC >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varYearC))}</td>
+        </tr>`;
+      },
+
+      // ========== MAYORISTA ==========
+      renderMay() {
+        const r = this.data.resumen;
+        if (!r?.mayorista) {
+          console.log('⚠️ Sin datos de mayorista');
+          return;
+        }
+        console.log('🏪 Renderizando Mayorista...');
+        
+        const seg = r.mayorista;
+        const t = seg.totals || {};
+        const tMes = seg.totalsMes || {};
+        const items = seg.items || [];
+        const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const mesActual = r.mesActual || (new Date().getMonth() + 1);
+        
+        // Determinar qué mes mostrar en KPI (si hay filtro de mes activo)
+        let kpiMesData = tMes;
+        let kpiMesTrend = tMes.yoyVentas;
+        let kpiMesLabel = meses[mesActual - 1].toUpperCase();
+        
+        if (this.filterMay && this.filterMay.startsWith('MES_')) {
+          const mesNum = parseInt(this.filterMay.split('_')[1]);
+          const mesFiltrado = (seg.months || []).find(x => x.mes === mesNum) || {};
+          const mesFiltradoAnt = (seg.monthsAnterior || []).find(x => x.mes === mesNum) || {};
+          
+          kpiMesData = mesFiltrado;
+          kpiMesTrend = mesFiltradoAnt.ventaNeta > 0 
+            ? ((mesFiltrado.ventaNeta - mesFiltradoAnt.ventaNeta) / mesFiltradoAnt.ventaNeta) * 100 
+            : 0;
+          kpiMesLabel = meses[mesNum - 1]?.toUpperCase() || 'MES';
+        }
+        
+        const kpis = [
+          { icon: '💰', title: 'VENTA TOTAL', value: this.fmtCLP(t.ventaNeta), sub: this.fmtNum(t.facturas) + ' fact',
+            rows: [['MARGEN', this.fmtCLP(t.margen)], ['RENT.', this.fmtPct(t.rentabilidad), t.rentabilidad >= 25], ['CAJAS', this.fmtNum(t.cajas)]],
+            trend: t.yoyVentas, color: 'green', filter: null },
+          { icon: '📅', title: kpiMesLabel, value: this.fmtCLP(kpiMesData.ventaNeta), sub: 'Mes',
+            rows: [['MARGEN', this.fmtCLP(kpiMesData.margen)], ['RENT.', this.fmtPct(kpiMesData.rentabilidad), kpiMesData.rentabilidad >= 25], ['CAJAS', this.fmtNum(kpiMesData.cajas)]],
+            trend: kpiMesTrend, color: '', filter: 'MES_' + mesActual }
+        ];
+        
+        items.slice(0, 4).forEach((ej, i) => {
+          const icons = ['🥇', '🥈', '🥉', '🏅'];
+          kpis.push({
+            icon: icons[i] || '👤', 
+            title: ej.nombre.substring(0, 15).toUpperCase(), 
+            value: this.fmtCLP(ej.ventaNeta), 
+            sub: this.fmtPct(ej.participacion) + ' del total',
+            rows: [
+              ['MARGEN', this.fmtCLP(ej.margen)], 
+              ['RENT.', this.fmtPct(ej.rentabilidad), ej.rentabilidad >= 25], 
+              ['CAJAS', this.fmtNum(ej.cajas)]
+            ],
+            varMes: ej.varMes,
+            varAcum: ej.varYoYAcum,
+            varYear: ej.varYoY,
+            color: i === 0 ? 'green' : '',
+            filter: 'EJEC_' + ej.nombre
+          });
+        });
+        
+        document.getElementById('kpiGridMay').innerHTML = kpis.map(k => {
+          const active = this.filterMay === k.filter ? 'active' : '';
+          const click = k.filter ? `onclick="VDA.setFilterMay('${k.filter}')"` : '';
+          const noClick = !k.filter ? '' : 'clickable';
+          
+          let variaciones = '';
+          if (k.varMes !== undefined) {
+            variaciones = `
+              <div class="kpi-variations">
+                <span class="${k.varMes >= 0 ? 'var-up' : 'var-down'}">M: ${k.varMes >= 0 ? '↑' : '↓'}${this.fmtPct(Math.abs(k.varMes))}</span>
+                <span class="${k.varAcum >= 0 ? 'var-up' : 'var-down'}">A: ${k.varAcum >= 0 ? '↑' : '↓'}${this.fmtPct(Math.abs(k.varAcum))}</span>
+                <span class="${k.varYear >= 0 ? 'var-up' : 'var-down'}">Y: ${k.varYear >= 0 ? '↑' : '↓'}${this.fmtPct(Math.abs(k.varYear))}</span>
+              </div>
+            `;
+          }
+          
+          return `
+            <div class="kpi-card ${k.color} ${active} ${noClick}" data-filter="${k.filter || ''}" ${click}>
+              <div class="kpi-icon-title">
+                <span class="kpi-icon">${k.icon}</span>
+                <span class="kpi-title">${k.title}</span>
+              </div>
+              <div class="kpi-value">${k.value}</div>
+              <div class="kpi-subtitle">${k.sub}</div>
+              ${k.rows.map(r => `
+                <div class="kpi-row">
+                  <span class="kpi-label">${r[0]}</span>
+                  <span class="kpi-data ${r[2] === true ? 'green' : r[2] === false ? 'red' : ''}">${r[1]}</span>
+                </div>
+              `).join('')}
+              ${k.trend !== undefined && k.trend !== null ? `
+                <div class="kpi-trend ${k.trend >= 0 ? 'up' : 'down'}">
+                  ${k.trend >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(k.trend))} YoY
+                </div>
+              ` : ''}
+              ${variaciones}
+            </div>
+          `;
+        }).join('');
+        
+        this.renderTablesMay();
+      },
+      
+      filterMay: null,
+      
+      setFilterMay(f) {
+        if (this.filterMay === f) {
+          this.filterMay = null;
+        } else {
+          this.filterMay = f;
+        }
+        document.querySelectorAll('#kpiGridMay .kpi-card[data-filter]').forEach(c => {
+          c.classList.toggle('active', c.dataset.filter === this.filterMay);
+        });
+        this.renderMay(); // Re-render para actualizar KPI del mes
+        this.toast(this.filterMay ? 'Filtrado: ' + f.replace('EJEC_', '').replace('MES_', 'Mes ') : 'Filtro removido');
+      },
+      
+      renderChartsMay() {
+        const r = this.data.resumen;
+        if (!r?.mayorista) return;
+        
+        const months = r.mayorista.months || [];
+        const labels = months.map(m => m.label);
+        
+        ['chartVentasMay', 'chartRentabilidadMay', 'chartMargenMay'].forEach(k => this.chartsMay[k]?.destroy?.());
+        
+        const ctx1 = document.getElementById('chartVentasMay')?.getContext('2d');
+        const ctx2 = document.getElementById('chartRentabilidadMay')?.getContext('2d');
+        const ctx3 = document.getElementById('chartMargenMay')?.getContext('2d');
+        
+        if (ctx1) {
+          this.chartsMay.chartVentasMay = new Chart(ctx1, {
+            type: 'line', 
+            data: { labels, datasets: [{ data: months.map(m => m.ventaNeta), borderColor: '#0854A0', backgroundColor: 'rgba(8,84,160,0.1)', fill: true, tension: 0.4, pointRadius: 4 }] },
+            options: { 
+              responsive: true, 
+              maintainAspectRatio: false, 
+              plugins: { 
+                legend: { display: false }, 
+                datalabels: { align: 'top', color: '#0854A0', font: { size: 9, weight: 'bold' }, formatter: v => '$' + Math.round(v / 1000000) + 'M' } 
+              },
+              scales: {
+                y: { ticks: { callback: v => '$' + Math.round(v / 1000000) + 'M', font: { size: 9 } } },
+                x: { ticks: { font: { size: 9 } } }
+              }
+            },
+            plugins: [ChartDataLabels]
+          });
+        }
+        if (ctx2) {
+          this.chartsMay.chartRentabilidadMay = new Chart(ctx2, {
+            type: 'line', 
+            data: { labels, datasets: [{ data: months.map(m => m.rentabilidad), borderColor: '#107E3E', backgroundColor: 'rgba(16,126,62,0.1)', fill: true, tension: 0.4, pointRadius: 4 }] },
+            options: { 
+              responsive: true, 
+              maintainAspectRatio: false, 
+              plugins: { 
+                legend: { display: false }, 
+                datalabels: { align: 'top', color: '#107E3E', font: { size: 9, weight: 'bold' }, formatter: v => v.toFixed(1) + '%' } 
+              },
+              scales: {
+                y: { ticks: { callback: v => v + '%', font: { size: 9 } } },
+                x: { ticks: { font: { size: 9 } } }
+              }
+            },
+            plugins: [ChartDataLabels]
+          });
+        }
+        if (ctx3) {
+          this.chartsMay.chartMargenMay = new Chart(ctx3, {
+            type: 'line', 
+            data: { labels, datasets: [{ data: months.map(m => m.margen), borderColor: '#df6e0c', backgroundColor: 'rgba(223,110,12,0.1)', fill: true, tension: 0.4, pointRadius: 4 }] },
+            options: { 
+              responsive: true, 
+              maintainAspectRatio: false, 
+              plugins: { 
+                legend: { display: false }, 
+                datalabels: { align: 'top', color: '#df6e0c', font: { size: 9, weight: 'bold' }, formatter: v => '$' + Math.round(v / 1000000) + 'M' } 
+              },
+              scales: {
+                y: { ticks: { callback: v => '$' + Math.round(v / 1000000) + 'M', font: { size: 9 } } },
+                x: { ticks: { font: { size: 9 } } }
+              }
+            },
+            plugins: [ChartDataLabels]
+          });
+        }
+      },
+      
+      renderTablesMay() {
+        const r = this.data.resumen;
+        if (!r?.mayorista) return;
+        
+        const seg = r.mayorista;
+        const year = this.data.year;
+        
+        const el1 = document.getElementById('colYear1May');
+        const el2 = document.getElementById('colYear2May');
+        if (el1) el1.textContent = year;
+        if (el2) el2.textContent = year - 1;
+        
+        // Determinar filtro activo
+        const filterName = this.filterMay && this.filterMay.startsWith('EJEC_') ? this.filterMay.replace('EJEC_', '') : null;
+        const filterMes = this.filterMay && this.filterMay.startsWith('MES_') ? parseInt(this.filterMay.split('_')[1]) : null;
+        
+        // ===== TABLA EJECUTIVOS =====
+        let itemsData = seg.items || [];
+        if (filterMes && seg.itemsByMes?.[filterMes]) {
+          itemsData = seg.itemsByMes[filterMes];
+        }
+        
+        let totalE = { v: 0, m: 0, c: 0, vAnt: 0, vAcum: 0, vAcumAnt: 0, vMes: 0, vMesAnt: 0 };
+        document.getElementById('tblEjecutivos').innerHTML = itemsData.map(x => {
+          totalE.v += x.ventaNeta || 0; totalE.m += x.margen || 0; totalE.c += x.cajas || 0;
+          totalE.vAnt += x.ventaNetaAnt || 0; totalE.vAcum += x.ventaNetaAcum || 0; totalE.vAcumAnt += x.ventaNetaAcumAnt || 0;
+          totalE.vMes += x.ventaNetaMes || 0; totalE.vMesAnt += x.ventaNetaMesAnt || 0;
+          const badge = x.rentabilidad >= 25 ? 'success' : x.rentabilidad >= 15 ? 'warning' : 'danger';
+          const badgeMes = (x.varMes || 0) >= 0 ? 'success' : 'danger';
+          const badgeAcum = (x.varYoYAcum || 0) >= 0 ? 'success' : 'danger';
+          const badgeYear = (x.varYoY || 0) >= 0 ? 'success' : 'danger';
+          const highlighted = filterName && x.nombre === filterName ? 'highlighted' : '';
+          return `<tr class="${highlighted}"><td>${x.nombre}</td><td>${this.fmtNum(x.cajas)}</td><td>${this.fmtCLP(x.ventaNeta)}</td><td>${this.fmtCLP(x.margen)}</td>
+            <td><span class="badge badge-${badge}">${this.fmtPct(x.rentabilidad)}</span></td>
+            <td><span class="badge badge-${badgeMes}">${(x.varMes || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varMes || 0))}</span></td>
+            <td><span class="badge badge-${badgeAcum}">${(x.varYoYAcum || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varYoYAcum || 0))}</span></td>
+            <td><span class="badge badge-${badgeYear}">${(x.varYoY || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varYoY || 0))}</span></td></tr>`;
+        }).join('');
+        
+        // Calcular variaciones del TOTAL
+        let rentE, varMesE, varAcumE, varYearE;
+        if (filterMes) {
+          // Si hay filtro de mes, obtener el total del año anterior desde monthsAnterior
+          const mesAnterior = (seg.monthsAnterior || []).find(m => m.mes === filterMes) || {};
+          const totalVAnt = mesAnterior.ventaNeta || 0;
+          rentE = totalE.v > 0 ? (totalE.m / totalE.v) * 100 : 0;
+          varMesE = totalVAnt > 0 ? ((totalE.v - totalVAnt) / totalVAnt) * 100 : (totalE.v > 0 ? 100 : 0);
+          varAcumE = varMesE;
+          varYearE = varMesE;
+        } else {
+          rentE = totalE.v > 0 ? (totalE.m / totalE.v) * 100 : 0;
+          varMesE = totalE.vMesAnt > 0 ? ((totalE.vMes - totalE.vMesAnt) / totalE.vMesAnt) * 100 : 0;
+          varAcumE = totalE.vAcumAnt > 0 ? ((totalE.vAcum - totalE.vAcumAnt) / totalE.vAcumAnt) * 100 : 0;
+          varYearE = totalE.vAnt > 0 ? ((totalE.v - totalE.vAnt) / totalE.vAnt) * 100 : 0;
+        }
+        document.getElementById('tblEjecutivosTotal').innerHTML = `<tr><td>TOTAL</td><td>${this.fmtNum(totalE.c)}</td><td>${this.fmtCLP(totalE.v)}</td><td>${this.fmtCLP(totalE.m)}</td><td>${this.fmtPct(rentE)}</td>
+          <td>${varMesE >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varMesE))}</td><td>${varAcumE >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varAcumE))}</td><td>${varYearE >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varYearE))}</td></tr>`;
+        
+        // ===== TABLA MESES CON FILTRO Y % RENTABILIDAD =====
+        let monthsData = { months: seg.months, monthsAnterior: seg.monthsAnterior };
+        if (filterName && seg.monthsByItem?.[filterName]) {
+          monthsData = seg.monthsByItem[filterName];
+        }
+        
+        let months = monthsData.months || [];
+        let monthsAnt = monthsData.monthsAnterior || [];
+        
+        // Filtrar por mes si aplica
+        if (filterMes) {
+          months = months.filter(m => m.mes === filterMes);
+          monthsAnt = monthsAnt.filter(m => m.mes === filterMes);
+        }
+        
+        let totalM = { v1: 0, v2: 0, c: 0, m1: 0, m2: 0 };
+        document.getElementById('tblMesesMay').innerHTML = months.map((m, i) => {
+          const ant = monthsAnt.find(a => a.mes === m.mes) || {};
+          const v1 = m.ventaNeta || 0;
+          const v2 = ant.ventaNeta || 0;
+          const rent1 = m.rentabilidad || 0;
+          const rent2 = ant.rentabilidad || 0;
+          totalM.v1 += v1;
+          totalM.v2 += v2;
+          totalM.c += m.cajas || 0;
+          totalM.m1 += m.margen || 0;
+          totalM.m2 += ant.margen || 0;
+          const varPct = v2 > 0 ? ((v1 - v2) / v2) * 100 : 0;
+          const badge = varPct >= 0 ? 'success' : 'danger';
+          const badgeRent1 = rent1 >= 25 ? 'success' : rent1 >= 15 ? 'warning' : 'danger';
+          const badgeRent2 = rent2 >= 25 ? 'success' : rent2 >= 15 ? 'warning' : 'danger';
+          const highlighted = filterMes === m.mes ? 'highlighted' : '';
+          return `<tr class="${highlighted}">
+            <td>${m.label}</td>
+            <td>${this.fmtNum(m.cajas)}</td>
+            <td>${this.fmtCLP(v1)}</td>
+            <td><span class="badge badge-${badgeRent1}">${this.fmtPct(rent1)}</span></td>
+            <td>${this.fmtCLP(v2)}</td>
+            <td><span class="badge badge-${badgeRent2}">${this.fmtPct(rent2)}</span></td>
+            <td><span class="badge badge-${badge}">${varPct >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varPct))}</span></td>
+          </tr>`;
+        }).join('');
+        const rentTotalM1 = totalM.v1 > 0 ? (totalM.m1 / totalM.v1) * 100 : 0;
+        const rentTotalM2 = totalM.v2 > 0 ? (totalM.m2 / totalM.v2) * 100 : 0;
+        const varTotalM = totalM.v2 > 0 ? ((totalM.v1 - totalM.v2) / totalM.v2) * 100 : 0;
+        document.getElementById('tblMesesTotalMay').innerHTML = `<tr>
+          <td>TOTAL</td>
+          <td>${this.fmtNum(totalM.c)}</td>
+          <td>${this.fmtCLP(totalM.v1)}</td>
+          <td>${this.fmtPct(rentTotalM1)}</td>
+          <td>${this.fmtCLP(totalM.v2)}</td>
+          <td>${this.fmtPct(rentTotalM2)}</td>
+          <td>${varTotalM >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varTotalM))}</td>
+        </tr>`;
+        
+        // ===== TABLA CATEGORÍAS (con filtro por mes) =====
+        let catData = seg.categorias || [];
+        if (filterName && seg.categoriasByItem?.[filterName]) {
+          catData = seg.categoriasByItem[filterName];
+        } else if (filterMes && seg.categoriasByMes?.[filterMes]) {
+          catData = seg.categoriasByMes[filterMes];
+        }
+        this.renderTableGeneric('tblCategoriasMay', 'tblCategoriasTotalMay', catData, 'categoria', totalE, filterMes, seg.monthsAnterior);
+        
+        // ===== TABLA MARCAS (con filtro por mes) =====
+        let marcaData = seg.marcas || [];
+        if (filterName && seg.marcasByItem?.[filterName]) {
+          marcaData = seg.marcasByItem[filterName];
+        } else if (filterMes && seg.marcasByMes?.[filterMes]) {
+          marcaData = seg.marcasByMes[filterMes];
+        }
+        this.renderTableGeneric('tblMarcasMay', 'tblMarcasTotalMay', marcaData, 'marca', totalE, filterMes, seg.monthsAnterior);
+      },
+
+      // ========== SUPERMERCADO ==========
+      renderSup() {
+        const r = this.data.resumen;
+        if (!r?.supermercado) return;
+        
+        const seg = r.supermercado;
+        const t = seg.totals || {};
+        const tMes = seg.totalsMes || {};
+        const items = seg.items || [];
+        const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const mesActual = r.mesActual || (new Date().getMonth() + 1);
+        
+        // Determinar qué mes mostrar en KPI
+        let kpiMesData = tMes;
+        let kpiMesTrend = tMes.yoyVentas;
+        let kpiMesLabel = meses[mesActual - 1].toUpperCase();
+        
+        if (this.filterSup && this.filterSup.startsWith('MES_')) {
+          const mesNum = parseInt(this.filterSup.split('_')[1]);
+          const mesFiltrado = (seg.months || []).find(x => x.mes === mesNum) || {};
+          const mesFiltradoAnt = (seg.monthsAnterior || []).find(x => x.mes === mesNum) || {};
+          
+          kpiMesData = mesFiltrado;
+          kpiMesTrend = mesFiltradoAnt.ventaNeta > 0 
+            ? ((mesFiltrado.ventaNeta - mesFiltradoAnt.ventaNeta) / mesFiltradoAnt.ventaNeta) * 100 
+            : 0;
+          kpiMesLabel = meses[mesNum - 1]?.toUpperCase() || 'MES';
+        }
+        
+        const kpis = [
+          { icon: '💰', title: 'VENTA TOTAL', value: this.fmtCLP(t.ventaNeta), sub: this.fmtNum(t.facturas) + ' fact',
+            rows: [['MARGEN', this.fmtCLP(t.margen)], ['RENT.', this.fmtPct(t.rentabilidad), t.rentabilidad >= 25], ['CAJAS', this.fmtNum(t.cajas)]],
+            trend: t.yoyVentas, color: 'orange', filter: null },
+          { icon: '📅', title: kpiMesLabel, value: this.fmtCLP(kpiMesData.ventaNeta), sub: 'Mes',
+            rows: [['MARGEN', this.fmtCLP(kpiMesData.margen)], ['RENT.', this.fmtPct(kpiMesData.rentabilidad), kpiMesData.rentabilidad >= 25], ['CAJAS', this.fmtNum(kpiMesData.cajas)]],
+            trend: kpiMesTrend, color: '', filter: 'MES_' + mesActual }
+        ];
+        
+        items.slice(0, 5).forEach((cl, i) => {
+          const icons = ['🥇', '🥈', '🥉', '🏅', '🎖️'];
+          kpis.push({
+            icon: icons[i] || '🏢', 
+            title: cl.nombre.substring(0, 15).toUpperCase(), 
+            value: this.fmtCLP(cl.ventaNeta), 
+            sub: this.fmtPct(cl.participacion) + ' del total',
+            rows: [
+              ['MARGEN', this.fmtCLP(cl.margen)], 
+              ['RENT.', this.fmtPct(cl.rentabilidad), cl.rentabilidad >= 25], 
+              ['CAJAS', this.fmtNum(cl.cajas)]
+            ],
+            varMes: cl.varMes,
+            varAcum: cl.varYoYAcum,
+            varYear: cl.varYoY,
+            color: i === 0 ? 'orange' : '',
+            filter: 'CLI_' + cl.nombre
+          });
+        });
+        
+        document.getElementById('kpiGridSup').innerHTML = kpis.map(k => {
+          const active = this.filterSup === k.filter ? 'active' : '';
+          const click = k.filter ? `onclick="VDA.setFilterSup('${k.filter}')"` : '';
+          const noClick = !k.filter ? '' : 'clickable';
+          
+          let variaciones = '';
+          if (k.varMes !== undefined) {
+            variaciones = `
+              <div class="kpi-variations">
+                <span class="${k.varMes >= 0 ? 'var-up' : 'var-down'}">M: ${k.varMes >= 0 ? '↑' : '↓'}${this.fmtPct(Math.abs(k.varMes))}</span>
+                <span class="${k.varAcum >= 0 ? 'var-up' : 'var-down'}">A: ${k.varAcum >= 0 ? '↑' : '↓'}${this.fmtPct(Math.abs(k.varAcum))}</span>
+                <span class="${k.varYear >= 0 ? 'var-up' : 'var-down'}">Y: ${k.varYear >= 0 ? '↑' : '↓'}${this.fmtPct(Math.abs(k.varYear))}</span>
+              </div>
+            `;
+          }
+          
+          return `
+            <div class="kpi-card ${k.color} ${active} ${noClick}" data-filter="${k.filter || ''}" ${click}>
+              <div class="kpi-icon-title">
+                <span class="kpi-icon">${k.icon}</span>
+                <span class="kpi-title">${k.title}</span>
+              </div>
+              <div class="kpi-value">${k.value}</div>
+              <div class="kpi-subtitle">${k.sub}</div>
+              ${k.rows.map(r => `
+                <div class="kpi-row">
+                  <span class="kpi-label">${r[0]}</span>
+                  <span class="kpi-data ${r[2] === true ? 'green' : r[2] === false ? 'red' : ''}">${r[1]}</span>
+                </div>
+              `).join('')}
+              ${k.trend !== undefined && k.trend !== null ? `
+                <div class="kpi-trend ${k.trend >= 0 ? 'up' : 'down'}">
+                  ${k.trend >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(k.trend))} YoY
+                </div>
+              ` : ''}
+              ${variaciones}
+            </div>
+          `;
+        }).join('');
+        
+        this.renderTablesSup();
+      },
+      
+      filterSup: null,
+      
+      setFilterSup(f) {
+        if (this.filterSup === f) {
+          this.filterSup = null;
+        } else {
+          this.filterSup = f;
+        }
+        document.querySelectorAll('#kpiGridSup .kpi-card[data-filter]').forEach(c => {
+          c.classList.toggle('active', c.dataset.filter === this.filterSup);
+        });
+        this.renderSup(); // Re-render para actualizar KPI del mes
+        this.toast(this.filterSup ? 'Filtrado: ' + f.replace('CLI_', '').replace('MES_', 'Mes ') : 'Filtro removido');
+      },
+      
+      renderChartsSup() {
+        const r = this.data.resumen;
+        if (!r?.supermercado) return;
+        
+        const months = r.supermercado.months || [];
+        const labels = months.map(m => m.label);
+        
+        ['chartVentasSup', 'chartRentabilidadSup', 'chartMargenSup'].forEach(k => this.chartsSup[k]?.destroy?.());
+        
+        const ctx1 = document.getElementById('chartVentasSup')?.getContext('2d');
+        const ctx2 = document.getElementById('chartRentabilidadSup')?.getContext('2d');
+        const ctx3 = document.getElementById('chartMargenSup')?.getContext('2d');
+        
+        if (ctx1) {
+          this.chartsSup.chartVentasSup = new Chart(ctx1, {
+            type: 'line', 
+            data: { labels, datasets: [{ data: months.map(m => m.ventaNeta), borderColor: '#df6e0c', backgroundColor: 'rgba(223,110,12,0.1)', fill: true, tension: 0.4, pointRadius: 4 }] },
+            options: { 
+              responsive: true, 
+              maintainAspectRatio: false, 
+              plugins: { 
+                legend: { display: false }, 
+                datalabels: { align: 'top', color: '#df6e0c', font: { size: 9, weight: 'bold' }, formatter: v => '$' + Math.round(v / 1000000) + 'M' } 
+              },
+              scales: {
+                y: { ticks: { callback: v => '$' + Math.round(v / 1000000) + 'M', font: { size: 9 } } },
+                x: { ticks: { font: { size: 9 } } }
+              }
+            },
+            plugins: [ChartDataLabels]
+          });
+        }
+        if (ctx2) {
+          this.chartsSup.chartRentabilidadSup = new Chart(ctx2, {
+            type: 'line', 
+            data: { labels, datasets: [{ data: months.map(m => m.rentabilidad), borderColor: '#107E3E', backgroundColor: 'rgba(16,126,62,0.1)', fill: true, tension: 0.4, pointRadius: 4 }] },
+            options: { 
+              responsive: true, 
+              maintainAspectRatio: false, 
+              plugins: { 
+                legend: { display: false }, 
+                datalabels: { align: 'top', color: '#107E3E', font: { size: 9, weight: 'bold' }, formatter: v => v.toFixed(1) + '%' } 
+              },
+              scales: {
+                y: { ticks: { callback: v => v + '%', font: { size: 9 } } },
+                x: { ticks: { font: { size: 9 } } }
+              }
+            },
+            plugins: [ChartDataLabels]
+          });
+        }
+        if (ctx3) {
+          this.chartsSup.chartMargenSup = new Chart(ctx3, {
+            type: 'line', 
+            data: { labels, datasets: [{ data: months.map(m => m.margen), borderColor: '#0854A0', backgroundColor: 'rgba(8,84,160,0.1)', fill: true, tension: 0.4, pointRadius: 4 }] },
+            options: { 
+              responsive: true, 
+              maintainAspectRatio: false, 
+              plugins: { 
+                legend: { display: false }, 
+                datalabels: { align: 'top', color: '#0854A0', font: { size: 9, weight: 'bold' }, formatter: v => '$' + Math.round(v / 1000000) + 'M' } 
+              },
+              scales: {
+                y: { ticks: { callback: v => '$' + Math.round(v / 1000000) + 'M', font: { size: 9 } } },
+                x: { ticks: { font: { size: 9 } } }
+              }
+            },
+            plugins: [ChartDataLabels]
+          });
+        }
+      },
+      
+      renderTablesSup() {
+        const r = this.data.resumen;
+        if (!r?.supermercado) return;
+        
+        const seg = r.supermercado;
+        const year = this.data.year;
+        
+        const el1 = document.getElementById('colYear1Sup');
+        const el2 = document.getElementById('colYear2Sup');
+        if (el1) el1.textContent = year;
+        if (el2) el2.textContent = year - 1;
+        
+        // Determinar filtro activo
+        const filterName = this.filterSup && this.filterSup.startsWith('CLI_') ? this.filterSup.replace('CLI_', '') : null;
+        const filterMes = this.filterSup && this.filterSup.startsWith('MES_') ? parseInt(this.filterSup.split('_')[1]) : null;
+        
+        // ===== TABLA CLIENTES =====
+        let itemsData = seg.items || [];
+        if (filterMes && seg.itemsByMes?.[filterMes]) {
+          itemsData = seg.itemsByMes[filterMes];
+        }
+        
+        let totalC = { v: 0, m: 0, c: 0, vAnt: 0, vAcum: 0, vAcumAnt: 0, vMes: 0, vMesAnt: 0 };
+        document.getElementById('tblClientes').innerHTML = itemsData.map(x => {
+          totalC.v += x.ventaNeta || 0; totalC.m += x.margen || 0; totalC.c += x.cajas || 0;
+          totalC.vAnt += x.ventaNetaAnt || 0; totalC.vAcum += x.ventaNetaAcum || 0; totalC.vAcumAnt += x.ventaNetaAcumAnt || 0;
+          totalC.vMes += x.ventaNetaMes || 0; totalC.vMesAnt += x.ventaNetaMesAnt || 0;
+          const badge = x.rentabilidad >= 25 ? 'success' : x.rentabilidad >= 15 ? 'warning' : 'danger';
+          const badgeMes = (x.varMes || 0) >= 0 ? 'success' : 'danger';
+          const badgeAcum = (x.varYoYAcum || 0) >= 0 ? 'success' : 'danger';
+          const badgeYear = (x.varYoY || 0) >= 0 ? 'success' : 'danger';
+          const highlighted = filterName && x.nombre === filterName ? 'highlighted' : '';
+          return `<tr class="${highlighted}"><td>${x.nombre}</td><td>${this.fmtNum(x.cajas)}</td><td>${this.fmtCLP(x.ventaNeta)}</td><td>${this.fmtCLP(x.margen)}</td>
+            <td><span class="badge badge-${badge}">${this.fmtPct(x.rentabilidad)}</span></td>
+            <td><span class="badge badge-${badgeMes}">${(x.varMes || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varMes || 0))}</span></td>
+            <td><span class="badge badge-${badgeAcum}">${(x.varYoYAcum || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varYoYAcum || 0))}</span></td>
+            <td><span class="badge badge-${badgeYear}">${(x.varYoY || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varYoY || 0))}</span></td></tr>`;
+        }).join('');
+        
+        // Calcular variaciones del TOTAL
+        let rentC, varMesC, varAcumC, varYearC;
+        if (filterMes) {
+          // Si hay filtro de mes, obtener el total del año anterior desde monthsAnterior
+          const mesAnterior = (seg.monthsAnterior || []).find(m => m.mes === filterMes) || {};
+          const totalVAnt = mesAnterior.ventaNeta || 0;
+          rentC = totalC.v > 0 ? (totalC.m / totalC.v) * 100 : 0;
+          varMesC = totalVAnt > 0 ? ((totalC.v - totalVAnt) / totalVAnt) * 100 : (totalC.v > 0 ? 100 : 0);
+          varAcumC = varMesC;
+          varYearC = varMesC;
+        } else {
+          rentC = totalC.v > 0 ? (totalC.m / totalC.v) * 100 : 0;
+          varMesC = totalC.vMesAnt > 0 ? ((totalC.vMes - totalC.vMesAnt) / totalC.vMesAnt) * 100 : 0;
+          varAcumC = totalC.vAcumAnt > 0 ? ((totalC.vAcum - totalC.vAcumAnt) / totalC.vAcumAnt) * 100 : 0;
+          varYearC = totalC.vAnt > 0 ? ((totalC.v - totalC.vAnt) / totalC.vAnt) * 100 : 0;
+        }
+        document.getElementById('tblClientesTotal').innerHTML = `<tr><td>TOTAL</td><td>${this.fmtNum(totalC.c)}</td><td>${this.fmtCLP(totalC.v)}</td><td>${this.fmtCLP(totalC.m)}</td><td>${this.fmtPct(rentC)}</td>
+          <td>${varMesC >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varMesC))}</td><td>${varAcumC >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varAcumC))}</td><td>${varYearC >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varYearC))}</td></tr>`;
+        
+        // ===== TABLA MESES CON FILTRO Y % RENTABILIDAD =====
+        let monthsData = { months: seg.months, monthsAnterior: seg.monthsAnterior };
+        if (filterName && seg.monthsByItem?.[filterName]) {
+          monthsData = seg.monthsByItem[filterName];
+        }
+        
+        let months = monthsData.months || [];
+        let monthsAnt = monthsData.monthsAnterior || [];
+        
+        // Filtrar por mes si aplica
+        if (filterMes) {
+          months = months.filter(m => m.mes === filterMes);
+          monthsAnt = monthsAnt.filter(m => m.mes === filterMes);
+        }
+        
+        let totalM = { v1: 0, v2: 0, c: 0, m1: 0, m2: 0 };
+        document.getElementById('tblMesesSup').innerHTML = months.map((m, i) => {
+          const ant = monthsAnt.find(a => a.mes === m.mes) || {};
+          const v1 = m.ventaNeta || 0;
+          const v2 = ant.ventaNeta || 0;
+          const rent1 = m.rentabilidad || 0;
+          const rent2 = ant.rentabilidad || 0;
+          totalM.v1 += v1;
+          totalM.v2 += v2;
+          totalM.c += m.cajas || 0;
+          totalM.m1 += m.margen || 0;
+          totalM.m2 += ant.margen || 0;
+          const varPct = v2 > 0 ? ((v1 - v2) / v2) * 100 : 0;
+          const badge = varPct >= 0 ? 'success' : 'danger';
+          const badgeRent1 = rent1 >= 25 ? 'success' : rent1 >= 15 ? 'warning' : 'danger';
+          const badgeRent2 = rent2 >= 25 ? 'success' : rent2 >= 15 ? 'warning' : 'danger';
+          const highlighted = filterMes === m.mes ? 'highlighted' : '';
+          return `<tr class="${highlighted}">
+            <td>${m.label}</td>
+            <td>${this.fmtNum(m.cajas)}</td>
+            <td>${this.fmtCLP(v1)}</td>
+            <td><span class="badge badge-${badgeRent1}">${this.fmtPct(rent1)}</span></td>
+            <td>${this.fmtCLP(v2)}</td>
+            <td><span class="badge badge-${badgeRent2}">${this.fmtPct(rent2)}</span></td>
+            <td><span class="badge badge-${badge}">${varPct >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varPct))}</span></td>
+          </tr>`;
+        }).join('');
+        const rentTotalM1 = totalM.v1 > 0 ? (totalM.m1 / totalM.v1) * 100 : 0;
+        const rentTotalM2 = totalM.v2 > 0 ? (totalM.m2 / totalM.v2) * 100 : 0;
+        const varTotalM = totalM.v2 > 0 ? ((totalM.v1 - totalM.v2) / totalM.v2) * 100 : 0;
+        document.getElementById('tblMesesTotalSup').innerHTML = `<tr>
+          <td>TOTAL</td>
+          <td>${this.fmtNum(totalM.c)}</td>
+          <td>${this.fmtCLP(totalM.v1)}</td>
+          <td>${this.fmtPct(rentTotalM1)}</td>
+          <td>${this.fmtCLP(totalM.v2)}</td>
+          <td>${this.fmtPct(rentTotalM2)}</td>
+          <td>${varTotalM >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varTotalM))}</td>
+        </tr>`;
+        
+        // ===== TABLA CATEGORÍAS (con filtro por mes) =====
+        let catData = seg.categorias || [];
+        if (filterName && seg.categoriasByItem?.[filterName]) {
+          catData = seg.categoriasByItem[filterName];
+        } else if (filterMes && seg.categoriasByMes?.[filterMes]) {
+          catData = seg.categoriasByMes[filterMes];
+        }
+        this.renderTableGeneric('tblCategoriasSup', 'tblCategoriasTotalSup', catData, 'categoria', totalC, filterMes, seg.monthsAnterior);
+        
+        // ===== TABLA MARCAS (con filtro por mes) =====
+        let marcaData = seg.marcas || [];
+        if (filterName && seg.marcasByItem?.[filterName]) {
+          marcaData = seg.marcasByItem[filterName];
+        } else if (filterMes && seg.marcasByMes?.[filterMes]) {
+          marcaData = seg.marcasByMes[filterMes];
+        }
+        this.renderTableGeneric('tblMarcasSup', 'tblMarcasTotalSup', marcaData, 'marca', totalC, filterMes, seg.monthsAnterior);
+      },
+      
+      renderTableGeneric(tbodyId, tfootId, data, field, totalsRef, filterMes = null, monthsAnterior = null) {
+        const tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+        
+        tbody.innerHTML = data.map(x => {
+          const badge = x.rentabilidad >= 25 ? 'success' : x.rentabilidad >= 15 ? 'warning' : 'danger';
+          const badgeMes = (x.varMes || 0) >= 0 ? 'success' : 'danger';
+          const badgeAcum = (x.varYoYAcum || 0) >= 0 ? 'success' : 'danger';
+          const badgeYear = (x.varYoY || 0) >= 0 ? 'success' : 'danger';
+          return `<tr><td>${x[field]}</td><td>${this.fmtNum(x.cajas)}</td><td>${this.fmtCLP(x.ventaNeta)}</td><td>${this.fmtCLP(x.margen)}</td>
+            <td><span class="badge badge-${badge}">${this.fmtPct(x.rentabilidad)}</span></td>
+            <td><span class="badge badge-${badgeMes}">${(x.varMes || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varMes || 0))}</span></td>
+            <td><span class="badge badge-${badgeAcum}">${(x.varYoYAcum || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varYoYAcum || 0))}</span></td>
+            <td><span class="badge badge-${badgeYear}">${(x.varYoY || 0) >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(x.varYoY || 0))}</span></td></tr>`;
+        }).join('');
+        
+        const tfoot = document.getElementById(tfootId);
+        if (!tfoot || !totalsRef) return;
+        
+        // Calcular variaciones del TOTAL
+        let rent, varMes, varAcum, varYear;
+        if (filterMes && monthsAnterior) {
+          // Si hay filtro de mes, obtener el total del año anterior desde monthsAnterior
+          const mesAnterior = monthsAnterior.find(m => m.mes === filterMes) || {};
+          const totalVAnt = mesAnterior.ventaNeta || 0;
+          rent = totalsRef.v > 0 ? (totalsRef.m / totalsRef.v) * 100 : 0;
+          varMes = totalVAnt > 0 ? ((totalsRef.v - totalVAnt) / totalVAnt) * 100 : (totalsRef.v > 0 ? 100 : 0);
+          varAcum = varMes;
+          varYear = varMes;
+        } else {
+          rent = totalsRef.v > 0 ? (totalsRef.m / totalsRef.v) * 100 : 0;
+          varMes = totalsRef.vMesAnt > 0 ? ((totalsRef.vMes - totalsRef.vMesAnt) / totalsRef.vMesAnt) * 100 : 0;
+          varAcum = totalsRef.vAcumAnt > 0 ? ((totalsRef.vAcum - totalsRef.vAcumAnt) / totalsRef.vAcumAnt) * 100 : 0;
+          varYear = totalsRef.vAnt > 0 ? ((totalsRef.v - totalsRef.vAnt) / totalsRef.vAnt) * 100 : 0;
+        }
+        tfoot.innerHTML = `<tr><td>TOTAL</td><td>${this.fmtNum(totalsRef.c)}</td><td>${this.fmtCLP(totalsRef.v)}</td><td>${this.fmtCLP(totalsRef.m)}</td><td>${this.fmtPct(rent)}</td>
+          <td>${varMes >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varMes))}</td><td>${varAcum >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varAcum))}</td><td>${varYear >= 0 ? '↑' : '↓'} ${this.fmtPct(Math.abs(varYear))}</td></tr>`;
+      },
+
+      // ========== FULLSCREEN ==========
+      openFullscreen(title, tbodyId, tfootId, tipo) {
+        const tbody = document.getElementById(tbodyId);
+        const tfoot = document.getElementById(tfootId);
+        if (!tbody) return;
+        
+        document.getElementById('fullscreenTitle').textContent = title;
+        
+        let headers = '';
+        if (tipo === 'meses') {
+          headers = `<tr><th>Mes</th><th>Cajas</th><th>${this.data.year}</th><th>% Rent</th><th>${this.data.year - 1}</th><th>% Rent</th><th>Var %</th></tr>`;
+        } else if (tbodyId.includes('Ejecutivos')) {
+          headers = `<tr><th>Ejecutivo</th><th>Cajas</th><th>Venta Neta</th><th>Margen</th><th>% Rent.</th><th>Var Mes</th><th>Var Acum</th><th>Var Año</th></tr>`;
+        } else if (tbodyId.includes('Clientes')) {
+          headers = `<tr><th>Cliente</th><th>Cajas</th><th>Venta Neta</th><th>Margen</th><th>% Rent.</th><th>Var Mes</th><th>Var Acum</th><th>Var Año</th></tr>`;
+        } else if (tbodyId.includes('Clasif')) {
+          headers = `<tr><th>Clasificación</th><th>Cajas</th><th>Venta Neta</th><th>Margen</th><th>% Rent.</th><th>Var Mes</th><th>Var Acum</th><th>Var Año</th></tr>`;
+        } else if (tbodyId.includes('Categoria')) {
+          headers = `<tr><th>Categoría</th><th>Cajas</th><th>Venta Neta</th><th>Margen</th><th>% Rent.</th><th>Var Mes</th><th>Var Acum</th><th>Var Año</th></tr>`;
+        } else if (tbodyId.includes('Marca')) {
+          headers = `<tr><th>Marca</th><th>Cajas</th><th>Venta Neta</th><th>Margen</th><th>% Rent.</th><th>Var Mes</th><th>Var Acum</th><th>Var Año</th></tr>`;
+        }
+        
+        document.getElementById('fullscreenBody').innerHTML = `
+          <table class="data-table">
+            <thead>${headers}</thead>
+            <tbody>${tbody.innerHTML}</tbody>
+            <tfoot>${tfoot ? tfoot.innerHTML : ''}</tfoot>
+          </table>
+        `;
+        
+        document.getElementById('tableFullscreen').classList.add('active');
+        document.body.style.overflow = 'hidden';
+      },
+      
+      closeFullscreen() {
+        document.getElementById('tableFullscreen').classList.remove('active');
+        document.body.style.overflow = '';
+      },
+
+      async downloadPDF() {
+        const btn = document.getElementById('btnPDF');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '⏳ Generando...';
+        btn.disabled = true;
+        btn.classList.add('loading');
+        
+        try {
+          const { jsPDF } = window.jspdf;
+          
+          const sectionName = this.currentSection || 'ejecutivo';
+          const sectionElement = document.getElementById('section-' + sectionName);
+          
+          if (!sectionElement) {
+            throw new Error('Sección no encontrada');
+          }
+          
+          const pdf = new jsPDF({
+            orientation: 'landscape',
+            unit: 'mm',
+            format: 'a4'
+          });
+          
+          const pageWidth = pdf.internal.pageSize.getWidth();
+          const pageHeight = pdf.internal.pageSize.getHeight();
+          
+          const titles = {
+            'ejecutivo': 'Análisis Ejecutivo de Ventas',
+            'mayorista': 'Segmento Mayorista',
+            'supermercado': 'Segmento Supermercado'
+          };
+          
+          pdf.setFillColor(8, 84, 160);
+          pdf.rect(0, 0, pageWidth, 20, 'F');
+          pdf.setTextColor(255, 255, 255);
+          pdf.setFontSize(16);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(titles[sectionName] || 'Dashboard VDA', 10, 13);
+          
+          const fechaInforme = this.data.resumen?.fechaInforme ? new Date(this.data.resumen.fechaInforme).toLocaleDateString('es-CL') : new Date().toLocaleDateString('es-CL');
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text('Año: ' + this.data.year + ' | Datos al: ' + fechaInforme, pageWidth - 10, 13, { align: 'right' });
+          
+          this.toast('📸 Capturando dashboard...');
+          
+          const canvas = await html2canvas(sectionElement, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            backgroundColor: '#f5f6fa'
+          });
+          
+          const imgData = canvas.toDataURL('image/jpeg', 0.95);
+          
+          const imgWidth = pageWidth - 20;
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+          
+          let yPosition = 25;
+          const maxHeight = pageHeight - 30;
+          
+          if (imgHeight <= maxHeight) {
+            pdf.addImage(imgData, 'JPEG', 10, yPosition, imgWidth, imgHeight);
+          } else {
+            let remainingHeight = imgHeight;
+            let sourceY = 0;
+            
+            while (remainingHeight > 0) {
+              const sliceHeight = Math.min(remainingHeight, maxHeight);
+              const sliceRatio = sliceHeight / imgHeight;
+              
+              const sliceCanvas = document.createElement('canvas');
+              sliceCanvas.width = canvas.width;
+              sliceCanvas.height = canvas.height * sliceRatio;
+              const sliceCtx = sliceCanvas.getContext('2d');
+              sliceCtx.drawImage(canvas, 0, sourceY * (canvas.height / imgHeight), canvas.width, sliceCanvas.height, 0, 0, canvas.width, sliceCanvas.height);
+              
+              const sliceImgData = sliceCanvas.toDataURL('image/jpeg', 0.95);
+              pdf.addImage(sliceImgData, 'JPEG', 10, yPosition, imgWidth, sliceHeight);
+              
+              remainingHeight -= sliceHeight;
+              sourceY += sliceHeight;
+              
+              if (remainingHeight > 0) {
+                pdf.addPage();
+                yPosition = 10;
+              }
+            }
+          }
+          
+          const totalPages = pdf.internal.getNumberOfPages();
+          for (let i = 1; i <= totalPages; i++) {
+            pdf.setPage(i);
+            pdf.setFontSize(8);
+            pdf.setTextColor(150);
+            pdf.text('VDA - Sistema de Gestión Integral | Página ' + i + ' de ' + totalPages, pageWidth / 2, pageHeight - 5, { align: 'center' });
+          }
+          
+          const fileName = 'VDA_' + titles[sectionName].replace(/\s+/g, '_') + '_' + this.data.year + '.pdf';
+          pdf.save(fileName);
+          
+          this.toast('✅ PDF descargado: ' + fileName);
+          
+        } catch (error) {
+          console.error('Error generando PDF:', error);
+          this.toast('❌ Error al generar PDF: ' + error.message, 'error');
+        } finally {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          btn.classList.remove('loading');
+        }
+      },
+
+      api(method, ...args) {
+        if (!window.google?.script?.run) throw new Error('GAS no disponible');
+        return new Promise((ok, err) => {
+          google.script.run
+            .withSuccessHandler(ok)
+            .withFailureHandler(e => err(new Error(e?.message || e)))
+            [method](...args);
+        });
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => VDA.init());
+    
+    // Cerrar fullscreen con ESC
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') VDA.closeFullscreen();
+    });
+    
+    window.VDA = VDA;
+    window.App = VDA;
+  </script>

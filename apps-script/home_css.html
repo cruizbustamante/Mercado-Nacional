@@ -1,0 +1,1286 @@
+<style>
+/* ============================================================
+   HOME VDA - CSS Completo con Modal Reporte Ejecutivo
+   Versión 3.2
+   ============================================================ */
+
+:root {
+  --shell-bg: #354A5F;
+  --shell-text: #FFFFFF;
+  
+  --sapPositiveColor: #107E3E;
+  --sapNegativeColor: #BB0000;
+  --sapCriticalColor: #E76500;
+  --sapNeutralColor: #6A6D70;
+  --sapInformativeColor: #0854A0;
+  
+  --sapBackgroundColor: #F7F7F7;
+  --sapTileColor: #FFFFFF;
+  --sapHighlightColor: #EBF5FE;
+  
+  --sapTextColor: #32363A;
+  --sapTextSecondary: #6A6D70;
+  --sapTextTertiary: #89919A;
+  
+  --sapBorderColor: #E5E5E5;
+  --sapBorderRadius: 0.5rem;
+  
+  --sapShadow1: 0 0 0 1px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+  --sapShadow2: 0 0 0 1px rgba(0,0,0,0.04), 0 4px 8px rgba(0,0,0,0.08);
+  
+  --sapFontFamily: "72", "72full", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sapFontFamily);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--sapTextColor);
+  background: var(--sapBackgroundColor);
+  min-height: 100vh;
+}
+
+/* ============================================================
+   SHELL BAR
+   ============================================================ */
+.shell-bar {
+  background: var(--shell-bg);
+  height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--spacing-md);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.shell-bar__start {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: 0 0 auto;
+}
+
+.shell-bar__logo {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--shell-text);
+  background: linear-gradient(135deg, #4A90D9 0%, #2E6EB5 100%);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.shell-bar__title {
+  font-size: 0.8125rem;
+  color: rgba(255,255,255,0.85);
+}
+
+.shell-bar__center {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.shell-bar__system-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(255,255,255,0.95);
+  letter-spacing: 0.02em;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.shell-bar__system-title-icon {
+  margin-right: 6px;
+  opacity: 0.8;
+}
+
+.shell-bar__end {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  flex: 0 0 auto;
+}
+
+.profile-switcher__select {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 4px;
+  color: var(--shell-text);
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  max-width: 200px;
+}
+
+.profile-switcher__select option {
+  color: var(--sapTextColor);
+  background: white;
+}
+
+.shell-bar__avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4A90D9, #2E6EB5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.sim-banner {
+  background: #FFF3CD;
+  border-bottom: 1px solid #FFECB5;
+  padding: 0.4rem var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.75rem;
+  color: #856404;
+}
+
+.sim-banner__close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #856404;
+}
+
+/* ============================================================
+   MAIN
+   ============================================================ */
+.main { min-height: calc(100vh - 2.75rem - 2.5rem); }
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-lg);
+}
+
+.page-header__greeting h1 {
+  font-size: 1.5rem;
+  font-weight: 300;
+  color: var(--sapTextColor);
+}
+
+.page-header__name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--sapInformativeColor);
+}
+
+.page-header__date {
+  font-size: 0.8125rem;
+  color: var(--sapTextSecondary);
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-lg);
+  color: var(--sapTextSecondary);
+  gap: var(--spacing-sm);
+}
+
+.loading-spinner {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid var(--sapBorderColor);
+  border-top-color: var(--sapInformativeColor);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============================================================
+   SELECTOR DE MES
+   ============================================================ */
+.month-selector {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--sapTileColor);
+  border-radius: var(--sapBorderRadius);
+  box-shadow: var(--sapShadow1);
+}
+
+.month-selector__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--sapTextSecondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.month-selector__label-icon {
+  margin-right: 4px;
+}
+
+.month-selector__tabs {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.month-selector__tab {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--sapTextSecondary);
+  background: var(--sapBackgroundColor);
+  border: 1px solid var(--sapBorderColor);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.month-selector__tab:hover {
+  background: var(--sapHighlightColor);
+  border-color: var(--sapInformativeColor);
+  color: var(--sapInformativeColor);
+}
+
+.month-selector__tab--active {
+  background: var(--sapInformativeColor);
+  border-color: var(--sapInformativeColor);
+  color: white;
+}
+
+.month-selector__tab--active:hover {
+  background: #074080;
+  color: white;
+}
+
+.month-selector__tab--no-data {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.month-selector__tab--no-data:hover {
+  background: var(--sapBackgroundColor);
+  border-color: var(--sapBorderColor);
+  color: var(--sapTextSecondary);
+}
+
+.month-selector__info {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  color: var(--sapTextTertiary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.month-selector__info-badge {
+  background: var(--sapHighlightColor);
+  color: var(--sapInformativeColor);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.btn-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--sapInformativeColor);
+  background: white;
+  border: 1px solid var(--sapInformativeColor);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: var(--spacing-sm);
+}
+
+.btn-refresh:hover {
+  background: var(--sapInformativeColor);
+  color: white;
+}
+
+.btn-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-refresh--loading {
+  pointer-events: none;
+}
+
+.btn-refresh__icon {
+  font-size: 0.75rem;
+  transition: transform 0.3s ease;
+}
+
+.btn-refresh--loading .btn-refresh__icon {
+  animation: spin 1s linear infinite;
+}
+
+/* ============================================================
+   FACTURAS DEL MES
+   ============================================================ */
+.facturas-section {
+  margin-top: var(--spacing-lg);
+}
+
+.facturas-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+.facturas-header .section-title {
+  margin-bottom: 0;
+}
+
+.facturas-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.facturas-mes-selector {
+  display: flex;
+  gap: 4px;
+  background: var(--sapBackgroundColor);
+  padding: 3px;
+  border-radius: 6px;
+}
+
+.facturas-mes-btn {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  color: var(--sapTextSecondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.facturas-mes-btn:hover {
+  background: white;
+  color: var(--sapTextColor);
+}
+
+.facturas-mes-btn.active {
+  background: white;
+  color: var(--sapInformativeColor);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.facturas-download-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--sapPositiveColor);
+  background: white;
+  color: var(--sapPositiveColor);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.facturas-download-btn:hover {
+  background: var(--sapPositiveColor);
+  color: white;
+}
+
+.facturas-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: var(--sapBorderRadius);
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  font-size: 0.8125rem;
+}
+
+.facturas-table th {
+  background: var(--sapBackgroundColor);
+  color: var(--sapTextSecondary);
+  font-weight: 500;
+  text-align: left;
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--sapBorderColor);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.facturas-table td {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--sapBorderColor);
+  color: var(--sapTextColor);
+}
+
+.facturas-table tbody tr:last-child td {
+  border-bottom: 1px solid var(--sapBorderColor);
+}
+
+.facturas-table tbody tr:hover {
+  background: var(--sapHighlightColor);
+}
+
+.facturas-table__monto {
+  font-weight: 600;
+  color: var(--sapInformativeColor);
+}
+
+.facturas-table__cliente {
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.facturas-table tfoot {
+  background: var(--sapBackgroundColor);
+}
+
+.facturas-table tfoot td {
+  padding: 0.75rem;
+  border-bottom: none;
+}
+
+.facturas-total td {
+  font-weight: 500;
+}
+
+.facturas-empty,
+.facturas-loading {
+  text-align: center;
+  padding: var(--spacing-lg);
+  color: var(--sapTextTertiary);
+  background: white;
+  border-radius: var(--sapBorderRadius);
+}
+
+/* ============================================================
+   KPI CARDS
+   ============================================================ */
+.kpi-section { margin-bottom: var(--spacing-lg); }
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--spacing-sm);
+}
+
+.kpi-card {
+  background: var(--sapTileColor);
+  border-radius: var(--sapBorderRadius);
+  padding: var(--spacing-md);
+  box-shadow: var(--sapShadow1);
+  border-left: 4px solid var(--sapNeutralColor);
+  transition: all 0.15s ease;
+  min-height: 90px;
+}
+
+.kpi-card:hover {
+  box-shadow: var(--sapShadow2);
+  transform: translateY(-1px);
+}
+
+.kpi-card--positive { border-left-color: var(--sapPositiveColor); }
+.kpi-card--negative { border-left-color: var(--sapNegativeColor); }
+.kpi-card--warning { border-left-color: var(--sapCriticalColor); }
+.kpi-card--info { border-left-color: var(--sapInformativeColor); }
+
+.kpi-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xs);
+}
+
+.kpi-card__title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--sapTextSecondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.kpi-card__icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--sapHighlightColor);
+  font-size: 0.875rem;
+}
+
+.kpi-card__body {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.kpi-card__main {
+  flex: 1;
+}
+
+.kpi-card__value {
+  font-size: 1.375rem;
+  font-weight: 600;
+  color: var(--sapTextColor);
+  line-height: 1.2;
+}
+
+.kpi-card--positive .kpi-card__value { color: var(--sapPositiveColor); }
+.kpi-card--negative .kpi-card__value { color: var(--sapNegativeColor); }
+
+.kpi-card__subtitle {
+  font-size: 0.6875rem;
+  color: var(--sapTextTertiary);
+  margin-top: 2px;
+}
+
+.kpi-card__right {
+  text-align: right;
+}
+
+.kpi-card__variation {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.kpi-card__variation--positive { color: var(--sapPositiveColor); }
+.kpi-card__variation--negative { color: var(--sapNegativeColor); }
+
+.kpi-card__extra {
+  font-size: 0.625rem;
+  color: var(--sapTextTertiary);
+  margin-top: 2px;
+}
+
+.kpi-card__margen {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--sapBorderColor);
+  font-size: 0.6875rem;
+  color: var(--sapTextSecondary);
+}
+
+.kpi-card__margen-value {
+  font-weight: 600;
+  color: var(--sapTextColor);
+}
+
+.kpi-card__margen-pct {
+  color: var(--sapPositiveColor);
+  font-weight: 500;
+}
+
+/* KPI Deuda */
+.kpi-grid--deuda {
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--spacing-sm);
+}
+
+.kpi-card--deuda {
+  min-height: 75px;
+  padding: 0.75rem;
+}
+
+.kpi-card--deuda .kpi-card__value {
+  font-size: 1.125rem;
+}
+
+.kpi-card--deuda .kpi-card__title {
+  font-size: 0.625rem;
+}
+
+.kpi-card--deuda .kpi-card__subtitle {
+  font-size: 0.625rem;
+}
+
+.kpi-card--deuda .kpi-card__icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.75rem;
+}
+
+/* KPI Ventas */
+.kpi-grid--ventas {
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--spacing-sm);
+}
+
+.kpi-card--ventas {
+  border-left-color: var(--sapInformativeColor);
+}
+
+.kpi-card--ventas .kpi-card__value {
+  color: var(--sapInformativeColor);
+}
+
+/* KPI Secundarios */
+.kpi-secondary-section { margin-bottom: var(--spacing-lg); }
+
+.kpi-secondary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--spacing-sm);
+}
+
+.kpi-mini {
+  background: var(--sapTileColor);
+  border-radius: var(--sapBorderRadius);
+  padding: var(--spacing-sm) var(--spacing-md);
+  box-shadow: var(--sapShadow1);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  border-left: 3px solid var(--sapNeutralColor);
+}
+
+.kpi-mini--positive { border-left-color: var(--sapPositiveColor); }
+.kpi-mini--negative { border-left-color: var(--sapNegativeColor); }
+.kpi-mini--warning { border-left-color: var(--sapCriticalColor); }
+
+.kpi-mini__icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--sapHighlightColor);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+.kpi-mini--positive .kpi-mini__icon { background: #E8F5E9; }
+.kpi-mini--negative .kpi-mini__icon { background: #FFEBEE; }
+
+.kpi-mini__content { flex: 1; min-width: 0; }
+
+.kpi-mini__value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--sapTextColor);
+}
+
+.kpi-mini__label {
+  font-size: 0.625rem;
+  color: var(--sapTextSecondary);
+  text-transform: uppercase;
+}
+
+.kpi-mini__variation {
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+.kpi-mini__variation--positive { color: var(--sapPositiveColor); }
+.kpi-mini__variation--negative { color: var(--sapNegativeColor); }
+
+.kpi-mini__margen {
+  font-size: 0.625rem;
+  color: var(--sapTextTertiary);
+}
+
+/* ============================================================
+   TEAM SECTION
+   ============================================================ */
+.team-section { margin-bottom: var(--spacing-lg); }
+
+.section-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--sapTextSecondary);
+  margin-bottom: var(--spacing-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--spacing-sm);
+}
+
+.team-card {
+  background: var(--sapTileColor);
+  border-radius: var(--sapBorderRadius);
+  padding: var(--spacing-md);
+  box-shadow: var(--sapShadow1);
+  border-left: 4px solid #0854A0;
+}
+
+.team-card--supermercado { border-left-color: #1A9898; }
+
+.team-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--sapBorderColor);
+}
+
+.team-card__avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.team-card__name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--sapTextColor);
+}
+
+.team-card__canal {
+  font-size: 0.625rem;
+  color: var(--sapTextTertiary);
+  text-transform: uppercase;
+}
+
+.team-card__metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-xs) var(--spacing-md);
+}
+
+.team-card__metric {
+  display: flex;
+  flex-direction: column;
+}
+
+.team-card__metric--full {
+  grid-column: 1 / -1;
+}
+
+.team-card__metric-label {
+  font-size: 0.5625rem;
+  color: var(--sapTextTertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.team-card__metric-value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--sapTextColor);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.team-card__metric-value--small {
+  font-size: 0.8125rem;
+}
+
+.team-card__variation {
+  font-size: 0.625rem;
+  font-weight: 500;
+}
+
+.team-card__variation--positive { color: var(--sapPositiveColor); }
+.team-card__variation--negative { color: var(--sapNegativeColor); }
+
+.team-card__rentabilidad {
+  margin-top: var(--spacing-xs);
+  padding-top: var(--spacing-xs);
+  border-top: 1px dashed var(--sapBorderColor);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.team-card__rent-label {
+  font-size: 0.5625rem;
+  color: var(--sapTextTertiary);
+  text-transform: uppercase;
+}
+
+.team-card__rent-values {
+  display: flex;
+  gap: var(--spacing-sm);
+  font-size: 0.75rem;
+}
+
+.team-card__rent-item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.team-card__rent-item span:first-child {
+  color: var(--sapTextTertiary);
+  font-size: 0.625rem;
+}
+
+.team-card__rent-item span:last-child {
+  font-weight: 600;
+  color: var(--sapPositiveColor);
+}
+
+/* ============================================================
+   MODULES
+   ============================================================ */
+.modules-section { margin-bottom: var(--spacing-lg); }
+
+.modules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--spacing-sm);
+}
+
+.module-tile {
+  background: var(--sapTileColor);
+  border-radius: var(--sapBorderRadius);
+  padding: var(--spacing-md) var(--spacing-sm);
+  box-shadow: var(--sapShadow1);
+  text-decoration: none;
+  color: var(--sapTextColor);
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.module-tile:hover {
+  box-shadow: var(--sapShadow2);
+  transform: translateY(-2px);
+}
+
+.module-tile__icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--spacing-xs);
+  font-size: 1.25rem;
+}
+
+.module-tile__title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.module-tile__desc {
+  font-size: 0.625rem;
+  color: var(--sapTextSecondary);
+  line-height: 1.2;
+}
+
+/* ============================================================
+   BOTÓN REPORTE EJECUTIVO - NUEVO
+   ============================================================ */
+.reporte-ejecutivo-container {
+  margin-top: var(--spacing-sm);
+}
+
+.btn-reporte-ejecutivo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #0854A0 0%, #1A9898 100%);
+  color: white;
+  border: none;
+  border-radius: var(--sapBorderRadius);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--sapShadow1);
+  transition: all 0.2s ease;
+}
+
+.btn-reporte-ejecutivo:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sapShadow2);
+}
+
+.btn-reporte-ejecutivo__icon {
+  font-size: 1.125rem;
+}
+
+/* ============================================================
+   MODAL REPORTE EJECUTIVO - NUEVO
+   ============================================================ */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-reporte {
+  background: white;
+  border-radius: var(--sapBorderRadius);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow: hidden;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-reporte__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg);
+  background: #354A5F;
+  color: white;
+}
+
+.modal-reporte__title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.modal-reporte__close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.modal-reporte__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.modal-reporte__body {
+  padding: var(--spacing-lg);
+}
+
+.modal-reporte__description {
+  font-size: 0.875rem;
+  color: var(--sapTextSecondary);
+  line-height: 1.5;
+  margin-bottom: var(--spacing-lg);
+}
+
+.modal-reporte__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.modal-reporte__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.modal-reporte__label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--sapTextSecondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.modal-reporte__label-icon {
+  font-size: 0.875rem;
+}
+
+.modal-reporte__select {
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  border: 1px solid var(--sapBorderColor);
+  border-radius: 4px;
+  background: white;
+  color: var(--sapTextColor);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-reporte__select:hover {
+  border-color: var(--sapInformativeColor);
+}
+
+.modal-reporte__select:focus {
+  outline: none;
+  border-color: var(--sapInformativeColor);
+  box-shadow: 0 0 0 3px rgba(8, 84, 160, 0.1);
+}
+
+.modal-reporte__field--checkbox {
+  margin-top: var(--spacing-xs);
+}
+
+.modal-reporte__checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.875rem;
+  color: var(--sapTextColor);
+  cursor: pointer;
+}
+
+.modal-reporte__checkbox {
+  width: 1.125rem;
+  height: 1.125rem;
+  cursor: pointer;
+  accent-color: var(--sapInformativeColor);
+}
+
+.modal-reporte__info {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: #EBF5FE;
+  border-left: 3px solid var(--sapInformativeColor);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: var(--sapTextSecondary);
+  line-height: 1.4;
+}
+
+.modal-reporte__info-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.modal-reporte__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: var(--sapBackgroundColor);
+  border-top: 1px solid var(--sapBorderColor);
+}
+
+.modal-reporte__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-reporte__btn--secondary {
+  background: white;
+  color: var(--sapTextColor);
+  border: 1px solid var(--sapBorderColor);
+}
+
+.modal-reporte__btn--secondary:hover {
+  background: var(--sapBackgroundColor);
+}
+
+.modal-reporte__btn--primary {
+  background: var(--sapInformativeColor);
+  color: white;
+}
+
+.modal-reporte__btn--primary:hover {
+  background: #074080;
+}
+
+.modal-reporte__btn--primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.modal-reporte__btn--loading .modal-reporte__btn-icon {
+  animation: spin 1s linear infinite;
+}
+
+.modal-reporte__btn-icon {
+  font-size: 1rem;
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+.footer {
+  background: white;
+  border-top: 1px solid var(--sapBorderColor);
+  padding: var(--spacing-sm);
+  text-align: center;
+  font-size: 0.6875rem;
+  color: var(--sapTextSecondary);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 900px) {
+  .kpi-grid--deuda {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .kpi-grid--ventas {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .container { padding: var(--spacing-sm) var(--spacing-md); }
+  
+  .page-header { flex-direction: column; gap: var(--spacing-xs); }
+  .page-header__date { text-align: left; }
+  .page-header__greeting h1 { font-size: 1.25rem; }
+  
+  .month-selector {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+  }
+  
+  .month-selector__tabs {
+    width: 100%;
+  }
+  
+  .month-selector__info {
+    margin-left: 0;
+    margin-top: var(--spacing-xs);
+  }
+  
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .kpi-card__value { font-size: 1.125rem; }
+  
+  .team-grid { grid-template-columns: 1fr 1fr; }
+  .modules-grid { grid-template-columns: repeat(3, 1fr); }
+  
+  .shell-bar__title { display: none; }
+  .shell-bar__system-title { font-size: 0.75rem; }
+  
+  .btn-reporte-ejecutivo {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 600px) {
+  .shell-bar__system-title { display: none; }
+  
+  .modal-reporte {
+    width: 95%;
+    max-height: 95vh;
+  }
+  
+  .modal-reporte__header,
+  .modal-reporte__body,
+  .modal-reporte__footer {
+    padding: var(--spacing-md);
+  }
+  
+  .modal-reporte__title {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 500px) {
+  .kpi-grid--deuda {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid { grid-template-columns: 1fr; }
+  .kpi-secondary-grid { grid-template-columns: 1fr 1fr; }
+  .team-grid { grid-template-columns: 1fr; }
+  .modules-grid { grid-template-columns: repeat(2, 1fr); }
+  
+  .month-selector__tab {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.6875rem;
+  }
+}
+
+/* Animations */
+.fade-in { animation: fadeIn 0.3s ease-out forwards; opacity: 0; }
+@keyframes fadeIn {
+  to { opacity: 1; transform: translateY(0); }
+  from { transform: translateY(8px); }
+}
+.stagger-1 { animation-delay: 0.03s; }
+.stagger-2 { animation-delay: 0.06s; }
+.stagger-3 { animation-delay: 0.09s; }
+.stagger-4 { animation-delay: 0.12s; }
+</style>

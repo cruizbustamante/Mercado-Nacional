@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Home — VDA</title>
+  <meta name="theme-color" content="#354A5F">
+  <base target="_top">
+  <?!= include('home_css'); ?>
+</head>
+<body>
+
+<!-- Shell Bar -->
+<header class="shell-bar">
+  <div class="shell-bar__start">
+    <span class="shell-bar__logo">VDA</span>
+    <span class="shell-bar__title">Viña de Aguirre</span>
+  </div>
+  
+  <!-- TÍTULO CENTRAL -->
+  <div class="shell-bar__center">
+    <span class="shell-bar__system-title">
+      <span class="shell-bar__system-title-icon">📊</span>
+      Sistema de Gestión Integrado Mercado Nacional
+    </span>
+  </div>
+  
+  <div class="shell-bar__end">
+    <div id="profile-switcher" style="display:none">
+      <select id="user-select" class="profile-switcher__select">
+        <option value="">Mi cuenta</option>
+      </select>
+    </div>
+    <div class="shell-bar__avatar" id="avatar-initials">--</div>
+  </div>
+</header>
+
+<!-- Simulation Banner -->
+<div id="sim-banner" class="sim-banner" style="display:none">
+  <span class="sim-banner__icon">👁️</span>
+  <span>Viendo como: <strong id="sim-name"></strong></span>
+  <button class="sim-banner__close" onclick="clearSimulation()">✕</button>
+</div>
+
+<!-- Main Content -->
+<main class="main">
+  <div class="container">
+    
+    <!-- Header Section -->
+    <section class="page-header">
+      <div class="page-header__greeting">
+        <h1 id="greeting">Buenos días</h1>
+        <p class="page-header__name" id="user-name">Usuario</p>
+      </div>
+      <p class="page-header__date" id="date-str">--</p>
+    </section>
+
+    <!-- ★★★ NUEVO: SELECTOR DE MES ★★★ -->
+    <div id="month-selector-container"></div>
+
+    <!-- KPIs Loading -->
+    <div id="kpi-loading" class="loading-container">
+      <div class="loading-spinner"></div>
+      <p>Cargando indicadores...</p>
+    </div>
+
+    <!-- KPIs Principales -->
+    <section id="kpi-section" class="kpi-section" style="display:none">
+      <div class="kpi-grid" id="kpi-grid"></div>
+    </section>
+
+    <!-- KPIs Secundarios -->
+    <section id="kpi-secondary" class="kpi-secondary-section" style="display:none">
+      <div class="kpi-secondary-grid" id="kpi-secondary-grid"></div>
+    </section>
+
+    <!-- Vendedores (para Jefe de Ventas y CEO) -->
+    <section id="team-section" class="team-section" style="display:none">
+      <h2 class="section-title">
+        <span class="section-title__icon">👥</span>
+        Equipo Comercial
+      </h2>
+      <div class="team-grid" id="team-grid"></div>
+    </section>
+
+    <!-- Módulos -->
+    <section class="modules-section">
+      <h2 class="section-title">
+        <span class="section-title__icon">📱</span>
+        Aplicaciones
+      </h2>
+      <div class="modules-grid" id="modules-grid">
+        <div class="loading-container">
+          <div class="loading-spinner"></div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- Footer -->
+<footer class="footer">
+  <p>© 2025 Viña de Aguirre · Sistema de Gestión Integral</p>
+</footer>
+
+<?!= include('home_js'); ?>
+</body>
+</html>

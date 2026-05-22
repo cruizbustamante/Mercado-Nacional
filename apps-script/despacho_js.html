@@ -1,0 +1,1026 @@
+<script>
+/* ============================================
+   DESPACHO JS — LÓGICA DE UI
+   ============================================ */
+
+(function() {
+  'use strict';
+
+  /* ===== Estado Global ===== */
+  const State = {
+    facturas: [],
+    todasLasFacturas: [],  // Copia sin filtrar para filtrado local
+    kpis: null,
+    kpisPorEjecutivo: [],
+    filtrosDisponibles: null,
+    usuario: null,
+    sortColumn: 'fechaFacturacion',
+    sortDir: -1, // -1 = DESC, 1 = ASC
+    loading: false
+  };
+
+  /* ===== Colores para avatares ===== */
+  const AVATAR_COLORS = ['purple', 'teal', 'orange', 'blue', 'green', 'red'];
+
+  /* ===== Helpers ===== */
+  const $ = id => document.getElementById(id);
+  const $$ = sel => document.querySelectorAll(sel);
+  
+  const hasGS = () => !!(window.google && google.script && google.script.run);
+  
+  const fmtNum = n => Number(n || 0).toLocaleString('es-CL');
+  const fmtPct = n => (Number(n || 0)).toFixed(1) + '%';
+  const fmtMoney = n => '$' + fmtNum(Math.round(n || 0));
+  
+  const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+  /* ===== Toast ===== */
+  function showToast(msg, type = 'info') {
+    const toast = $('toast');
+    toast.textContent = msg;
+    toast.className = 'toast show ' + type;
+    setTimeout(() => toast.classList.remove('show'), 3000);
+  }
+
+  /* ===== Inicialización ===== */
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init() {
+    setupEventListeners();
+    setupDefaultDates();
+    cargarDashboard();
+  }
+
+  function setupEventListeners() {
+    // Botones header
+    $('btn-refresh').addEventListener('click', () => forceRefresh());
+    $('btn-export').addEventListener('click', exportarCSV);
+    
+    // Filtros
+    $('btn-filtrar').addEventListener('click', aplicarFiltros);
+    $('btn-limpiar').addEventListener('click', limpiarFiltros);
+    
+    // Enter en inputs para filtrar
+    $$('.filter-input').forEach(input => {
+      input.addEventListener('keypress', e => {
+        if (e.key === 'Enter') aplicarFiltros();
+      });
+    });
+    
+    // Modal
+    $('modal-close').addEventListener('click', cerrarModal);
+    $('modal-detalle').querySelector('.modal-backdrop').addEventListener('click', cerrarModal);
+    
+    // Escape para cerrar modal
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        cerrarModal();
+        if (typeof window.cerrarModalDespacho === 'function') {
+          window.cerrarModalDespacho();
+        }
+      }
+    });
+  }
+
+  function setupDefaultDates() {
+    const hoy = new Date();
+    
+    // Por defecto desde 2025-01-01
+    $('filtro-desde').value = '2025-01-01';
+    $('filtro-hasta').value = hoy.toISOString().slice(0, 10);
+  }
+
+  /* ===== Force Refresh (limpia caché) ===== */
+  function forceRefresh() {
+    if (State.loading) return;
+    
+    if (!hasGS()) {
+      showToast('Error: No hay conexión con el servidor', 'error');
+      return;
+    }
+
+    showToast('Actualizando datos...', 'info');
+    
+    // Primero limpiar caché, luego cargar
+    google.script.run
+      .withSuccessHandler(() => {
+        cargarDashboard(true);
+      })
+      .withFailureHandler(err => {
+        // Aunque falle el clear, intentar cargar
+        cargarDashboard(true);
+      })
+      .apiDespClearCache();
+  }
+
+  /* ===== Cargar Dashboard ===== */
+  function cargarDashboard(force = false) {
+    if (State.loading) return;
+    State.loading = true;
+    
+    mostrarLoading();
+    
+    if (!hasGS()) {
+      showToast('Error: No hay conexión con el servidor', 'error');
+      State.loading = false;
+      return;
+    }
+
+    const filtros = obtenerFiltros();
+
+    google.script.run
+      .withSuccessHandler(res => {
+        State.loading = false;
+        if (!res || !res.ok) {
+          showToast('Error: ' + (res?.error || 'Sin respuesta'), 'error');
+          return;
+        }
+        
+        State.facturas = res.facturas || [];
+        State.todasLasFacturas = [...State.facturas];  // Copia para filtrado local
+        State.kpis = res.kpis || {};
+        State.kpisPorEjecutivo = res.kpisPorEjecutivo || [];
+        State.filtrosDisponibles = res.filtrosDisponibles || {};
+        State.usuario = res.usuario || null;
+        
+        // Mostrar info de usuario
+        renderUsuarioHeader();
+        
+        // Ocultar filtro de ejecutivo si es vendedor
+        ajustarFiltrosSegunUsuario();
+        
+        renderCards(State.kpisPorEjecutivo);
+        renderFiltrosDisponibles();
+        renderSummary(State.kpis.filtradas);
+        renderTabla(State.facturas);
+        
+        // Fecha del informe
+        if (res.facturas.length > 0) {
+          const fechaMax = res.facturas.reduce((max, f) => 
+            f.fechaFacturacion > max ? f.fechaFacturacion : max, 
+            res.facturas[0].fechaFacturacion
+          );
+          $('fecha-informe').textContent = 'Datos al ' + fechaMax;
+        }
+      })
+      .withFailureHandler(err => {
+        State.loading = false;
+        showToast('Error al cargar: ' + (err?.message || err), 'error');
+      })
+      .apiDespGetDashboard(filtros);
+  }
+
+  function mostrarLoading() {
+    $('tabla-facturas').innerHTML = `
+      <div class="table-loading">
+        <div class="spinner"></div>
+        <span>Cargando facturas…</span>
+      </div>
+    `;
+  }
+
+  /* ===== Filtros ===== */
+  function obtenerFiltros() {
+    return {
+      estado: $('filtro-estado').value,
+      origen: $('filtro-origen').value,
+      ejecutivo: $('filtro-ejecutivo').value,
+      clasificacion: $('filtro-clasificacion').value,
+      fechaDesde: $('filtro-desde').value || null,
+      fechaHasta: $('filtro-hasta').value || null,
+      cliente: $('filtro-cliente').value.trim() || null
+    };
+  }
+
+  function aplicarFiltros() {
+    // Si hay datos cargados, filtrar localmente (instantáneo)
+    if (State.todasLasFacturas.length > 0) {
+      filtrarLocal();
+    } else {
+      // Primera carga, ir al servidor
+      cargarDashboard(true);
+    }
+  }
+
+  function limpiarFiltros() {
+    $('filtro-estado').value = 'TODOS';
+    $('filtro-origen').value = 'TODOS';
+    $('filtro-ejecutivo').value = 'TODOS';
+    $('filtro-clasificacion').value = 'TODOS';
+    $('filtro-cliente').value = '';
+    setupDefaultDates();
+    
+    // Quitar selección de cards
+    $$('.exec-card').forEach(card => card.classList.remove('selected'));
+    
+    // Filtrar localmente si hay datos
+    if (State.todasLasFacturas.length > 0) {
+      filtrarLocal();
+    } else {
+      cargarDashboard(true);
+    }
+  }
+
+  function renderFiltrosDisponibles() {
+    const fd = State.filtrosDisponibles;
+    if (!fd) return;
+
+    // Ejecutivos
+    const selEj = $('filtro-ejecutivo');
+    const currentEj = selEj.value;
+    selEj.innerHTML = '<option value="TODOS">Todos</option>';
+    (fd.ejecutivos || []).forEach(ej => {
+      selEj.innerHTML += `<option value="${ej}">${ej}</option>`;
+    });
+    selEj.value = currentEj;
+
+    // Clasificaciones
+    const selCl = $('filtro-clasificacion');
+    const currentCl = selCl.value;
+    selCl.innerHTML = '<option value="TODOS">Todas</option>';
+    (fd.clasificaciones || []).forEach(cl => {
+      selCl.innerHTML += `<option value="${cl}">${cl}</option>`;
+    });
+    selCl.value = currentCl;
+  }
+
+  /* ===== Usuario Header ===== */
+  function renderUsuarioHeader() {
+    const u = State.usuario;
+    if (!u) return;
+    
+    const headerUser = $('header-user');
+    if (headerUser) {
+      if (u.esAdmin) {
+        headerUser.textContent = '👤 Admin';
+      } else if (u.ejecutivo) {
+        headerUser.textContent = '👤 ' + u.ejecutivo;
+      } else {
+        headerUser.textContent = '';
+      }
+    }
+  }
+
+  function ajustarFiltrosSegunUsuario() {
+    const u = State.usuario;
+    if (!u) return;
+    
+    // Si es vendedor (no admin), ocultar filtro de ejecutivo
+    const filtroEjWrap = $('filtro-ejecutivo-wrap');
+    if (filtroEjWrap) {
+      filtroEjWrap.style.display = u.esAdmin ? 'flex' : 'none';
+    }
+    
+    // Si es vendedor, ocultar la sección de cards (solo ve sus datos)
+    const cardsSection = $('cards-ejecutivos');
+    if (cardsSection) {
+      cardsSection.style.display = u.esAdmin ? 'block' : 'none';
+    }
+  }
+
+  /* ===== Render Cards Ejecutivos ===== */
+  function renderCards(ejecutivos) {
+    const grid = $('cards-grid');
+    const periodo = $('cards-periodo');
+    
+    if (!ejecutivos || ejecutivos.length === 0) {
+      grid.innerHTML = '<div style="padding: 20px; color: var(--sap-text-light);">Sin datos de ejecutivos</div>';
+      return;
+    }
+    
+    // Período actual
+    const hoy = new Date();
+    const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    periodo.textContent = '(' + meses[hoy.getMonth()] + ')';
+    
+    // Ejecutivo actualmente filtrado
+    const filtroActual = $('filtro-ejecutivo').value;
+    
+    grid.innerHTML = ejecutivos.map((e, idx) => {
+      const color = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+      const fillClass = e.fillRate >= 90 ? 'positive' : e.fillRate >= 70 ? 'warning' : 'negative';
+      const isSelected = filtroActual === e.ejecutivo ? 'selected' : '';
+      
+      return `
+        <div class="exec-card ${isSelected}" data-ejecutivo="${e.ejecutivo}" onclick="filtrarPorEjecutivo('${e.ejecutivo.replace(/'/g, "\\'")}')">
+          <div class="exec-card-header">
+            <div class="exec-avatar ${color}">${e.iniciales}</div>
+            <div class="exec-info">
+              <div class="exec-name">${e.ejecutivo}</div>
+              <div class="exec-role">${e.clasificacion || e.origen}</div>
+            </div>
+          </div>
+          <div class="exec-metrics">
+            <div class="exec-metric">
+              <div class="exec-metric-label">Facturas</div>
+              <div class="exec-metric-value large">${fmtNum(e.totalFacturas)}</div>
+            </div>
+            <div class="exec-metric">
+              <div class="exec-metric-label">Cajas Totales</div>
+              <div class="exec-metric-value">${fmtNum(e.totalCajas)}</div>
+            </div>
+            <div class="exec-metric">
+              <div class="exec-metric-label">Pendientes</div>
+              <div class="exec-metric-value" style="color: var(--sap-negative)">${fmtNum(e.pendientes)}</div>
+            </div>
+            <div class="exec-metric">
+              <div class="exec-metric-label">Despachadas</div>
+              <div class="exec-metric-value" style="color: var(--sap-positive)">${fmtNum(e.despachadas)}</div>
+            </div>
+          </div>
+          <div class="exec-footer">
+            <div class="exec-footer-label">Rendimiento</div>
+            <div class="exec-footer-values">
+              <div class="exec-footer-item ${fillClass}">
+                <span>Fill:</span>
+                <span>${fmtPct(e.fillRate)}</span>
+              </div>
+              <div class="exec-footer-item">
+                <span>Días:</span>
+                <span>${e.diasPromedio.toFixed(1)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  /* ===== Filtrar por Ejecutivo (click en card) ===== */
+  window.filtrarPorEjecutivo = function(ejecutivo) {
+    const filtroEj = $('filtro-ejecutivo');
+    
+    // Si ya está seleccionado, deseleccionar (mostrar todos)
+    if (filtroEj.value === ejecutivo) {
+      filtroEj.value = 'TODOS';
+    } else {
+      filtroEj.value = ejecutivo;
+    }
+    
+    // Actualizar selección visual de cards
+    $$('.exec-card').forEach(card => {
+      if (card.dataset.ejecutivo === filtroEj.value) {
+        card.classList.add('selected');
+      } else {
+        card.classList.remove('selected');
+      }
+    });
+    
+    // Filtrar localmente (sin llamar al servidor)
+    filtrarLocal();
+  };
+
+  /* ===== Filtrado Local (sin servidor) ===== */
+  function filtrarLocal() {
+    const filtros = obtenerFiltros();
+    let facturasFiltradas = [...State.todasLasFacturas];
+    
+    // Aplicar filtros en memoria
+    if (filtros.estado && filtros.estado !== 'TODOS') {
+      facturasFiltradas = facturasFiltradas.filter(f => f.estado === filtros.estado);
+    }
+    
+    if (filtros.origen && filtros.origen !== 'TODOS') {
+      facturasFiltradas = facturasFiltradas.filter(f => f.origen === filtros.origen);
+    }
+    
+    if (filtros.ejecutivo && filtros.ejecutivo !== 'TODOS') {
+      facturasFiltradas = facturasFiltradas.filter(f => f.ejecutivo === filtros.ejecutivo);
+    }
+    
+    if (filtros.clasificacion && filtros.clasificacion !== 'TODOS') {
+      facturasFiltradas = facturasFiltradas.filter(f => f.clasificacion === filtros.clasificacion);
+    }
+    
+    if (filtros.fechaDesde) {
+      facturasFiltradas = facturasFiltradas.filter(f => f.fechaFacturacion >= filtros.fechaDesde);
+    }
+    
+    if (filtros.fechaHasta) {
+      facturasFiltradas = facturasFiltradas.filter(f => f.fechaFacturacion <= filtros.fechaHasta);
+    }
+    
+    if (filtros.cliente) {
+      const clienteBuscar = norm(filtros.cliente);
+      facturasFiltradas = facturasFiltradas.filter(f => norm(f.cliente).includes(clienteBuscar));
+    }
+    
+    // Actualizar estado y renderizar
+    State.facturas = facturasFiltradas;
+    
+    // Recalcular summary
+    const summary = {
+      total: facturasFiltradas.length,
+      pendientes: facturasFiltradas.filter(f => f.estado === 'PENDIENTE').length,
+      parciales: facturasFiltradas.filter(f => f.estado === 'DESPACHADO_PARCIAL').length,
+      completas: facturasFiltradas.filter(f => f.estado === 'DESPACHADO_COMPLETO').length,
+      sinControl: facturasFiltradas.filter(f => f.estado === 'SIN_CONTROL').length,
+      cajas: facturasFiltradas.reduce((sum, f) => sum + (f.totalCajas || 0), 0)
+    };
+    
+    renderSummary(summary);
+    renderTabla(facturasFiltradas);
+  }
+
+  /* ===== Render Summary ===== */
+  function renderSummary(filtradas) {
+    if (!filtradas) return;
+    
+    $('sum-total').textContent = fmtNum(filtradas.total);
+    $('sum-pendientes').textContent = fmtNum(filtradas.pendientes);
+    $('sum-parciales').textContent = fmtNum(filtradas.parciales);
+    $('sum-completas').textContent = fmtNum(filtradas.completas);
+    $('sum-sincontrol').textContent = fmtNum(filtradas.sinControl);
+    $('sum-cajas').textContent = fmtNum(filtradas.cajas);
+  }
+
+  /* ===== Render Tabla ===== */
+  function renderTabla(facturas) {
+    const wrap = $('tabla-facturas');
+    
+    if (!facturas || facturas.length === 0) {
+      wrap.innerHTML = `
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M9 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4"/>
+            <path d="m12 15 5 5-5 5"/>
+          </svg>
+          <div class="empty-state-title">Sin resultados</div>
+          <div class="empty-state-text">No hay facturas que coincidan con los filtros seleccionados</div>
+        </div>
+      `;
+      return;
+    }
+
+    // Ordenar
+    const sorted = sortFacturas(facturas);
+
+    const headers = [
+      { key: 'numeroFactura', label: 'N° Factura', sticky: true },
+      { key: 'fechaFacturacion', label: 'Fecha' },
+      { key: 'cliente', label: 'Cliente' },
+      { key: 'ejecutivo', label: 'Ejecutivo' },
+      { key: 'clasificacion', label: 'Clasif.' },
+      { key: 'origen', label: 'Origen' },
+      { key: 'totalCajas', label: 'Cajas', align: 'num' },
+      { key: 'totalDespachado', label: 'Desp.', align: 'num' },
+      { key: 'estado', label: 'Estado' },
+      { key: 'fillRate', label: 'Fill Rate' },
+      { key: 'diasDespacho', label: 'Días', align: 'num' },
+      { key: 'acciones', label: 'Acciones', sortable: false }
+    ];
+
+    const thHTML = headers.map(h => {
+      const isSortable = h.sortable !== false;
+      const sorted = State.sortColumn === h.key;
+      const icon = sorted ? (State.sortDir === 1 ? '▲' : '▼') : '↕';
+      const stickyClass = h.sticky ? ' sticky' : '';
+      const sortedClass = sorted ? ' sorted' : '';
+      const sortableClass = isSortable ? ' sortable' : '';
+      const dataSort = isSortable ? ` data-sort="${h.key}"` : '';
+      return `<th class="${sortableClass}${stickyClass}${sortedClass}"${dataSort}>
+        ${h.label}${isSortable ? `<span class="sort-icon">${icon}</span>` : ''}
+      </th>`;
+    }).join('');
+
+    const rowsHTML = sorted.map(f => {
+      const fillPct = Math.round((f.fillRate || 0) * 100);
+      const fillClass = fillPct >= 90 ? 'high' : fillPct >= 50 ? 'mid' : 'low';
+      
+      // Indicador de despacho manual
+      const manualBadge = f.tieneDespachoManual ? '<span class="badge-manual">M</span>' : '';
+      
+      // Botón de acción solo para admins
+      let accionHTML = '';
+      if (f.puedeMarcarManual && State.usuario && State.usuario.esAdmin) {
+        accionHTML = `<button class="btn btn-action btn-manual" onclick="abrirModalDespacho('${f.numeroFactura}', ${f.cajasPendientes})">+ Despacho</button>`;
+      }
+      
+      return `
+        <tr data-factura="${f.numeroFactura}">
+          <td class="sticky">
+            <a class="action-link" onclick="window.verDetalle('${f.numeroFactura}')">${f.numeroFactura}</a>${manualBadge}
+          </td>
+          <td>${f.fechaFacturacion || '—'}</td>
+          <td title="${f.cliente}">${truncate(f.cliente, 25)}</td>
+          <td>${f.ejecutivo || '—'}</td>
+          <td>${f.clasificacion || '—'}</td>
+          <td>${f.origen}</td>
+          <td class="num">${fmtNum(f.totalCajas)}</td>
+          <td class="num">${fmtNum(f.totalDespachado)}</td>
+          <td>${renderBadge(f.estado)}</td>
+          <td>
+            <div class="progress-wrap">
+              <div class="progress-bar">
+                <div class="progress-fill ${fillClass}" style="width:${fillPct}%"></div>
+              </div>
+              <span class="progress-value">${fillPct}%</span>
+            </div>
+          </td>
+          <td class="num">${f.diasDespacho > 0 ? f.diasDespacho : '—'}</td>
+          <td>${accionHTML}</td>
+        </tr>
+      `;
+    }).join('');
+
+    wrap.innerHTML = `
+      <table>
+        <thead><tr>${thHTML}</tr></thead>
+        <tbody>${rowsHTML}</tbody>
+      </table>
+    `;
+
+    // Event listeners para ordenar
+    wrap.querySelectorAll('th.sortable').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.sort;
+        if (State.sortColumn === key) {
+          State.sortDir *= -1;
+        } else {
+          State.sortColumn = key;
+          State.sortDir = key === 'fechaFacturacion' ? -1 : 1;
+        }
+        renderTabla(State.facturas);
+      });
+    });
+  }
+
+  function sortFacturas(facturas) {
+    const key = State.sortColumn;
+    const dir = State.sortDir;
+
+    return [...facturas].sort((a, b) => {
+      let va = a[key];
+      let vb = b[key];
+
+      // Números
+      if (['totalCajas', 'totalDespachado', 'diasDespacho', 'fillRate'].includes(key)) {
+        va = Number(va) || 0;
+        vb = Number(vb) || 0;
+      }
+      // Estados (orden personalizado)
+      else if (key === 'estado') {
+        const order = { 'PENDIENTE': 1, 'DESPACHADO_PARCIAL': 2, 'DESPACHADO_COMPLETO': 3, 'SIN_CONTROL': 4 };
+        va = order[va] || 9;
+        vb = order[vb] || 9;
+      }
+      // Strings
+      else {
+        va = String(va || '').toLowerCase();
+        vb = String(vb || '').toLowerCase();
+      }
+
+      if (va > vb) return dir;
+      if (va < vb) return -dir;
+      return 0;
+    });
+  }
+
+  function renderBadge(estado) {
+    const map = {
+      'PENDIENTE': { class: 'badge-pendiente', label: 'Pendiente' },
+      'DESPACHADO_PARCIAL': { class: 'badge-parcial', label: 'Parcial' },
+      'DESPACHADO_COMPLETO': { class: 'badge-completo', label: 'Completo' },
+      'SIN_CONTROL': { class: 'badge-sincontrol', label: 'Sin Control' }
+    };
+    const b = map[estado] || { class: '', label: estado };
+    return `<span class="badge ${b.class}">${b.label}</span>`;
+  }
+
+  function truncate(str, len) {
+    if (!str) return '—';
+    return str.length > len ? str.slice(0, len) + '…' : str;
+  }
+
+  /* ===== Modal Detalle ===== */
+  window.verDetalle = function(numeroFactura) {
+    const modal = $('modal-detalle');
+    const body = $('modal-body');
+    
+    modal.classList.add('open');
+    body.innerHTML = `
+      <div class="table-loading">
+        <div class="spinner"></div>
+        <span>Cargando detalle…</span>
+      </div>
+    `;
+
+    if (!hasGS()) {
+      body.innerHTML = '<div class="empty-state">Error de conexión</div>';
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(res => {
+        if (!res || !res.ok) {
+          body.innerHTML = `<div class="empty-state">Error: ${res?.error || 'Sin datos'}</div>`;
+          return;
+        }
+        renderDetalle(res);
+      })
+      .withFailureHandler(err => {
+        body.innerHTML = `<div class="empty-state">Error: ${err?.message || err}</div>`;
+      })
+      .apiDespGetDetalle(numeroFactura);
+  };
+
+  function renderDetalle(data) {
+    const f = data.factura;
+    const despachos = data.despachos || [];
+    const items = data.items || [];
+
+    const fillPct = Math.round((f.fillRate || 0) * 100);
+    const fillClass = fillPct >= 90 ? 'high' : fillPct >= 50 ? 'mid' : 'low';
+
+    // Separar despachos del sistema y manuales
+    const despachosSistema = despachos.filter(d => !d.esManual);
+    const despachosManuales = despachos.filter(d => d.esManual);
+
+    let html = `
+      <!-- Info General -->
+      <div class="detail-grid">
+        <div class="detail-item">
+          <div class="detail-label">N° Factura</div>
+          <div class="detail-value">${f.numeroFactura}${f.tieneDespachoManual ? '<span class="badge-manual" style="margin-left:8px">Con ajuste manual</span>' : ''}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Fecha Facturación</div>
+          <div class="detail-value">${f.fechaFacturacion || '—'}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Cliente</div>
+          <div class="detail-value">${f.cliente || '—'}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Ejecutivo</div>
+          <div class="detail-value">${f.ejecutivo || '—'}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Clasificación</div>
+          <div class="detail-value">${f.clasificacion || '—'}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Origen</div>
+          <div class="detail-value">${f.origen}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Estado</div>
+          <div class="detail-value">${renderBadge(f.estado)}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">NVs</div>
+          <div class="detail-value">${(f.nvs || []).join(', ') || '—'}</div>
+        </div>
+      </div>
+
+      <!-- Métricas -->
+      <div class="detail-grid" style="background: var(--sap-neutral-bg); padding: var(--sp-md); border-radius: var(--radius); margin-bottom: var(--sp-lg);">
+        <div class="detail-item">
+          <div class="detail-label">Cajas Pedidas</div>
+          <div class="detail-value">${fmtNum(f.totalCajas)}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Cajas Despachadas</div>
+          <div class="detail-value">${fmtNum(f.totalDespachado)}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Cajas Pendientes</div>
+          <div class="detail-value" style="color: ${f.cajasPendientes > 0 ? 'var(--sap-negative)' : 'var(--sap-positive)'}">
+            ${fmtNum(f.cajasPendientes)}
+          </div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Fill Rate</div>
+          <div class="detail-value">
+            <div class="progress-wrap" style="max-width: 120px;">
+              <div class="progress-bar">
+                <div class="progress-fill ${fillClass}" style="width:${fillPct}%"></div>
+              </div>
+              <span class="progress-value">${fillPct}%</span>
+            </div>
+          </div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Días Despacho</div>
+          <div class="detail-value">${f.diasDespacho > 0 ? f.diasDespacho + ' días' : '—'}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Monto Neto</div>
+          <div class="detail-value">${fmtMoney(f.totalNeto)}</div>
+        </div>
+      </div>
+    `;
+
+    // Botón de agregar despacho manual (solo admins)
+    if (f.puedeMarcarManual && State.usuario && State.usuario.esAdmin) {
+      html += `
+        <div style="margin-bottom: var(--sp-lg);">
+          <button class="btn btn-action btn-manual" onclick="cerrarModal(); abrirModalDespacho('${f.numeroFactura}', ${f.cajasPendientes})">
+            + Registrar Despacho Manual
+          </button>
+        </div>
+      `;
+    }
+
+    // Despachos del Sistema (Egresos)
+    if (despachosSistema.length > 0) {
+      html += `
+        <div class="detail-section">
+          <div class="detail-section-title">Despachos del Sistema (Egresos)</div>
+          <div class="table-wrap" style="max-height: 180px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th class="num">Cajas</th>
+                  <th>Chofer</th>
+                  <th>Patente</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${despachosSistema.map(d => `
+                  <tr>
+                    <td>${d.fechaDespacho || '—'}</td>
+                    <td class="num">${fmtNum(d.cajasDespacho)}</td>
+                    <td>${d.chofer || '—'}</td>
+                    <td>${d.patente || '—'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // Despachos Manuales
+    if (despachosManuales.length > 0) {
+      html += `
+        <div class="detail-section">
+          <div class="detail-section-title">Despachos Manuales (Correcciones)</div>
+          <div class="table-wrap" style="max-height: 180px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th class="num">Cajas</th>
+                  <th>Motivo</th>
+                  <th>Observaciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${despachosManuales.map(d => `
+                  <tr>
+                    <td>${d.fechaDespacho || '—'}</td>
+                    <td class="num">${fmtNum(d.cajasDespacho)}</td>
+                    <td>${d.motivo || '—'}</td>
+                    <td>${d.observaciones || '—'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // Sin despachos
+    if (despachos.length === 0) {
+      if (f.origen === 'Villa Alegre') {
+        html += `
+          <div class="detail-section">
+            <div class="detail-section-title">Despachos</div>
+            <div class="empty-state" style="padding: var(--sp-lg);">
+              <div class="empty-state-text">
+                Esta factura es de Villa Alegre (DHernández).<br>
+                No hay información de despacho disponible.
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        html += `
+          <div class="detail-section">
+            <div class="detail-section-title">Despachos</div>
+            <div class="empty-state" style="padding: var(--sp-lg);">
+              <div class="empty-state-text">
+                Sin despachos registrados.
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // Items (SKUs)
+    if (items.length > 0) {
+      html += `
+        <div class="detail-section">
+          <div class="detail-section-title">Detalle de Productos (${items.length} líneas)</div>
+          <div class="table-wrap" style="max-height: 250px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Producto</th>
+                  <th>Categoría</th>
+                  <th>Marca</th>
+                  <th class="num">Cajas</th>
+                  <th class="num">Neto</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items.slice(0, 50).map(it => `
+                  <tr>
+                    <td>${it.sku || '—'}</td>
+                    <td title="${it.producto}">${truncate(it.producto, 30)}</td>
+                    <td>${it.categoria || '—'}</td>
+                    <td>${it.marca || '—'}</td>
+                    <td class="num">${fmtNum(it.cajas)}</td>
+                    <td class="num">${fmtMoney(it.neto)}</td>
+                  </tr>
+                `).join('')}
+                ${items.length > 50 ? `<tr><td colspan="6" style="text-align:center;color:var(--sap-text-light)">... y ${items.length - 50} más</td></tr>` : ''}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    $('modal-body').innerHTML = html;
+  }
+
+  function cerrarModal() {
+    $('modal-detalle').classList.remove('open');
+  }
+
+  /* ===== Exportar Excel ===== */
+  function exportarCSV() {
+    if (!State.facturas.length) {
+      showToast('No hay datos para exportar', 'error');
+      return;
+    }
+
+    // Verificar que SheetJS esté cargado
+    if (typeof XLSX === 'undefined') {
+      showToast('Error: Librería de Excel no cargada', 'error');
+      return;
+    }
+
+    const headers = [
+      'N° Factura', 'Fecha', 'Cliente', 'Ejecutivo', 'Clasificación', 'Origen',
+      'Cajas Pedidas', 'Cajas Despachadas', 'Cajas Pendientes', 'Estado', 
+      'Fill Rate', 'Días Despacho', 'Monto Neto'
+    ];
+
+    const rows = State.facturas.map(f => [
+      f.numeroFactura,
+      f.fechaFacturacion,
+      f.cliente,
+      f.ejecutivo,
+      f.clasificacion,
+      f.origen,
+      f.totalCajas,
+      f.totalDespachado,
+      f.cajasPendientes,
+      f.estado,
+      Math.round((f.fillRate || 0) * 100) / 100,
+      f.diasDespacho || '',
+      f.totalNeto
+    ]);
+
+    // Crear worksheet
+    const wsData = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Ajustar anchos de columna
+    ws['!cols'] = [
+      { wch: 12 },  // Factura
+      { wch: 12 },  // Fecha
+      { wch: 30 },  // Cliente
+      { wch: 18 },  // Ejecutivo
+      { wch: 14 },  // Clasificación
+      { wch: 12 },  // Origen
+      { wch: 12 },  // Cajas Pedidas
+      { wch: 14 },  // Cajas Despachadas
+      { wch: 14 },  // Cajas Pendientes
+      { wch: 16 },  // Estado
+      { wch: 10 },  // Fill Rate
+      { wch: 12 },  // Días
+      { wch: 14 },  // Monto
+    ];
+
+    // Formato para Fill Rate como porcentaje
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let R = 1; R <= range.e.r; R++) {
+      const cellAddr = XLSX.utils.encode_cell({ r: R, c: 10 }); // Columna K = Fill Rate
+      if (ws[cellAddr]) {
+        ws[cellAddr].z = '0%';
+      }
+    }
+
+    // Crear workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Despachos');
+
+    // Descargar
+    const fecha = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `despachos_${fecha}.xlsx`);
+
+    showToast('Excel exportado correctamente', 'success');
+  }
+
+  /* ===== Modal Despacho Manual ===== */
+  let facturaParaDespacho = null;
+
+  window.abrirModalDespacho = function(numeroFactura, cajasPendientes) {
+    facturaParaDespacho = numeroFactura;
+    
+    $('desp-factura').value = numeroFactura;
+    $('desp-pendientes').value = fmtNum(cajasPendientes) + ' cajas';
+    $('desp-cajas').value = '';
+    $('desp-cajas').max = cajasPendientes;
+    $('desp-fecha').value = '';
+    $('desp-motivo').value = 'Error en número de factura';
+    $('desp-observaciones').value = '';
+    
+    // Fecha máxima: último día del mes anterior
+    const hoy = new Date();
+    const ultimoDiaMesAnterior = new Date(hoy.getFullYear(), hoy.getMonth(), 0);
+    $('desp-fecha').max = ultimoDiaMesAnterior.toISOString().slice(0, 10);
+    
+    $('modal-despacho').classList.add('open');
+    $('desp-cajas').focus();
+  };
+
+  window.cerrarModalDespacho = function() {
+    $('modal-despacho').classList.remove('open');
+    facturaParaDespacho = null;
+  };
+
+  window.guardarDespachoManual = function() {
+    if (!facturaParaDespacho) {
+      showToast('Error: No hay factura seleccionada', 'error');
+      return;
+    }
+
+    const cajas = parseInt($('desp-cajas').value);
+    const fecha = $('desp-fecha').value;
+    const motivo = $('desp-motivo').value;
+    const observaciones = $('desp-observaciones').value;
+
+    if (!cajas || cajas <= 0) {
+      showToast('Ingrese cantidad de cajas válida', 'error');
+      $('desp-cajas').focus();
+      return;
+    }
+
+    if (!fecha) {
+      showToast('Seleccione fecha de despacho', 'error');
+      $('desp-fecha').focus();
+      return;
+    }
+
+    if (!hasGS()) {
+      showToast('Error de conexión', 'error');
+      return;
+    }
+
+    const btn = $('btn-guardar-despacho');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    google.script.run
+      .withSuccessHandler(res => {
+        btn.disabled = false;
+        btn.textContent = 'Guardar';
+        
+        if (res.ok) {
+          showToast(res.message, 'success');
+          cerrarModalDespacho();
+          cargarDashboard(true);  // Recargar datos (caché ya fue limpiado en backend)
+        } else {
+          showToast(res.error || 'Error al guardar', 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false;
+        btn.textContent = 'Guardar';
+        showToast('Error: ' + (err.message || err), 'error');
+      })
+      .apiDespRegistrarDespachoManual({
+        numeroFactura: facturaParaDespacho,
+        cajasDespacho: cajas,
+        fechaDespacho: fecha,
+        motivo: motivo,
+        observaciones: observaciones
+      });
+  };
+
+  // Cerrar modal con click en backdrop
+  $('modal-despacho').querySelector('.modal-backdrop').addEventListener('click', cerrarModalDespacho);
+
+})();
+</script>

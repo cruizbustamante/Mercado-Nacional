@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VDA Deuda Mayorista • SAP Fiori</title>
+  
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  
+  <?!= include('deuda_clientes_css'); ?>
+</head>
+<body>
+  <div class="sap-shell">
+    <aside class="sap-sidebar">
+      <div class="sap-logo">💳 Deuda VDA<br><span style="font-size:9px;opacity:.7">SAP Fiori Design</span></div>
+      <nav class="sap-nav">
+        <div class="sap-nav-item active" data-panel="resumen">📋 Resumen General</div>
+        <div class="sap-nav-item" data-panel="calendario">📅 Calendario Cobranza</div>
+        <div class="sap-nav-item" data-panel="seguimiento">📝 Seguimiento Gestión</div>
+      </nav>
+      
+      <div class="sap-nav-section">
+        <div class="sap-nav-section-title">Filtros Rápidos</div>
+        <label class="filter-checkbox"><input type="checkbox" value="vencida" onchange="applyQuickFilters()"> 🔥 Deuda Vencida</label>
+        <label class="filter-checkbox"><input type="checkbox" value="sobregiro" onchange="applyQuickFilters()"> ⚠️ Sobregiro</label>
+        <label class="filter-checkbox"><input type="checkbox" value="protestado" onchange="applyQuickFilters()"> 🚨 Protestado</label>
+        <label class="filter-checkbox"><input type="checkbox" value="porvencer" onchange="applyQuickFilters()"> ✅ Solo Por Vencer</label>
+        <label class="filter-checkbox"><input type="checkbox" value="mixta" onchange="applyQuickFilters()"> ⚡ Estado Mixto</label>
+      </div>
+      
+      <div class="sap-nav-section" id="canales-section">
+        <div class="sap-nav-section-title">Canales de Venta</div>
+        <div id="canales-checkboxes"></div>
+      </div>
+      
+      <nav class="sap-nav sap-nav-back">
+        <div class="sap-nav-item" onclick="goFinanzas()">← Volver a Finanzas</div>
+      </nav>
+    </aside>
+
+    <main class="sap-main">
+      <div class="sap-header">
+        <div>
+          <span class="sap-title">💳 Deuda Mayorista</span>
+          <span class="sap-subtitle">Análisis de Crédito y Riesgo • Viña de Aguirre</span>
+        </div>
+        <div class="sap-stats">
+          <div id="userBadge"></div>
+          <div class="sap-stat"><span>Clientes:</span><span class="sap-stat-value" id="count-total">-</span></div>
+          <div class="sap-stat"><span>Sobregiro:</span><span class="sap-stat-value" id="count-sobregiro">-</span></div>
+          <div class="sap-stat"><button class="sap-refresh-btn" onclick="cargar()" title="Refrescar" id="refreshBtn">🔄</button></div>
+        </div>
+        <div class="sap-last-update"><span id="lastUpdateText">Última actualización: Cargando...</span></div>
+      </div>
+
+      <div class="sap-content">
+        <!-- RESUMEN -->
+        <section id="resumen" class="sap-panel active">
+          <div class="sap-loading" id="loadingResumen"><div class="sap-spinner"></div><span>Cargando...</span></div>
+          <div id="wrapperResumen" style="display:none">
+            <div class="universal-filters">
+              <div class="filter-group"><label class="filter-label">Buscar</label><input class="filter-input" id="f-q" placeholder="Cliente o RUT"></div>
+              <div class="filter-group"><label class="filter-label">Estado</label><select class="filter-select" id="f-estado"><option value="todos">Todos</option><option value="porvencer">Por vencer</option><option value="vencida">Vencida</option><option value="mixta">Mixta</option></select></div>
+              <div class="filter-group"><label class="filter-label">Deuda mínima</label><input class="filter-input" id="f-min" type="number" placeholder="0"></div>
+              <div class="filter-group"><label class="filter-label">Días venc. mín.</label><input class="filter-input" id="f-dias" type="number" placeholder="0"></div>
+              <div class="filter-group"><label class="filter-label">Ordenar</label><select class="filter-select" id="f-sort"><option value="total">Mayor deuda</option><option value="pct">% vencida</option><option value="dias">Máx días</option><option value="util">Utilización</option><option value="alf">Alfabético</option></select></div>
+              <div class="filter-group"><label class="filter-label">&nbsp;</label><button class="btn btn-primary" onclick="aplicar()">Aplicar</button></div>
+            </div>
+            <div class="kpis-grid" id="kpis-grid"></div>
+            <div style="margin-bottom:12px">
+              <div style="font-size:11px;font-weight:700;color:var(--sap-blue);margin-bottom:8px;padding:8px 12px;background:#fff;border:1px solid var(--sap-border);border-radius:3px">📊 Resumen por Canal</div>
+              <div class="kpis-grid" id="vendedores-grid"></div>
+            </div>
+            <div class="sap-table-container">
+              <div class="sap-table-header"><div class="sap-table-title">📋 Resumen por Cliente</div><button class="btn-export" onclick="exportar()">📥 Excel</button></div>
+              <div class="sap-table-wrapper"><div id="list"></div></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- CALENDARIO -->
+        <section id="calendario" class="sap-panel">
+          <div class="sap-loading" id="loadingCalendario"><div class="sap-spinner"></div><span>Cargando...</span></div>
+          <div id="wrapperCalendario" style="display:none">
+            <div class="universal-filters">
+              <div class="filter-group"><label class="filter-label">Desde</label><input type="date" class="cal-date-input" id="cal-desde"></div>
+              <div class="filter-group"><label class="filter-label">Hasta</label><input type="date" class="cal-date-input" id="cal-hasta"></div>
+              <div class="filter-group"><label class="filter-label">Estado</label><select class="filter-select" id="cal-estado"><option value="todos">Todos</option><option value="porvencer">Por vencer</option><option value="vencida">Vencida</option></select></div>
+              <div class="filter-group"><label class="filter-label">Buscar</label><input class="filter-input" id="cal-q" placeholder="Cliente, RUT..."></div>
+              <div class="filter-group"><label class="filter-label">&nbsp;</label><button class="btn btn-primary" onclick="aplicarCalendario()">Aplicar</button></div>
+              <div class="filter-group"><label class="filter-label">&nbsp;</label><button class="btn-clear-filters" onclick="limpiarFiltrosCalendario()">Limpiar</button></div>
+            </div>
+            <div class="kpis-grid" id="cal-kpis-grid"></div>
+            <div class="sap-table-container">
+              <div class="sap-table-header">
+                <div class="sap-table-title">📅 Facturas a Cobrar</div>
+                <div style="display:flex;gap:8px"><button class="btn-export" onclick="exportarCalendario()">📥 Excel</button><button class="btn-export btn-export-pdf" onclick="exportarCalendarioPDF()">📄 PDF</button></div>
+              </div>
+              <div class="sap-table-wrapper"><div id="cal-tabla"></div></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SEGUIMIENTO -->
+        <section id="seguimiento" class="sap-panel">
+          <div class="sap-loading" id="loadingSeguimiento"><div class="sap-spinner"></div><span>Cargando...</span></div>
+          <div id="wrapperSeguimiento" style="display:none">
+            <div class="universal-filters">
+              <div class="filter-group"><label class="filter-label">Buscar</label><input class="filter-input" id="seg-q" placeholder="Cliente, RUT, Doc..."></div>
+              <div class="filter-group"><label class="filter-label">Tipo</label><select class="filter-select" id="seg-tipo"><option value="todos">Todos</option><option value="nota_credito">📄 Nota de Crédito</option><option value="diferencia_precio">💲 Diferencia Precio</option><option value="acuerdo_comercial">🤝 Acuerdo Comercial</option><option value="compromiso_pago">💰 Compromiso Pago</option></select></div>
+              <div class="filter-group"><label class="filter-label">Estado</label><select class="filter-select" id="seg-estado"><option value="todos">Todos</option><option value="abierto">Abierto</option><option value="cumplido">Cumplido</option><option value="incumplido">Incumplido</option></select></div>
+              <div class="filter-group"><label class="filter-label">&nbsp;</label><button class="btn btn-primary" onclick="cargarSeguimiento()">Aplicar</button></div>
+              <div class="filter-group"><label class="filter-label">&nbsp;</label><button class="btn-clear-filters" onclick="limpiarFiltrosSeguimiento()">Limpiar</button></div>
+            </div>
+            <div class="kpis-grid" id="seg-kpis-grid"></div>
+            <div id="seg-tabla"></div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal" class="sap-modal-overlay" onclick="if(event.target===this) closeModal()">
+    <div class="sap-modal">
+      <div class="sap-modal-header">
+        <div class="sap-modal-title" id="modal-title">Análisis de Deuda</div>
+        <button class="sap-modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="sap-modal-body" id="m-body"></div>
+    </div>
+  </div>
+
+  <?!= include('deuda_clientes_js'); ?>
+</body>
+</html>

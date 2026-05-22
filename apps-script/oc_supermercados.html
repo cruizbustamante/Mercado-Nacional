@@ -1,0 +1,1766 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VDA Dashboard Ejecutivo • SAP Style</title>
+  <base target="_top">
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* ====== SAP Fiori Style Ultra Compacto ====== */
+    :root{
+      --sap-blue:#0854A0;
+      --sap-blue-dark:#053B6B;
+      --sap-blue-light:#0A6ED1;
+      --sap-green:#107E3E;
+      --sap-red:#BB0000;
+      --sap-orange:#E26310;
+      --sap-gray:#6A6D70;
+      --sap-gray-light:#EDEFF0;
+      --sap-border:#D9D9D9;
+      --sap-bg:#F7F7F7;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font:11px/1.4 "72","72full",Helvetica,Arial,sans-serif;background:var(--sap-bg);color:#32363A;height:100vh;overflow:hidden}
+
+    /* ====== Layout SAP ====== */
+    .sap-shell{display:grid;grid-template-columns:180px 1fr;height:100vh}
+    
+    /* ====== Sidebar SAP ====== */
+    .sap-sidebar{background:var(--sap-blue-dark);color:#fff;display:flex;flex-direction:column}
+    .sap-logo{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.15);font-size:12px;font-weight:700}
+    .sap-nav{padding:8px 0}
+    .sap-nav-item{display:block;padding:8px 12px;color:rgba(255,255,255,.85);font-size:11px;font-weight:600;
+      border-left:3px solid transparent;cursor:pointer;transition:all .1s}
+    .sap-nav-item:hover{background:rgba(255,255,255,.08);color:#fff}
+    .sap-nav-item.active{background:rgba(255,255,255,.12);color:#fff;border-left-color:#0A6ED1}
+
+    /* ====== Main Content ====== */
+    .sap-main{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+    
+    /* ====== Header Ultra Compacto ====== */
+    .sap-header{background:#fff;border-bottom:1px solid var(--sap-border);padding:0 16px;height:40px;
+      display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+    .sap-title{font-size:14px;font-weight:700;color:var(--sap-blue)}
+    .sap-subtitle{font-size:10px;color:var(--sap-gray);margin-left:8px}
+
+    /* ====== Toolbar Inline ====== */
+    .sap-toolbar{background:#fff;border-bottom:1px solid var(--sap-border);padding:6px 16px;height:44px;
+      display:flex;align-items:center;gap:12px;flex-shrink:0}
+    .sap-period{display:flex;align-items:center;gap:8px;flex:1}
+    .sap-badge{background:var(--sap-blue);color:#fff;padding:4px 10px;border-radius:3px;font-size:11px;font-weight:700}
+    .sap-range{font-size:11px;color:var(--sap-gray);font-weight:600}
+    .sap-nav-controls{display:flex;align-items:center;gap:4px}
+    .sap-btn{border:1px solid var(--sap-border);background:#fff;padding:5px 8px;font-size:10px;
+      font-weight:600;border-radius:3px;cursor:pointer;transition:all .1s;color:#32363A}
+    .sap-btn:hover{background:var(--sap-gray-light);border-color:var(--sap-blue)}
+    .sap-btn.primary{background:var(--sap-blue);color:#fff;border-color:var(--sap-blue)}
+    .sap-btn.primary:hover{background:var(--sap-blue-light)}
+    .sap-input{border:1px solid var(--sap-border);padding:4px 6px;font-size:11px;border-radius:3px;width:110px}
+    .sap-input:focus{outline:none;border-color:var(--sap-blue);box-shadow:0 0 0 2px rgba(8,84,160,.1)}
+    .sap-table .sap-input{font-size:10px;padding:3px 5px}
+    .sap-divider{width:1px;height:24px;background:var(--sap-border)}
+
+    /* ====== Content Area ====== */
+    .sap-content{flex:1;overflow-y:auto;padding:12px 16px}
+
+    /* ====== Alertas Compactas ====== */
+    .sap-alerts{margin-bottom:10px}
+    .sap-alert{background:#fff;border-left:3px solid var(--sap-orange);padding:6px 10px;
+      margin-bottom:4px;display:flex;align-items:center;gap:8px;font-size:11px;border-radius:0 3px 3px 0}
+    .sap-alert.critical{border-left-color:var(--sap-red);background:#FEF5F5}
+    .sap-alert.success{border-left-color:var(--sap-green);background:#F5FEF5}
+    .sap-alert-icon{font-size:14px}
+    .sap-alert-text{flex:1;font-weight:600}
+    .sap-alert-btn{background:transparent;border:1px solid var(--sap-border);padding:2px 8px;
+      font-size:10px;font-weight:700;border-radius:2px;cursor:pointer}
+
+    /* ====== KPIs Tipo SAP Tiles ====== */
+    .sap-tiles{display:grid;grid-template-columns:repeat(8, 1fr);gap:8px;margin-bottom:10px}
+    @media (max-width:1600px){.sap-tiles{grid-template-columns:repeat(4,1fr)}}
+    .sap-tile{background:#fff;border:1px solid var(--sap-border);padding:8px 10px;
+      border-radius:3px;position:relative;cursor:pointer;transition:all .1s}
+    .sap-tile:hover{box-shadow:0 2px 8px rgba(8,84,160,.15);border-color:var(--sap-blue)}
+    .sap-tile.critical{border-left:3px solid var(--sap-red)}
+    .sap-tile.warning{border-left:3px solid var(--sap-orange)}
+    .sap-tile.success{border-left:3px solid var(--sap-green)}
+    .sap-tile-label{font-size:9px;text-transform:uppercase;color:var(--sap-gray);
+      letter-spacing:.3px;font-weight:700;margin-bottom:4px}
+    .sap-tile-value{font-size:18px;font-weight:700;color:var(--sap-blue);line-height:1;margin-bottom:3px}
+    .sap-tile-compare{font-size:9px;font-weight:600;margin-bottom:2px}
+    .sap-tile-compare.up{color:var(--sap-green)}
+    .sap-tile-compare.down{color:var(--sap-red)}
+    .sap-tile-compare.neutral{color:var(--sap-gray)}
+    .sap-tile-sub{font-size:9px;color:var(--sap-gray)}
+
+    /* ====== Tabla SAP - CORREGIDA ALINEACIÓN ====== */
+    .sap-table-container{background:#fff;border:1px solid var(--sap-border);border-radius:3px}
+    .sap-table-header{padding:8px 12px;border-bottom:1px solid var(--sap-border);
+      display:flex;justify-content:space-between;align-items:center}
+    .sap-table-title{font-size:12px;font-weight:700;color:#32363A}
+    .sap-table{width:100%;border-collapse:collapse;font-size:11px;table-layout:auto}
+    .sap-table thead{background:var(--sap-gray-light)}
+    .sap-table th{padding:6px 8px;text-align:left;font-size:10px;font-weight:700;
+      color:#32363A;border-bottom:2px solid var(--sap-border);text-transform:uppercase;letter-spacing:.3px}
+    .sap-table th.num{text-align:right}
+    .sap-table th.center{text-align:center}
+    .sap-table tbody tr{border-bottom:1px solid var(--sap-border);transition:background .1s}
+    .sap-table tbody tr:hover{background:#F5FAFF}
+    .sap-table td{padding:6px 8px;color:#32363A;font-weight:500;vertical-align:middle}
+    .sap-table td.num{text-align:right;font-weight:600;font-family:monospace;font-size:11px}
+    .sap-table td.center{text-align:center}
+    
+    /* ====== Status Indicators SAP ====== */
+    .sap-status{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;
+      border-radius:2px;font-size:10px;font-weight:700}
+    .sap-status.excellent{background:#E5F5EC;color:var(--sap-green)}
+    .sap-status.good{background:#FFF4E5;color:var(--sap-orange)}
+    .sap-status.critical{background:#FFEBEB;color:var(--sap-red)}
+    .sap-status.empty{background:var(--sap-gray-light);color:var(--sap-gray)}
+    .sap-status-dot{width:6px;height:6px;border-radius:50%}
+    .sap-status-dot.excellent{background:var(--sap-green)}
+    .sap-status-dot.good{background:var(--sap-orange)}
+    .sap-status-dot.critical{background:var(--sap-red)}
+    .sap-status-dot.empty{background:var(--sap-gray)}
+
+    /* ====== Progress Bar SAP ====== */
+    .sap-progress{width:60px;height:6px;background:#E5E5E5;border-radius:3px;overflow:hidden;display:inline-block}
+    .sap-progress-bar{height:100%;transition:width .3s}
+    .sap-progress-bar.excellent{background:var(--sap-green)}
+    .sap-progress-bar.good{background:var(--sap-orange)}
+    .sap-progress-bar.critical{background:var(--sap-red)}
+
+    /* ====== Panel States ====== */
+    .sap-panel{display:none}
+    .sap-panel.active{display:block}
+
+    /* ====== Modal Tabs ====== */
+    .modal-tab{border:none;background:transparent;padding:6px 12px;border-radius:3px;
+      font-size:11px;font-weight:700;color:var(--sap-gray);cursor:pointer;transition:all .1s}
+    .modal-tab:hover{background:rgba(8,84,160,.05)}
+    .modal-tab.active{background:#fff;color:var(--sap-blue);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+    .modal-tab-content{display:none}
+    .modal-tab-content.active{display:block}
+
+    /* ====== Loading ====== */
+    .sap-loading{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--sap-gray)}
+    .sap-spinner{width:24px;height:24px;border:3px solid var(--sap-gray-light);
+      border-top-color:var(--sap-blue);border-radius:50%;animation:spin .8s linear infinite;margin-right:8px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ====== Modal SAP ====== */
+    .sap-modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;
+      justify-content:center;z-index:9999;padding:20px}
+    .sap-modal-content{background:#fff;border-radius:3px;max-width:1600px;width:100%;
+      max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+    .sap-modal-header{padding:12px 16px;border-bottom:1px solid var(--sap-border);
+      display:flex;justify-content:space-between;align-items:center}
+    .sap-modal-title{font-size:14px;font-weight:700;color:var(--sap-blue)}
+    .sap-modal-close{border:none;background:var(--sap-red);color:#fff;width:28px;height:28px;
+      border-radius:3px;font-size:16px;font-weight:700;cursor:pointer}
+    .sap-modal-body{padding:16px;overflow-y:auto;flex:1}
+    .sap-modal-footer{padding:10px 16px;border-top:1px solid var(--sap-border);
+      display:flex;justify-content:flex-end;gap:8px}
+
+    /* ====== Charts Container ====== */
+    .charts-grid{display:grid;grid-template-columns:repeat(2, 1fr);gap:10px;margin-bottom:10px}
+    .chart-container{background:#fff;border:1px solid var(--sap-border);border-radius:3px;padding:12px}
+    .chart-title{font-size:11px;font-weight:700;color:#32363A;margin-bottom:8px;text-transform:uppercase}
+    .chart-wrapper{position:relative;height:200px}
+    @media (max-width:1200px){.charts-grid{grid-template-columns:1fr}}
+
+    /* ====== Executive KPIs (larger tiles) ====== */
+    .exec-tiles{display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;margin-bottom:12px}
+    @media (max-width:1400px){.exec-tiles{grid-template-columns:repeat(2, 1fr)}}
+    .exec-tile{background:#fff;border:1px solid var(--sap-border);padding:12px 14px;border-radius:3px;
+      position:relative;cursor:pointer;transition:all .1s;min-height:90px}
+    .exec-tile:hover{box-shadow:0 2px 12px rgba(8,84,160,.2);border-color:var(--sap-blue)}
+    .exec-tile.critical{border-left:4px solid var(--sap-red)}
+    .exec-tile.warning{border-left:4px solid var(--sap-orange)}
+    .exec-tile.success{border-left:4px solid var(--sap-green)}
+    .exec-tile-label{font-size:10px;text-transform:uppercase;color:var(--sap-gray);
+      letter-spacing:.4px;font-weight:700;margin-bottom:6px}
+    .exec-tile-value{font-size:24px;font-weight:700;color:var(--sap-blue);line-height:1;margin-bottom:6px}
+    .exec-tile-compare{font-size:11px;font-weight:600;margin-bottom:4px}
+    .exec-tile-compare.up{color:var(--sap-green)}
+    .exec-tile-compare.down{color:var(--sap-red)}
+    .exec-tile-compare.neutral{color:var(--sap-gray)}
+    .exec-tile-sub{font-size:10px;color:var(--sap-gray);font-weight:600}
+
+    /* ====== Utilities ====== */
+    .text-success{color:var(--sap-green)!important}
+    .text-warning{color:var(--sap-orange)!important}
+    .text-danger{color:var(--sap-red)!important}
+    .fw-700{font-weight:700!important}
+  </style>
+</head>
+<body>
+  <div class="sap-shell">
+    <!-- Sidebar -->
+    <aside class="sap-sidebar">
+      <div class="sap-logo">VDA Órdenes<br><span style="font-size:9px;opacity:.7">Sistema v3.1</span></div>
+      <nav class="sap-nav">
+        <div class="sap-nav-item active" data-panel="ejecutivo">Dashboard Ejecutivo</div>
+        <div class="sap-nav-item" data-panel="dashboard">Órdenes Semana</div>
+        <div class="sap-nav-item" data-panel="search">Búsqueda</div>
+        <div class="sap-nav-item" data-panel="control">Análisis</div>
+      </nav>
+    </aside>
+
+    <!-- Main -->
+    <main class="sap-main">
+      <!-- Header -->
+      <div class="sap-header">
+        <div>
+          <span class="sap-title">Órdenes Comercio.net</span>
+          <span class="sap-subtitle">Sistema de Gestión • Viña de Aguirre</span>
+        </div>
+      </div>
+
+      <!-- Toolbar (solo visible en Órdenes Semana) -->
+      <div class="sap-toolbar" id="weekToolbar" style="display:none">
+        <div class="sap-period">
+          <span class="sap-badge" id="weekBadge">Semana actual</span>
+          <span class="sap-range" id="weekRange">—</span>
+        </div>
+        
+        <div class="sap-nav-controls">
+          <button class="sap-btn" id="btn2Prev" title="2 semanas atrás">««</button>
+          <button class="sap-btn" id="btnPrev" title="Anterior">‹</button>
+          <button class="sap-btn primary" id="btnNow" title="Hoy">●</button>
+          <button class="sap-btn" id="btnNext" title="Siguiente">›</button>
+          <button class="sap-btn" id="btn2Next" title="2 semanas">»»</button>
+          
+          <div class="sap-divider"></div>
+          
+          <input type="date" id="datePicker" class="sap-input">
+          <button class="sap-btn" id="btnGo">Ir</button>
+        </div>
+      </div>
+
+      <!-- Content -->
+      <div class="sap-content">
+        
+        <!-- ========== NUEVO: DASHBOARD EJECUTIVO ========== -->
+        <section id="ejecutivo" class="sap-panel active">
+          <!-- Selector de Mes -->
+          <div style="background:#fff;border:1px solid var(--sap-border);border-radius:3px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px">
+            <strong style="font-size:11px;color:var(--sap-blue)">📅 Período:</strong>
+            <select id="execMesSelect" class="sap-input" style="width:150px">
+              <option value="0">Mes Actual</option>
+              <option value="-1">Mes Anterior</option>
+              <option value="-2">Hace 2 meses</option>
+              <option value="-3">Hace 3 meses</option>
+            </select>
+            <button class="sap-btn primary" id="btnReloadExec">🔄 Actualizar</button>
+            <span id="execPeriodLabel" style="font-size:10px;color:var(--sap-gray);margin-left:8px"></span>
+          </div>
+
+          <div class="sap-loading" id="execLoading">
+            <div class="sap-spinner"></div>Cargando dashboard ejecutivo...
+          </div>
+
+          <div id="execContent" style="display:none">
+            <!-- KPIs Ejecutivos -->
+            <div class="exec-tiles" id="execKPIs"></div>
+
+            <!-- Gráficos -->
+            <div class="charts-grid">
+              <!-- Facturación Mensual - MODIFICADO: Doble barra -->
+              <div class="chart-container">
+                <div class="chart-title">💰 Facturación Mensual (últimos 3 meses)</div>
+                <div class="chart-wrapper">
+                  <canvas id="chartFacturacion"></canvas>
+                </div>
+              </div>
+
+              <!-- Cumplimiento por Mes -->
+              <div class="chart-container">
+                <div class="chart-title">📊 Tendencia de Cumplimiento</div>
+                <div class="chart-wrapper">
+                  <canvas id="chartCumplimiento"></canvas>
+                </div>
+              </div>
+
+              <!-- Distribución por Supermercado -->
+              <div class="chart-container">
+                <div class="chart-title">🏪 Distribución por Supermercado</div>
+                <div class="chart-wrapper">
+                  <canvas id="chartSuper"></canvas>
+                </div>
+              </div>
+
+              <!-- Top 10 Marcas -->
+              <div class="chart-container">
+                <div class="chart-title">🏷️ Top 10 Marcas (Facturación Mes Actual)</div>
+                <div class="chart-wrapper">
+                  <canvas id="chartProductos"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tabla Distribución por Supermercado - MODIFICADA: + columna % Partic. Ordenado -->
+            <div class="sap-table-container" style="margin-bottom:12px">
+              <div class="sap-table-header">
+                <div class="sap-table-title">🏪 Distribución por Supermercado (Mes Actual)</div>
+              </div>
+              <table class="sap-table" id="execTableSuper">
+                <thead>
+                  <tr>
+                    <th>Supermercado</th>
+                    <th class="num">Órdenes</th>
+                    <th class="num">Cajas</th>
+                    <th class="num">Valor Total</th>
+                    <th class="num">Facturado</th>
+                    <th class="center">% Cumpl.</th>
+                    <th class="num">No Facturado</th>
+                    <th class="center">% Partic. Ordenado</th>
+                    <th class="center">% Partic. Facturado</th>
+                  </tr>
+                </thead>
+                <tbody id="execTableSuperBody"></tbody>
+              </table>
+            </div>
+
+            <!-- Tabla Comparativa -->
+            <div class="sap-table-container">
+              <div class="sap-table-header">
+                <div class="sap-table-title">📋 Resumen Comparativo: Mes Actual vs Anterior vs Año</div>
+              </div>
+              <table class="sap-table" id="execTable">
+                <thead>
+                  <tr>
+                    <th>Período</th>
+                    <th class="num">Órdenes</th>
+                    <th class="num">Cajas</th>
+                    <th class="num">Valor Total</th>
+                    <th class="num">Facturado</th>
+                    <th class="center">% Cumpl.</th>
+                    <th class="num">No Facturado</th>
+                  </tr>
+                </thead>
+                <tbody id="execTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========== ÓRDENES SEMANA (antes "Dashboard") ========== -->
+        <section id="dashboard" class="sap-panel">
+          <!-- Alertas -->
+          <div class="sap-alerts" id="alertContainer"></div>
+
+          <!-- KPIs Tiles -->
+          <div class="sap-tiles">
+            <div class="sap-tile" id="tileOrders">
+              <div class="sap-tile-label">Órdenes</div>
+              <div class="sap-tile-value" id="valOrders">-</div>
+              <div class="sap-tile-compare" id="cmpOrders">—</div>
+              <div class="sap-tile-sub" id="subOrders">Mes: —</div>
+            </div>
+
+            <div class="sap-tile" id="tileBoxes">
+              <div class="sap-tile-label">Cajas</div>
+              <div class="sap-tile-value" id="valBoxes">-</div>
+              <div class="sap-tile-compare" id="cmpBoxes">—</div>
+              <div class="sap-tile-sub" id="subBoxes">Mes: —</div>
+            </div>
+
+            <div class="sap-tile" id="tileRevenue">
+              <div class="sap-tile-label">Valor Órdenes</div>
+              <div class="sap-tile-value" id="valRevenue">-</div>
+              <div class="sap-tile-compare" id="cmpRevenue">—</div>
+              <div class="sap-tile-sub" id="subRevenue">Mes: —</div>
+            </div>
+
+            <div class="sap-tile success" id="tileInvoiced">
+              <div class="sap-tile-label">Facturado</div>
+              <div class="sap-tile-value" id="valInvoiced">-</div>
+              <div class="sap-tile-compare" id="cmpInvoiced">—</div>
+              <div class="sap-tile-sub" id="subInvoiced">Mes: —</div>
+            </div>
+
+            <div class="sap-tile" id="tileEff">
+              <div class="sap-tile-label">% Cumplim.</div>
+              <div class="sap-tile-value" id="valEff">-</div>
+              <div class="sap-tile-compare" id="cmpEff">—</div>
+              <div class="sap-tile-sub" id="subEff">Mes: —</div>
+            </div>
+
+            <div class="sap-tile" id="tileUninvoiced">
+              <div class="sap-tile-label">No Facturado</div>
+              <div class="sap-tile-value" id="valUninvoiced">-</div>
+              <div class="sap-tile-compare" id="cmpUninvoiced">—</div>
+              <div class="sap-tile-sub" id="subUninvoiced">Mes: —</div>
+            </div>
+
+            <div class="sap-tile">
+              <div class="sap-tile-label">SKUs</div>
+              <div class="sap-tile-value" id="valSKUs">-</div>
+              <div class="sap-tile-sub">Únicos</div>
+            </div>
+
+            <div class="sap-tile">
+              <div class="sap-tile-label">Supers</div>
+              <div class="sap-tile-value" id="valSupers">-</div>
+              <div class="sap-tile-sub">Activos</div>
+            </div>
+          </div>
+
+          <!-- Tabla Principal -->
+          <div class="sap-table-container">
+            <div class="sap-table-header">
+              <div class="sap-table-title">Resumen Diario de la Semana</div>
+            </div>
+            <table class="sap-table" id="mainTable">
+              <thead>
+                <tr>
+                  <th>Día</th>
+                  <th>Fecha</th>
+                  <th class="num">Órdenes</th>
+                  <th class="num">Cajas Sol.</th>
+                  <th class="num">Cajas Fact.</th>
+                  <th class="num">Valor Orden</th>
+                  <th class="num">Facturado</th>
+                  <th class="num">Pendiente</th>
+                  <th class="center">% Cumpl.</th>
+                  <th class="center">Estado</th>
+                  <th class="center">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody">
+                <tr><td colspan="11" class="sap-loading"><div class="sap-spinner"></div>Cargando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- BÚSQUEDA -->
+        <section id="search" class="sap-panel">
+          <div class="sap-table-container" style="margin-bottom:12px">
+            <div class="sap-table-header">
+              <div class="sap-table-title">Búsqueda de Orden</div>
+            </div>
+            <div style="padding:12px;display:flex;gap:8px;align-items:center">
+              <input id="searchInput" class="sap-input" placeholder="N° de orden..." style="flex:1;max-width:300px">
+              <button class="sap-btn primary" id="btnSearch">🔍 Buscar</button>
+            </div>
+          </div>
+          <div id="searchResult"></div>
+        </section>
+
+        <!-- ANÁLISIS -->
+        <section id="control" class="sap-panel">
+          <div class="sap-table-container" style="margin-bottom:12px">
+            <div class="sap-table-header">
+              <div class="sap-table-title">Órdenes Facturadas (por Orden)</div>
+            </div>
+            <table class="sap-table">
+              <thead><tr>
+                <th>Orden</th><th>Super</th><th>Comprador</th><th class="num">Valor Orden</th>
+                <th class="num">Facturado</th><th class="num">Pérdida</th><th class="center">Cumpl.</th>
+              </tr></thead>
+              <tbody id="tblFact"></tbody>
+            </table>
+          </div>
+
+          <div class="sap-table-container">
+            <div class="sap-table-header">
+              <div class="sap-table-title">Órdenes No Facturadas (por Orden)</div>
+            </div>
+            <table class="sap-table">
+              <thead><tr>
+                <th>Orden</th><th>Super</th><th>Comprador</th><th class="num">Cajas Pend.</th>
+                <th class="num">Valor Orden</th><th class="num">No Facturado</th><th class="center">Cumpl.</th>
+              </tr></thead>
+              <tbody id="tblNoFact"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    let currentWeekOffset = 0;
+    let currentSemana = [];
+    let previousWeekData = null;
+    let execData = null;
+    let charts = {};
+
+    const $ = (s)=>document.querySelector(s);
+    const $$ = (s)=>Array.from(document.querySelectorAll(s));
+    const fmt = n => Number(n||0).toLocaleString('es-CL');
+    const fmtCur = n => '$' + fmt(n);
+    const fmtPct = p => ((p||0)*100).toFixed(1)+'%';
+    const effClass = p => p>=0.85?'excellent':(p>=0.65?'good':'critical');
+    const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+    function niceRange(d1,d2){
+      if(!d1||!d2) return '';
+      const a=new Date(d1+'T00:00:00'), b=new Date(d2+'T00:00:00');
+      const sd=a.getDate(), ed=b.getDate(), sm=months[a.getMonth()], em=months[b.getMonth()], sy=a.getFullYear(), ey=b.getFullYear();
+      if(sy===ey && sm===em) return `${sd}-${ed} ${sm} ${sy}`;
+      if(sy===ey) return `${sd} ${sm} - ${ed} ${em} ${sy}`;
+      return `${sd} ${sm} ${sy} - ${ed} ${em} ${ey}`;
+    }
+
+    function compareValue(current, previous){
+      if(!previous || previous===0) return {text:'—', cls:'neutral'};
+      const diff = current - previous;
+      const pct = (diff/previous)*100;
+      if(Math.abs(pct)<1) return {text:'Sin cambio', cls:'neutral'};
+      const arrow = diff>0?'↑':'↓';
+      return {text:`${arrow}${Math.abs(pct).toFixed(1)}%`, cls:diff>0?'up':'down'};
+    }
+
+    function activatePanel(id){
+      $$('.sap-panel').forEach(p=>p.classList.remove('active'));
+      $('#'+id)?.classList.add('active');
+      $$('.sap-nav-item').forEach(n=>n.classList.toggle('active', n.dataset.panel===id));
+      
+      // Mostrar/ocultar toolbar de semana
+      $('#weekToolbar').style.display = (id === 'dashboard') ? 'flex' : 'none';
+      
+      // Cargar datos según panel
+      if(id === 'ejecutivo' && !execData) loadExecDashboard(currentExecOffset);
+      if(id === 'dashboard' && !currentSemana.length) loadWeek(0);
+    }
+    $$('.sap-nav-item').forEach(n=>n.addEventListener('click',()=>activatePanel(n.dataset.panel)));
+
+    // ========== DASHBOARD EJECUTIVO ==========
+    let currentExecOffset = 0;
+
+    // Normalización de nombres de supermercados SOLO para Dashboard Ejecutivo
+    function normalizeSuperExec(superName){
+      const s = String(superName || '').toLowerCase();
+      
+      // Rendic Hermanos: unificar todas las variantes
+      if(s.includes('rendic hermanos') || s.includes('rendic')) {
+        return 'Rendic Hermanos';
+      }
+      
+      // Cencosud: unificar Santa Isabel con Cencosud
+      if(s.includes('cencosud') || s.includes('santa isabel')) {
+        return 'Cencosud + Santa Isabel';
+      }
+      
+      // Walmart
+      if(s.includes('walmart') || s.includes('líder') || s.includes('lider')) {
+        return 'Walmart';
+      }
+      
+      // Otros mantener el nombre original
+      return superName;
+    }
+
+    // Consolidar datos de supermercados con mismo nombre normalizado
+    function consolidarSupermercados(porSuper){
+      const consolidated = {};
+      
+      for(const s of (porSuper || [])){
+        const nombre = normalizeSuperExec(s.super);
+        
+        if(!consolidated[nombre]){
+          consolidated[nombre] = {
+            super: nombre,
+            ordenes: 0,
+            totalCajas: 0,
+            totalMonto: 0,
+            totalFacturado: 0,
+            cumplimiento: 0
+          };
+        }
+        
+        consolidated[nombre].ordenes += s.ordenes || 0;
+        consolidated[nombre].totalCajas += s.totalCajas || 0;
+        consolidated[nombre].totalMonto += s.totalMonto || 0;
+        consolidated[nombre].totalFacturado += s.totalFacturado || 0;
+      }
+      
+      // Recalcular cumplimiento
+      const resultado = Object.values(consolidated).map(s => ({
+        ...s,
+        cumplimiento: s.totalMonto > 0 ? (s.totalFacturado / s.totalMonto) : 0
+      }));
+      
+      // Ordenar por facturado descendente
+      return resultado.sort((a,b) => b.totalFacturado - a.totalFacturado);
+    }
+
+    $('#btnReloadExec')?.addEventListener('click', ()=>{
+      const offset = parseInt($('#execMesSelect').value) || 0;
+      currentExecOffset = offset;
+      loadExecDashboard(offset);
+    });
+
+    function loadExecDashboard(mesOffset = 0){
+      $('#execLoading').style.display = 'flex';
+      $('#execContent').style.display = 'none';
+      
+      // Mostrar tiempo estimado
+      const loadingMsg = $('#execLoading');
+      loadingMsg.innerHTML = `<div class="sap-spinner"></div>Cargando dashboard ejecutivo... <span style="color:var(--sap-blue);font-weight:700">(optimizado)</span>`;
+      
+      const startTime = Date.now();
+      
+      google.script.run
+        .withSuccessHandler(data => {
+          const loadTime = ((Date.now() - startTime) / 1000).toFixed(2);
+          console.log(`✅ Dashboard cargado en ${loadTime}s`);
+          displayExecDashboard(data, mesOffset);
+        })
+        .withFailureHandler(err => {
+          $('#execLoading').innerHTML = `<div style="color:var(--sap-red)">Error: ${err && (err.message||err)}</div>`;
+        })
+        .obtenerDashboardEjecutivoPorMes(mesOffset);
+    }
+
+    function displayExecDashboard(data, mesOffset = 0){
+      execData = data;
+      $('#execLoading').style.display = 'none';
+      $('#execContent').style.display = 'block';
+
+      // Mostrar período actual
+      const labelEl = $('#execPeriodLabel');
+      if(labelEl) labelEl.textContent = `Mostrando: ${data.nombreMesActual || ''} ${data.ano?.ano || ''}`;
+
+      // Consolidar supermercados (unificar Rendic Hermanos y Cencosud)
+      data.porSuper = consolidarSupermercados(data.porSuper);
+
+      const mes = data.mesActual || {};
+      const mesAnt = data.mesAnterior || {};
+      const ano = data.ano || {};
+
+      // Renderizar KPIs (ahora con nombres top 3 consolidados)
+      renderExecKPIs(mes, mesAnt, ano, data);
+
+      // Renderizar gráficos - MODIFICADO
+      renderCharts(data);
+
+      // Renderizar tabla de supermercados - MODIFICADO
+      renderSuperTable(data);
+
+      // Renderizar tabla comparativa
+      renderExecTable(data);
+    }
+
+    function renderSuperTable(data){
+      const tbody = $('#execTableSuperBody');
+      if(!tbody) return;
+
+      const porSuper = data.porSuper || [];
+      if(!porSuper.length){
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--sap-gray)">Sin datos de supermercados</td></tr>`;
+        return;
+      }
+
+      // Calcular totales para % Participación
+      const totalOrdenado = porSuper.reduce((s,x) => s + (x.totalMonto||0), 0);
+      const totalFacturado = porSuper.reduce((s,x) => s + (x.totalFacturado||0), 0);
+
+      tbody.innerHTML = porSuper.map(s => {
+        const effCls = effClass(s.cumplimiento || 0);
+        const noFact = Math.max(0, (s.totalMonto||0) - (s.totalFacturado||0));
+        const particOrdenado = totalOrdenado > 0 ? ((s.totalMonto / totalOrdenado) * 100) : 0;
+        const particFacturado = totalFacturado > 0 ? ((s.totalFacturado / totalFacturado) * 100) : 0;
+
+        return `<tr>
+          <td><strong style="color:var(--sap-blue)">${s.super || 'N/A'}</strong></td>
+          <td class="num">${fmt(s.ordenes || 0)}</td>
+          <td class="num">${fmt(s.totalCajas || 0)}</td>
+          <td class="num">${fmtCur(s.totalMonto || 0)}</td>
+          <td class="num"><strong class="text-success">${fmtCur(s.totalFacturado || 0)}</strong></td>
+          <td class="center">
+            <span class="sap-status ${effCls}">
+              <span class="sap-status-dot ${effCls}"></span>
+              ${fmtPct(s.cumplimiento || 0)}
+            </span>
+          </td>
+          <td class="num"><strong class="${noFact>0?'text-danger':'text-success'}">${fmtCur(noFact)}</strong></td>
+          <td class="center"><strong style="color:var(--sap-blue)">${particOrdenado.toFixed(1)}%</strong></td>
+          <td class="center"><strong style="color:var(--sap-green)">${particFacturado.toFixed(1)}%</strong></td>
+        </tr>`;
+      }).join('');
+    }
+
+    function renderExecKPIs(mes, mesAnt, ano, data){
+      const container = $('#execKPIs');
+      if(!container) return;
+
+      const kpis = [
+        {
+          icon: '📦',
+          label: `Total Órdenes ${data.nombreMesActual}`,
+          value: mes.totalOrdenes || 0,
+          compare: mesAnt.totalOrdenes || 0,
+          format: 'number',
+          class: ''
+        },
+        {
+          icon: '💰',
+          label: `Valor Total Órdenes ${data.nombreMesActual}`,
+          value: mes.totalMonto || 0,
+          compare: mesAnt.totalMonto || 0,
+          format: 'currency',
+          class: ''
+        },
+        {
+          icon: '✅',
+          label: `Facturación ${data.nombreMesActual}`,
+          value: mes.totalValorFact || 0,
+          compare: mesAnt.totalValorFact || 0,
+          format: 'currency',
+          class: 'success'
+        },
+        {
+          icon: '⚠️',
+          label: `No Facturado ${data.nombreMesActual}`,
+          value: mes.montoNoFacturado || 0,
+          compare: mesAnt.montoNoFacturado || 0,
+          format: 'currency',
+          class: (mes.montoNoFacturado > 10000000 ? 'warning' : '')
+        },
+        {
+          icon: '📊',
+          label: `% Cumplimiento ${data.nombreMesActual}`,
+          value: mes.cumplimientoCajas || 0,
+          compare: mesAnt.cumplimientoCajas || 0,
+          format: 'percent',
+          class: (mes.cumplimientoCajas >= 0.85 ? 'success' : (mes.cumplimientoCajas >= 0.65 ? 'warning' : 'critical'))
+        },
+        {
+          icon: '💵',
+          label: 'Valor Promedio por Orden',
+          value: mes.totalOrdenes > 0 ? Math.round(mes.totalMonto / mes.totalOrdenes) : 0,
+          compare: mesAnt.totalOrdenes > 0 ? Math.round(mesAnt.totalMonto / mesAnt.totalOrdenes) : 0,
+          format: 'currency',
+          class: ''
+        },
+        {
+          icon: '🏆',
+          label: 'Top 3 Supermercados',
+          value: '',
+          sub: (data.porSuper || []).slice(0,3).map(s => s.super).join(', ') || 'N/A',
+          format: 'text',
+          class: ''
+        },
+        {
+          icon: '📈',
+          label: 'Total Año (desde Sept)',
+          value: ano.totalValorFact || 0,
+          sub: `${fmt(ano.totalOrdenes||0)} órdenes • ${fmtPct(ano.cumplimientoCajas||0)} cumpl.`,
+          format: 'currency',
+          class: 'success'
+        }
+      ];
+
+      container.innerHTML = kpis.map(kpi => {
+        let valueHtml = '';
+        let compareHtml = '';
+        let subHtml = '';
+
+        if(kpi.format === 'text'){
+          valueHtml = kpi.value;
+          subHtml = kpi.sub || '';
+        } else {
+          if(kpi.format === 'currency') valueHtml = fmtCur(kpi.value);
+          else if(kpi.format === 'percent') valueHtml = fmtPct(kpi.value);
+          else valueHtml = fmt(kpi.value);
+
+          if(kpi.compare !== undefined){
+            const comp = compareValue(kpi.value, kpi.compare);
+            compareHtml = `<div class="exec-tile-compare ${comp.cls}">${comp.text}</div>`;
+          }
+          if(kpi.sub) subHtml = `<div class="exec-tile-sub">${kpi.sub}</div>`;
+        }
+
+        return `
+          <div class="exec-tile ${kpi.class}">
+            <div class="exec-tile-label">${kpi.icon} ${kpi.label}</div>
+            <div class="exec-tile-value">${valueHtml}</div>
+            ${compareHtml}
+            ${subHtml}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // MODIFICADO: Gráficos con doble barra en Facturación
+    function renderCharts(data){
+      const tendencia = data.tendenciaMensual || [];
+      const porSuper = data.porSuper || [];
+      const topMarcas = data.topMarcas || [];
+
+      // Destruir charts existentes
+      Object.values(charts).forEach(c => c && c.destroy && c.destroy());
+      charts = {};
+
+      // Chart 1: Facturación Mensual - MODIFICADO: Doble barra (Valor Total + Facturado)
+      const ctxFact = $('#chartFacturacion');
+      if(ctxFact){
+        charts.facturacion = new Chart(ctxFact, {
+          type: 'bar',
+          data: {
+            labels: tendencia.map(t => t.mes),
+            datasets: [
+              {
+                label: 'Valor Total Órdenes',
+                data: tendencia.map(t => t.totalMonto),
+                backgroundColor: 'rgba(106, 109, 112, 0.6)',
+                borderColor: 'rgba(106, 109, 112, 1)',
+                borderWidth: 1
+              },
+              {
+                label: 'Facturado',
+                data: tendencia.map(t => t.totalFacturado),
+                backgroundColor: 'rgba(8, 84, 160, 0.7)',
+                borderColor: 'rgba(8, 84, 160, 1)',
+                borderWidth: 1
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { 
+                display: true,
+                position: 'top',
+                labels: { font: { size: 10 } }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    return context.dataset.label + ': $' + (context.parsed.y / 1000000).toFixed(1) + 'M';
+                  }
+                }
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  callback: val => '$' + (val/1000000).toFixed(1) + 'M',
+                  font: { size: 9 }
+                }
+              },
+              x: {
+                ticks: { font: { size: 9 } }
+              }
+            }
+          }
+        });
+      }
+
+      // Chart 2: Cumplimiento por Mes (Líneas)
+      const ctxCumpl = $('#chartCumplimiento');
+      if(ctxCumpl){
+        charts.cumplimiento = new Chart(ctxCumpl, {
+          type: 'line',
+          data: {
+            labels: tendencia.map(t => t.mes),
+            datasets: [{
+              label: '% Cumplimiento',
+              data: tendencia.map(t => (t.cumplimiento * 100).toFixed(1)),
+              backgroundColor: 'rgba(16, 126, 62, 0.2)',
+              borderColor: 'rgba(16, 126, 62, 1)',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.3
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                max: 100,
+                ticks: {
+                  callback: val => val + '%'
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // Chart 3: Distribución por Supermercado (Pie) con porcentajes
+      const ctxSuper = $('#chartSuper');
+      if(ctxSuper){
+        const colors = ['#0854A0', '#107E3E', '#E26310', '#BB0000', '#6A6D70', '#0A6ED1', '#2E7D32'];
+        const totalFactSuper = porSuper.reduce((s,x)=>s+(x.totalFacturado||0), 0);
+        
+        charts.super = new Chart(ctxSuper, {
+          type: 'pie',
+          data: {
+            labels: porSuper.map(s => s.super),
+            datasets: [{
+              data: porSuper.map(s => s.totalFacturado),
+              backgroundColor: colors.slice(0, porSuper.length),
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'right',
+                labels: { 
+                  font: { size: 9 },
+                  generateLabels: function(chart) {
+                    const data = chart.data;
+                    if (data.labels.length && data.datasets.length) {
+                      return data.labels.map((label, i) => {
+                        const value = data.datasets[0].data[i];
+                        const pct = totalFactSuper > 0 ? ((value / totalFactSuper) * 100).toFixed(1) : 0;
+                        return {
+                          text: label + ' (' + pct + '%)',
+                          fillStyle: data.datasets[0].backgroundColor[i],
+                          hidden: false,
+                          index: i
+                        };
+                      });
+                    }
+                    return [];
+                  }
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const value = context.parsed;
+                    const pct = totalFactSuper > 0 ? ((value / totalFactSuper) * 100).toFixed(1) : 0;
+                    return context.label + ': $' + value.toLocaleString('es-CL') + ' (' + pct + '%)';
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // Chart 4: Top 10 MARCAS (Barras Horizontales)
+      const ctxMarcas = $('#chartProductos');
+      if(ctxMarcas){
+        charts.marcas = new Chart(ctxMarcas, {
+          type: 'bar',
+          data: {
+            labels: topMarcas.map(m => m.marca.substring(0,25)),
+            datasets: [{
+              label: 'Facturado',
+              data: topMarcas.map(m => m.totalFacturado),
+              backgroundColor: 'rgba(226, 99, 16, 0.7)',
+              borderColor: 'rgba(226, 99, 16, 1)',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              x: {
+                beginAtZero: true,
+                ticks: {
+                  callback: val => '$' + (val/1000000).toFixed(1) + 'M'
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+
+    function renderExecTable(data){
+      const tbody = $('#execTableBody');
+      if(!tbody) return;
+
+      const mes = data.mesActual || {};
+      const mesAnt = data.mesAnterior || {};
+      const ano = data.ano || {};
+
+      const rows = [
+        {
+          periodo: `${data.nombreMesActual} (actual)`,
+          ordenes: mes.totalOrdenes || 0,
+          cajas: mes.totalCajas || 0,
+          valor: mes.totalMonto || 0,
+          facturado: mes.totalValorFact || 0,
+          cumpl: mes.cumplimientoCajas || 0,
+          noFact: mes.montoNoFacturado || 0,
+          class: ''
+        },
+        {
+          periodo: `${data.nombreMesAnterior} (anterior)`,
+          ordenes: mesAnt.totalOrdenes || 0,
+          cajas: mesAnt.totalCajas || 0,
+          valor: mesAnt.totalMonto || 0,
+          facturado: mesAnt.totalValorFact || 0,
+          cumpl: mesAnt.cumplimientoCajas || 0,
+          noFact: mesAnt.montoNoFacturado || 0,
+          class: ''
+        },
+        {
+          periodo: 'AÑO (desde Sept)',
+          ordenes: ano.totalOrdenes || 0,
+          cajas: ano.totalCajas || 0,
+          valor: ano.totalMonto || 0,
+          facturado: ano.totalValorFact || 0,
+          cumpl: ano.cumplimientoCajas || 0,
+          noFact: ano.montoNoFacturado || 0,
+          class: 'fw-700'
+        }
+      ];
+
+      tbody.innerHTML = rows.map(r => {
+        const effCls = effClass(r.cumpl);
+        return `<tr class="${r.class}">
+          <td><strong>${r.periodo}</strong></td>
+          <td class="num">${fmt(r.ordenes)}</td>
+          <td class="num">${fmt(r.cajas)}</td>
+          <td class="num">${fmtCur(r.valor)}</td>
+          <td class="num"><strong class="text-success">${fmtCur(r.facturado)}</strong></td>
+          <td class="center">
+            <span class="sap-status ${effCls}">
+              <span class="sap-status-dot ${effCls}"></span>
+              ${fmtPct(r.cumpl)}
+            </span>
+          </td>
+          <td class="num"><strong class="${r.noFact>0?'text-danger':'text-success'}">${fmtCur(r.noFact)}</strong></td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ========== ÓRDENES SEMANA (código original) ==========
+    $('#btn2Prev').addEventListener('click', ()=>loadWeek(currentWeekOffset-2));
+    $('#btnPrev').addEventListener('click', ()=>loadWeek(currentWeekOffset-1));
+    $('#btnNow').addEventListener('click', ()=>loadWeek(0));
+    $('#btnNext').addEventListener('click', ()=>loadWeek(currentWeekOffset+1));
+    $('#btn2Next').addEventListener('click', ()=>loadWeek(currentWeekOffset+2));
+    $('#btnGo').addEventListener('click', ()=>loadWeekByDate());
+    $('#datePicker').value = new Date().toISOString().slice(0,10);
+
+    function loadWeek(offset){
+      currentWeekOffset = offset;
+      $('#weekBadge').textContent = offset===0? 'Semana actual' : (offset<0?`${Math.abs(offset)} atrás`:`+${offset}`);
+      $('#weekRange').textContent = 'Calculando…';
+      $('#tableBody').innerHTML = `<tr><td colspan="11" class="sap-loading"><div class="sap-spinner"></div>Cargando...</td></tr>`;
+      
+      google.script.run
+        .withSuccessHandler(displayWeekData)
+        .withFailureHandler(displayWeekError)
+        .obtenerSemanaYMesOffset(offset);
+    }
+
+    function loadWeekByDate(){
+      const v = $('#datePicker').value;
+      if(!v) return;
+      $('#weekBadge').textContent = 'Semana seleccionada';
+      $('#weekRange').textContent = 'Calculando…';
+      $('#tableBody').innerHTML = `<tr><td colspan="11" class="sap-loading"><div class="sap-spinner"></div>Cargando...</td></tr>`;
+      
+      google.script.run
+        .withSuccessHandler(displayWeekData)
+        .withFailureHandler(displayWeekError)
+        .obtenerSemanaYMesPorFecha(v);
+    }
+
+    function displayWeekData(payload){
+      const data = Array.isArray(payload) ? { semana: payload } : (payload || { semana: [] });
+      const semana = data.semana || [];
+      currentSemana = semana;
+
+      if(semana.length){
+        const first = semana[0].fecha;
+        const last = semana[semana.length-1].fecha;
+        $('#weekRange').textContent = niceRange(first,last);
+      }else{
+        $('#weekRange').textContent = 'Sin datos';
+      }
+
+      let totalOrders=0, totalBoxes=0, totalOC=0, totalFact=0, totalInvoicedBoxes=0;
+      let uniqueSKUs = new Set(), uniqueSupers = new Set();
+      
+      semana.forEach(d=>{
+        if(d.tieneOrdenes){
+          totalOrders+=d.cantidadOrdenes;
+          totalBoxes+=d.totalCajas;
+          totalOC+=d.totalMonto;
+          totalFact+=d.totalValorFact||0;
+          totalInvoicedBoxes+=d.totalCajasFact||0;
+          (d.skus||new Set()).forEach(sku=>uniqueSKUs.add(sku));
+          (d.supers||[]).forEach(s=>uniqueSupers.add(s));
+        }
+      });
+
+      const rSem = data.resumenSemana || {cumplimientoCajas:(totalBoxes?totalInvoicedBoxes/totalBoxes:0), montoNoFacturado:Math.max(0,totalOC-totalFact)};
+      const rMes = data.resumenMes || {totalOrdenes:0,totalCajas:0,totalMonto:0,totalValorFact:0,cumplimientoCajas:0,montoNoFacturado:0};
+
+      updateTile('Orders', totalOrders, rMes.totalOrdenes);
+      updateTile('Boxes', totalBoxes, rMes.totalCajas);
+      updateTile('Revenue', totalOC, rMes.totalMonto);
+      updateTile('Invoiced', totalFact, rMes.totalValorFact);
+      updateTile('Eff', rSem.cumplimientoCajas, rMes.cumplimientoCajas);
+      updateTile('Uninvoiced', rSem.montoNoFacturado, rMes.montoNoFacturado);
+
+      $('#valSKUs').textContent = fmt(uniqueSKUs.size);
+      $('#valSupers').textContent = fmt(uniqueSupers.size);
+
+      renderAlerts(rSem, totalOrders);
+      renderTable(semana);
+      renderControlTables(data);
+
+      previousWeekData = {totalOrders, totalBoxes, totalOC, totalFact};
+    }
+
+    function updateTile(key, weekValue, monthValue){
+      const isPercent = key.includes('Eff');
+      const isCurrency = !isPercent && key!=='Orders' && key!=='Boxes';
+      
+      const valEl = $('#val'+key);
+      const subEl = $('#sub'+key);
+      const cmpEl = $('#cmp'+key);
+      const tileEl = $('#tile'+key);
+
+      if(valEl){
+        if(isPercent) valEl.textContent = fmtPct(weekValue);
+        else if(isCurrency) valEl.textContent = fmtCur(weekValue);
+        else valEl.textContent = fmt(weekValue);
+      }
+
+      if(subEl){
+        if(isPercent) subEl.textContent = 'Mes: '+fmtPct(monthValue);
+        else if(isCurrency) subEl.textContent = 'Mes: '+fmtCur(monthValue);
+        else subEl.textContent = 'Mes: '+fmt(monthValue);
+      }
+
+      if(cmpEl && previousWeekData){
+        const prevValue = key==='Orders'?previousWeekData.totalOrders:
+                         key==='Boxes'?previousWeekData.totalBoxes:
+                         key==='Revenue'?previousWeekData.totalOC:
+                         key==='Invoiced'?previousWeekData.totalFact:null;
+        if(prevValue!==null){
+          const comp = compareValue(weekValue, prevValue);
+          cmpEl.className = 'sap-tile-compare '+comp.cls;
+          cmpEl.textContent = comp.text;
+        }
+      }
+
+      if(tileEl){
+        tileEl.classList.remove('critical','warning','success');
+        if(key==='Eff'){
+          const val = weekValue||0;
+          if(val>=0.85) tileEl.classList.add('success');
+          else if(val>=0.65) tileEl.classList.add('warning');
+          else tileEl.classList.add('critical');
+        }
+        if(key==='Uninvoiced' && weekValue>0) tileEl.classList.add('warning');
+      }
+    }
+
+    function renderAlerts(rSem, orders){
+      const container = $('#alertContainer');
+      if(!container) return;
+      
+      const eff = rSem.cumplimientoCajas||0;
+      const uninvoiced = rSem.montoNoFacturado||0;
+      
+      let html = '';
+      
+      if(eff<0.65){
+        html += `<div class="sap-alert critical">
+          <span class="sap-alert-icon">🚨</span>
+          <span class="sap-alert-text">CRÍTICO: Cumplimiento ${fmtPct(eff)}. Acción inmediata requerida.</span>
+          <button class="sap-alert-btn" onclick="activatePanel('control')">Ver</button>
+        </div>`;
+      }else if(eff<0.85){
+        html += `<div class="sap-alert">
+          <span class="sap-alert-icon">⚠️</span>
+          <span class="sap-alert-text">ATENCIÓN: Cumplimiento ${fmtPct(eff)} (objetivo: 85%+)</span>
+          <button class="sap-alert-btn" onclick="activatePanel('control')">Ver</button>
+        </div>`;
+      }
+
+      if(uninvoiced>10000000){
+        html += `<div class="sap-alert ${eff<0.65?'critical':''}">
+          <span class="sap-alert-icon">💰</span>
+          <span class="sap-alert-text">ALTO NO FACTURADO: ${fmtCur(uninvoiced)} pendiente.</span>
+          <button class="sap-alert-btn" onclick="activatePanel('control')">Revisar</button>
+        </div>`;
+      }
+
+      if(!orders){
+        html += `<div class="sap-alert">
+          <span class="sap-alert-icon">📭</span>
+          <span class="sap-alert-text">Sin órdenes esta semana.</span>
+        </div>`;
+      }
+
+      container.innerHTML = html;
+    }
+
+    function renderTable(semana){
+      const tbody = $('#tableBody');
+      if(!tbody) return;
+      
+      if(!semana.length){
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--sap-gray)">Sin datos</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = semana.map((day, idx)=>{
+        const hasOrders = day.tieneOrdenes && day.cantidadOrdenes>0;
+        const eff = hasOrders && day.totalCajas>0 ? (day.totalCajasFact||0)/day.totalCajas : 0;
+        const statusCls = hasOrders ? effClass(eff) : 'empty';
+        const statusText = hasOrders ? (eff>=0.85?'Excelente':(eff>=0.65?'Bueno':'Crítico')) : 'Sin datos';
+        
+        const valorOrden = day.totalMonto||0;
+        const valorFact = day.totalValorFact||0;
+        const diff = Math.max(0, valorOrden - valorFact);
+
+        return `<tr>
+          <td><strong>${day.diaSemana||''}</strong></td>
+          <td>${day.fecha||''}</td>
+          <td class="num">${hasOrders?fmt(day.cantidadOrdenes||0):'-'}</td>
+          <td class="num">${hasOrders?fmt(day.totalCajas||0):'-'}</td>
+          <td class="num">${hasOrders?fmt(day.totalCajasFact||0):'-'}</td>
+          <td class="num">${hasOrders?fmtCur(valorOrden):'-'}</td>
+          <td class="num"><strong class="text-success">${hasOrders?fmtCur(valorFact):'-'}</strong></td>
+          <td class="num"><strong class="${diff>0?'text-danger':'text-success'}">${hasOrders?fmtCur(diff):'-'}</strong></td>
+          <td class="center">
+            ${hasOrders?`<div class="sap-progress"><div class="sap-progress-bar ${statusCls}" style="width:${eff*100}%"></div></div><br><small>${fmtPct(eff)}</small>`:'-'}
+          </td>
+          <td class="center">
+            <span class="sap-status ${statusCls}">
+              <span class="sap-status-dot ${statusCls}"></span>
+              ${statusText}
+            </span>
+          </td>
+          <td class="center">
+            ${hasOrders?`<button class="sap-btn" onclick="showDayDetails(${idx})">Ver (${(day.detallesOrdenes||[]).length})</button>`:'-'}
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function displayWeekError(err){
+      $('#tableBody').innerHTML = `<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--sap-red)">Error: ${err && (err.message||err)}</td></tr>`;
+    }
+
+    function renderControlTables(data){
+      const fact = data.controlResumenFacturado || [];
+      const nofac = data.controlResumenNoFacturado || [];
+      
+      const tb1 = $('#tblFact');
+      const tb2 = $('#tblNoFact');
+      
+      if(tb1){
+        if(!fact.length){
+          tb1.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--sap-gray)">Sin órdenes facturadas</td></tr>`;
+        }else{
+          tb1.innerHTML = fact.map(r=>{
+            const eff = r.cumplimientoValor||0;
+            const effCls = effClass(eff);
+            return `<tr>
+              <td><strong>${r.nOrden||''}</strong></td>
+              <td>${r.super||''}</td>
+              <td>${r.comprador||''}</td>
+              <td class="num">${fmtCur(r.valorOrden||0)}</td>
+              <td class="num"><strong class="text-success">${fmtCur(r.valorFacturado||0)}</strong></td>
+              <td class="num"><strong class="${(r.noFacturado||0)>0?'text-danger':'text-success'}">${fmtCur(r.noFacturado||0)}</strong></td>
+              <td class="center">
+                <span class="sap-status ${effCls}">
+                  <span class="sap-status-dot ${effCls}"></span>
+                  ${fmtPct(eff)}
+                </span>
+              </td>
+            </tr>`;
+          }).join('');
+        }
+      }
+
+      if(tb2){
+        if(!nofac.length){
+          tb2.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--sap-gray)">Sin órdenes pendientes</td></tr>`;
+        }else{
+          tb2.innerHTML = nofac.map(r=>{
+            const eff = r.cumplimientoValor||0;
+            const effCls = effClass(eff);
+            return `<tr>
+              <td><strong>${r.nOrden||''}</strong></td>
+              <td>${r.super||''}</td>
+              <td>${r.comprador||''}</td>
+              <td class="num"><strong class="text-warning">${fmt(r.cajasPendientes||0)}</strong></td>
+              <td class="num">${fmtCur(r.valorOrden||0)}</td>
+              <td class="num"><strong class="text-danger">${fmtCur(r.noFacturado||0)}</strong></td>
+              <td class="center">
+                <span class="sap-status ${effCls}">
+                  <span class="sap-status-dot ${effCls}"></span>
+                  ${fmtPct(eff)}
+                </span>
+              </td>
+            </tr>`;
+          }).join('');
+        }
+      }
+    }
+
+    // ====== Modal Completo de Detalles del Día ======
+    function showDayDetails(idx){
+      const day = currentSemana[idx] || {};
+      const date = day.fecha||'';
+      const details = day.detallesOrdenes||[];
+      
+      // Agrupar por orden
+      const groups={};
+      details.forEach(d=>{
+        const key=d.nOrden;
+        if(!groups[key]){
+          groups[key]={
+            nOrden:key,super:d.super,comprador:d.comprador,emisor:d.emisor,
+            totalCajas:0,totalFacturadas:0,totalValor:0,totalValorFact:0,products:[]
+          };
+        }
+        const g=groups[key];
+        g.totalCajas += d.empaques||0;
+        g.totalFacturadas += d.cajasFacturadas||0;
+        g.totalValor += d.importe||0;
+        g.totalValorFact += d.valorFacturado||0;
+        g.products.push(d);
+      });
+      const orders=Object.values(groups);
+
+      const modal=document.createElement('div');
+      modal.className='sap-modal';
+      modal.innerHTML = `
+        <div class="sap-modal-content">
+          <div class="sap-modal-header">
+            <div>
+              <div class="sap-modal-title">Detalles ${day.diaSemana||''} ${date}</div>
+              <div style="font-size:10px;color:var(--sap-gray);margin-top:2px">${orders.length} orden(es) • ${details.length} productos</div>
+            </div>
+            <button class="sap-modal-close">×</button>
+          </div>
+          
+          <!-- Tabs -->
+          <div style="display:flex;gap:4px;padding:8px 16px;border-bottom:1px solid var(--sap-border);background:var(--sap-gray-light)">
+            <button class="modal-tab active" data-tab="resumen">📊 Resumen Órdenes</button>
+            <button class="modal-tab" data-tab="productos">📦 Todos los Productos (${details.length})</button>
+          </div>
+
+          <div class="sap-modal-body">
+            <!-- Tab Resumen -->
+            <div class="modal-tab-content active" data-content="resumen">
+              ${orders.map(o=>{
+                const eff = o.totalValor>0 ? o.totalValorFact/o.totalValor : 0;
+                const effCls = effClass(eff);
+                const pendiente = o.totalValor - o.totalValorFact;
+                
+                return `
+                  <div class="sap-table-container" style="margin-bottom:10px">
+                    <div class="sap-table-header" style="display:flex;justify-content:space-between;align-items:center">
+                      <div>
+                        <strong style="font-size:13px;color:var(--sap-blue)">Orden ${o.nOrden}</strong>
+                        <span style="font-size:10px;color:var(--sap-gray);margin-left:8px">${o.super||'N/A'} • ${o.comprador||'N/A'}</span>
+                      </div>
+                      <span class="sap-status ${effCls}">
+                        <span class="sap-status-dot ${effCls}"></span>
+                        ${fmtPct(eff)}
+                      </span>
+                    </div>
+                    <div style="padding:10px">
+                      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px">
+                        <div class="sap-tile" style="padding:6px 8px">
+                          <div class="sap-tile-label">Cajas Sol.</div>
+                          <div class="sap-tile-value" style="font-size:16px">${fmt(o.totalCajas)}</div>
+                        </div>
+                        <div class="sap-tile" style="padding:6px 8px">
+                          <div class="sap-tile-label">Cajas Fact.</div>
+                          <div class="sap-tile-value" style="font-size:16px">${fmt(o.totalFacturadas)}</div>
+                        </div>
+                        <div class="sap-tile" style="padding:6px 8px">
+                          <div class="sap-tile-label">Valor Total</div>
+                          <div class="sap-tile-value" style="font-size:16px">${fmtCur(o.totalValor)}</div>
+                        </div>
+                        <div class="sap-tile success" style="padding:6px 8px">
+                          <div class="sap-tile-label">Facturado</div>
+                          <div class="sap-tile-value" style="font-size:16px">${fmtCur(o.totalValorFact)}</div>
+                        </div>
+                        ${pendiente>0?`<div class="sap-tile critical" style="padding:6px 8px">
+                          <div class="sap-tile-label">Pendiente</div>
+                          <div class="sap-tile-value" style="font-size:16px;color:var(--sap-red)">${fmtCur(pendiente)}</div>
+                        </div>`:''}
+                      </div>
+                      <button class="sap-btn primary btn-open-order" data-order="${o.nOrden}">
+                        🔍 Abrir Orden Completa
+                      </button>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+
+            <!-- Tab Productos -->
+            <div class="modal-tab-content" data-content="productos" style="display:none">
+              <div class="sap-table-container">
+                <table class="sap-table">
+                  <thead><tr>
+                    <th>Orden</th><th>SKU</th><th>Producto</th><th class="num">Solicitado</th>
+                    <th class="num">Facturado</th><th class="center">Eficiencia</th><th class="num">Valor</th>
+                  </tr></thead>
+                  <tbody>
+                    ${details.map(p=>{
+                      const e = p.cumplimientoCajas||0;
+                      const c = effClass(e);
+                      return `<tr>
+                        <td><strong>${p.nOrden||''}</strong></td>
+                        <td><strong style="color:var(--sap-blue)">${p.sku||'N/A'}</strong></td>
+                        <td>${(p.productoNombre||'').slice(0,50)}</td>
+                        <td class="num">${fmt(p.empaques||0)}</td>
+                        <td class="num">${fmt(p.cajasFacturadas||0)}</td>
+                        <td class="center">
+                          <span class="sap-status ${c}">
+                            <span class="sap-status-dot ${c}"></span>
+                            ${fmtPct(e)}
+                          </span>
+                        </td>
+                        <td class="num"><strong>${fmtCur(p.importe||0)}</strong></td>
+                      </tr>`;
+                    }).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="sap-modal-footer">
+            <button class="sap-btn">Cerrar</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(modal);
+
+      // Tabs del modal
+      modal.querySelectorAll('.modal-tab').forEach(tab=>{
+        tab.addEventListener('click', ()=>{
+          const target = tab.dataset.tab;
+          modal.querySelectorAll('.modal-tab').forEach(t=>t.classList.remove('active'));
+          modal.querySelectorAll('.modal-tab-content').forEach(c=>{
+            c.style.display = c.dataset.content===target?'block':'none';
+          });
+          tab.classList.add('active');
+        });
+      });
+
+      // Cerrar modal
+      modal.querySelector('.sap-modal-close').addEventListener('click', ()=>modal.remove());
+      modal.querySelector('.sap-modal-footer .sap-btn').addEventListener('click', ()=>modal.remove());
+      modal.addEventListener('click', (e)=>{
+        if(e.target===modal) modal.remove();
+      });
+
+      // Botones abrir orden
+      modal.querySelectorAll('.btn-open-order').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          const n=b.dataset.order;
+          modal.remove();
+          $('#searchInput').value=n;
+          activatePanel('search');
+          searchOrder();
+        });
+      });
+    }
+
+    // Búsqueda
+    $('#btnSearch').addEventListener('click', searchOrder);
+    $('#searchInput').addEventListener('keypress', e=>{ if(e.key==='Enter') searchOrder(); });
+
+    function searchOrder(){
+      const n = $('#searchInput').value.trim();
+      if(!n){ alert('Ingrese número de orden'); return; }
+      
+      $('#searchResult').innerHTML = `<div class="sap-loading"><div class="sap-spinner"></div>Buscando...</div>`;
+      
+      google.script.run
+        .withSuccessHandler(displayOrder)
+        .withFailureHandler(displayOrderError)
+        .buscarOrdenPorNumero(n);
+    }
+
+    function displayOrder(order){
+      if(!order || !order.ok){
+        $('#searchResult').innerHTML = `<div style="text-align:center;padding:40px;color:var(--sap-red)">${(order&&order.msg)||'No encontrada'}</div>`;
+        return;
+      }
+
+      const eff = order.cumplimientoValor||0;
+      const effCls = effClass(eff);
+      const productos = order.productos||[];
+
+      $('#searchResult').innerHTML = `
+        <div class="sap-table-container">
+          <div class="sap-table-header">
+            <div class="sap-table-title">Orden ${order.nOrden} • ${order.super||'N/A'}</div>
+          </div>
+          <div style="padding:12px">
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px">
+              <div class="sap-tile">
+                <div class="sap-tile-label">Cajas Sol.</div>
+                <div class="sap-tile-value">${fmt(order.totalCajas||0)}</div>
+              </div>
+              <div class="sap-tile">
+                <div class="sap-tile-label">Cajas Fact.</div>
+                <div class="sap-tile-value">${fmt(order.cajasFacturadas||0)}</div>
+              </div>
+              <div class="sap-tile">
+                <div class="sap-tile-label">Valor Total</div>
+                <div class="sap-tile-value">${fmtCur(order.totalMonto||0)}</div>
+              </div>
+              <div class="sap-tile success">
+                <div class="sap-tile-label">Facturado</div>
+                <div class="sap-tile-value">${fmtCur(order.valorFacturado||0)}</div>
+              </div>
+              <div class="sap-tile ${effCls}">
+                <div class="sap-tile-label">Cumplimiento</div>
+                <div class="sap-tile-value">${fmtPct(eff)}</div>
+              </div>
+            </div>
+
+            ${productos.length? `
+            <table class="sap-table">
+              <thead><tr>
+                <th>SKU</th><th>Producto</th><th class="num">Sol.</th><th class="num">Fact.</th>
+                <th class="center">Eff.</th><th class="num">Valor</th><th class="num">Stock</th>
+                <th>N° Factura</th><th>Cajas</th><th class="num">Monto Est.</th><th>Acción</th>
+              </tr></thead>
+              <tbody>
+                ${productos.map((p,i)=>{
+                  const e = p.cumplimientoCajas||0;
+                  const c = effClass(e);
+                  const tieneFactura = p.facturas && p.facturas.length>0;
+                  const numeroFactura = tieneFactura ? (p.facturas[0].factura||'') : '';
+                  const unit = (p.empaques && p.empaques>0) ? (p.importe / p.empaques) : 0;
+                  const etiqueta = (p.cajasFacturadas||0)>0 ? 'FACTURADO' : 'PENDIENTE';
+                  return `<tr data-sku="${p.sku||''}">
+                    <td><strong>${p.sku||'N/A'}</strong></td>
+                    <td>${(p.productoNombre||'').slice(0,40)}</td>
+                    <td class="num"><strong>${fmt(p.empaques||0)}</strong></td>
+                    <td class="num"><strong>${fmt(p.cajasFacturadas||0)}</strong></td>
+                    <td class="center">
+                      <span class="sap-status ${c}">
+                        <span class="sap-status-dot ${c}"></span>
+                        ${fmtPct(e)}
+                      </span>
+                    </td>
+                    <td class="num"><strong>${fmtCur(p.importe||0)}</strong></td>
+                    <td class="num"><strong class="${(p.stockFisico||0)>0?'text-success':'text-danger'}">${fmt(p.stockFisico||0)}</strong></td>
+                    <td>${tieneFactura? `<span class="sap-status success">${numeroFactura||'OK'}</span>`
+                        : `<input class="sap-input factura-input" id="invoice_${i}" placeholder="F001-123" style="width:100px">`}</td>
+                    <td>${tieneFactura? '-' : `<input type="number" class="sap-input cajas-input" id="boxes_${i}" min="0" max="${p.empaques||0}" value="${p.empaques||0}" data-unitprice="${unit}" style="width:70px">`}</td>
+                    <td class="num" id="amount_${i}">${tieneFactura? fmtCur(p.valorFacturado||0) : '$0'}</td>
+                    <td>
+                      ${tieneFactura? `<span class="sap-status success">${etiqueta}</span>`
+                        : `<button class="sap-btn primary" id="btnSku_${i}" onclick="addInvoiceSKU('${order.nOrden}','${p.sku||''}',${i})">Facturar</button>`}
+                    </td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+            
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--sap-border);margin-top:8px">
+              <button class="sap-btn" id="facturarUnaFacturaBtn" style="display:${productos.some(p=>!(p.facturas&&p.facturas.length))?'inline-block':'none'}"
+                onclick="facturarSeleccionadosUnaFactura('${order.nOrden}')">🧾 Misma Factura (todos)</button>
+              <button class="sap-btn primary" id="facturarSeleccionadosBtn" disabled onclick="facturarSeleccionados('${order.nOrden}')">📄 Facturar Seleccionados (0)</button>
+            </div>` : `<div style="text-align:center;padding:20px;color:var(--sap-gray)">Sin productos</div>`}
+          </div>
+        </div>
+      `;
+      
+      initInvoiceUI();
+    }
+
+    function displayOrderError(e){
+      $('#searchResult').innerHTML = `<div style="text-align:center;padding:40px;color:var(--sap-red)">Error: ${e && (e.message||e)}</div>`;
+    }
+
+    // ====== Facturación (código original) ======
+    function initInvoiceUI(){
+      $$('.factura-input, .cajas-input').forEach(el=>{
+        el.addEventListener('input', refreshMassButton);
+        el.addEventListener('change', refreshMassButton);
+      });
+      refreshMassButton();
+    }
+
+    function refreshMassButton(){
+      $$('.cajas-input').forEach(inp=>{
+        const idx = (inp.id.match(/boxes_(\d+)/)||[])[1];
+        if(!idx) return;
+        const unit = parseFloat(inp.dataset.unitprice||'0');
+        const qty = parseFloat(inp.value);
+        const amount = (isNaN(qty)?0:qty) * unit;
+        const slot = $('#amount_'+idx);
+        if(slot) slot.textContent = fmtCur(amount);
+      });
+
+      let selected=0;
+      $$('#searchResult tbody tr').forEach(tr=>{
+        const inv=tr.querySelector('.factura-input');
+        const qty=tr.querySelector('.cajas-input');
+        if(!inv || !qty) return;
+        const okInv = inv.value.trim().length>0;
+        const q = parseFloat(qty.value);
+        const okQty = !isNaN(q)&&q>=0;
+        if(okInv && okQty) selected++;
+      });
+
+      const btn=$('#facturarSeleccionadosBtn');
+      if(btn){
+        btn.textContent=`📄 Facturar Seleccionados (${selected})`;
+        btn.disabled = selected===0;
+      }
+    }
+
+    function facturarSeleccionados(orderNumber){
+      const rows = $$('#searchResult tbody tr');
+      const pending=[];
+      for(const tr of rows){
+        const inv=tr.querySelector('.factura-input');
+        const qtyI=tr.querySelector('.cajas-input');
+        if(!inv || !qtyI) continue;
+        const factura=inv.value.trim();
+        const cajas=parseFloat(qtyI.value);
+        if(!factura || isNaN(cajas) || cajas<0) continue;
+        const max=parseFloat(qtyI.max||'0');
+        if(!isNaN(max)&&max>0&&cajas>max){
+          alert(`SKU ${tr.dataset.sku}: máximo ${max} cajas`);
+          return;
+        }
+        pending.push({ sku: tr.dataset.sku, factura, cajas });
+      }
+
+      if(!pending.length){ alert('Sin SKUs seleccionados'); return; }
+
+      const btn=$('#facturarSeleccionadosBtn');
+      const original = btn.textContent;
+      btn.textContent='Procesando…';
+      btn.disabled=true;
+
+      (function go(i){
+        if(i>=pending.length){
+          btn.textContent='✓ Completado';
+          setTimeout(()=>searchOrder(), 700);
+          return;
+        }
+        const p=pending[i];
+        const payload={
+          nOrden:orderNumber, sku:p.sku, factura:p.factura,
+          fechaFactura:new Date().toISOString().slice(0,10),
+          cajasFacturadas:p.cajas, comprador:'',
+          observacion:`Facturación masiva - SKU: ${p.sku}`
+        };
+        google.script.run
+          .withSuccessHandler(res=>{
+            if(res&&res.ok) go(i+1);
+            else{
+              alert(`Error SKU ${p.sku}: ${(res&&res.msg)||'Error'}`);
+              btn.textContent=original;
+              btn.disabled=false;
+            }
+          })
+          .withFailureHandler(err=>{
+            alert(`Error: ${err && (err.message||err)}`);
+            btn.textContent=original;
+            btn.disabled=false;
+          })
+          .apiAgregarFacturaSKU(payload);
+      })(0);
+    }
+
+    function facturarSeleccionadosUnaFactura(orderNumber){
+      const factura = prompt('Número de factura única:');
+      if(!factura) return;
+
+      const items=[];
+      $$('#searchResult tbody tr').forEach(tr=>{
+        const qtyI=tr.querySelector('.cajas-input');
+        if(!qtyI) return;
+        const sku=tr.dataset.sku;
+        const qty=parseFloat(qtyI.value);
+        if(isNaN(qty)||qty<0) return;
+        items.push({sku,cajas:qty});
+      });
+
+      if(!items.length){ alert('Sin SKUs válidos'); return; }
+
+      google.script.run
+        .withSuccessHandler(res=>{
+          if(res && res.ok){
+            alert(res.msg || 'Facturación completada');
+            searchOrder();
+          }else{
+            alert((res && res.msg) || 'Error en facturación');
+          }
+        })
+        .withFailureHandler(err=> alert(`Error: ${err && (err.message||err)}`))
+        .apiFacturarOrdenPendiente({ nOrden: orderNumber, factura, items });
+    }
+
+    function addInvoiceSKU(orderNumber, sku, index){
+      const invoice = ($('#invoice_'+index).value||'').trim();
+      const boxes = parseFloat($('#boxes_'+index).value);
+
+      if(!invoice){ alert('Ingrese número de factura'); return; }
+      if(isNaN(boxes)||boxes<0){ alert('Cajas ≥ 0'); return; }
+
+      const payload={
+        nOrden:orderNumber, sku, factura:invoice,
+        fechaFactura:new Date().toISOString().slice(0,10),
+        cajasFacturadas:boxes, comprador:'',
+        observacion:`Facturado SKU: ${sku}`
+      };
+
+      const btn = event.target;
+      const original = btn.textContent;
+      btn.textContent='…';
+      btn.disabled=true;
+
+      google.script.run
+        .withSuccessHandler(res=>{
+          btn.textContent=original;
+          btn.disabled=false;
+          if(res&&res.ok){
+            alert(res.msg||'Factura agregada');
+            searchOrder();
+          }else{
+            alert(res&&res.msg || 'Error');
+          }
+        })
+        .withFailureHandler(err=>{
+          btn.textContent=original;
+          btn.disabled=false;
+          alert(`Error: ${err && (err.message||err)}`);
+        })
+        .apiAgregarFacturaSKU(payload);
+    }
+
+    // Init: cargar dashboard ejecutivo por defecto
+    document.addEventListener('DOMContentLoaded', ()=> {
+      loadExecDashboard(0); // Cargar mes actual
+    });
+  </script>
+</body>
+</html>

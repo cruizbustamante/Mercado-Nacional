@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Análisis Ejecutivo | VDA</title>
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  
+  <?!= include('comercial_css'); ?>
+</head>
+
+<body>
+  <div class="sap-shell">
+    
+    <aside class="sap-sidebar">
+      <div class="sap-logo">
+        <div class="sap-logo-title">📊 Análisis Ejecutivo</div>
+        <div class="sap-logo-sub">Viña de Aguirre</div>
+        <div class="fecha-badge" id="fechaBadge">📅 Cargando...</div>
+        <div class="fecha-informe" id="fechaInforme">Datos al: --</div>
+      </div>
+      <nav class="sap-nav">
+        <div class="sap-nav-item active" onclick="App.showSection('ejecutivo')">📊 Resumen Ejecutivo</div>
+        <div class="sap-nav-item" onclick="App.showSection('mayorista')">🏪 Canal Mayorista</div>
+        <div class="sap-nav-item" onclick="App.showSection('supermercado')">🛒 Canal Supermercado</div>
+      </nav>
+      <div class="sap-nav-back">
+        <div class="sap-nav-item" onclick="window.history.back()">← Volver</div>
+      </div>
+    </aside>
+
+    <main class="sap-main">
+      <div class="sap-header">
+        <div>
+          <div class="sap-breadcrumb">Sistema de Gestión Integral • VDA</div>
+          <div class="sap-title">Análisis Mercado Nacional</div>
+        </div>
+        <div class="header-actions">
+          <div class="filter-badge" id="filterBadge">
+            <span id="filterText">Filtro: </span>
+            <button onclick="VDA.clearFilter()">✕</button>
+          </div>
+          <div class="year-select">
+            <label>AÑO:</label>
+            <select id="yearSelect" onchange="VDA.changeYear()"></select>
+          </div>
+          <button class="btn-refresh" onclick="VDA.refreshData()" id="btnRefresh">🔄</button>
+          <button class="btn-pdf" onclick="VDA.downloadPDF()" id="btnPDF" title="Descargar PDF">📥 PDF</button>
+        </div>
+      </div>
+
+      <div class="sap-content">
+        <div class="loading-container" id="loading">
+          <div class="spinner"></div>
+          <div>Cargando datos...</div>
+        </div>
+
+        <div id="content" style="display:none">
+          
+          <!-- ========== SECCIÓN EJECUTIVO ========== -->
+          <div id="section-ejecutivo">
+          <div class="kpi-grid" id="kpiGrid"></div>
+
+          <div class="section-header">
+            <span class="section-icon">📈</span>
+            <span class="section-title">Análisis de Tendencias</span>
+          </div>
+          
+          <div class="charts-grid">
+            <div class="chart-card">
+              <div class="chart-title">📈 Evolución Ventas</div>
+              <div class="chart-wrapper"><canvas id="chartVentas"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">💹 Evolución Rentabilidad</div>
+              <div class="chart-wrapper"><canvas id="chartRentabilidad"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">📊 Evolución Margen</div>
+              <div class="chart-wrapper"><canvas id="chartMargen"></canvas></div>
+            </div>
+          </div>
+          
+          <div class="section-header">
+            <span class="section-icon">🏢</span>
+            <span class="section-title">Desempeño por Canal</span>
+          </div>
+          
+          <div class="tables-grid">
+            <div class="table-card">
+              <div class="table-header">
+                <div class="table-title">📊 Resumen Clasificaciones</div>
+                <button class="btn-maximize" onclick="VDA.openFullscreen('Resumen Clasificaciones', 'tblClasif', 'tblClasifTotal')" title="Pantalla completa">⛶</button>
+              </div>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead><tr><th>Clasificación</th><th>Cajas</th><th>Venta Neta</th><th>Margen</th><th>% Rent.</th><th>Var Mes</th><th>Var Acum</th><th>Var Año</th></tr></thead>
+                  <tbody id="tblClasif"></tbody>
+                  <tfoot id="tblClasifTotal"></tfoot>
+                </table>
+              </div>
+            </div>
+            
+            <div class="table-card">
+              <div class="table-header">
+                <div class="table-title">📅 Ventas por Mes</div>
+                <button class="btn-maximize" onclick="VDA.openFullscreen('Ventas por Mes', 'tblMeses', 'tblMesesTotal', 'meses')" title="Pantalla completa">⛶</button>
+              </div>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead><tr><th>Mes</th><th>Cajas</th><th id="colYear1">2025</th><th>% Rent</th><th id="colYear2">2024</th><th>% Rent</th><th>Var %</th></tr></thead>
+                  <tbody id="tblMeses"></tbody>
+                  <tfoot id="tblMesesTotal"></tfoot>
+                </table>
+              </div>
+            </div>
+            
+            <div class="table-card">
+              <div class="table-header">
+                <div class="table-title">📦 Ventas por Categoría</div>
+                <button class="btn-maximize" onclick="VDA.openFullscreen('Ventas por Categoría', 'tblCategorias', 'tblCategoriasTotal')" title="Pantalla completa">⛶</button>
+              </div>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead><tr><th>Categoría</th><th>Cajas</th><th>Venta Neta</th><th>Margen</th><th>% Rent.</th><th>Var Mes</th><th>Var Acum</th><th>Var Año</th></tr></thead>
+                  <tbody id="tblCategorias"></tbody>
+                  <tfoot id="tblCategoriasTotal"></tfoot>
+                </table>
+              </div>
+            </div>
+            
+            <div class="table-card">
+              <div class="table-header">
+                <div class="table-title">🏷️ Ventas por Marca</div>
+                <button class="btn-maximize" onclick="VDA.openFullscreen('Ventas por Marca', 'tblMarcas', 'tblMarcasTotal')" title="Pantalla completa">⛶</button>
+              </div>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead><tr><th>Marca</th><th>Cajas</th><th>Venta Neta</th><th>Margen</th><th>% Rent.</th><th>Var Mes</th><th>Var Acum</th><th>Var Año</th></tr></thead>
+                  <tbody id="tblMarcas"></tbody>
+                  <tfoot id="tblMarcasTotal"></tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+          </div>
+          <!-- FIN SECCIÓN EJECUTIVO -->
+
+          <!-- ========== SECCIÓN MAYORISTA ========== -->
+          <div id="section-mayorista" style="display:none">
+            <div class="kpi-grid" id="kpiGridMay"></div>
+            
+            <div class="section-header">
+              <span class="section-icon">📈</span>
+              <span class="section-title">Gráficos Mayorista</span>
+            </div>
+            <div class="charts-grid">
+              <div class="chart-card"><div class="chart-title">📈 Evolución Ventas</div><div class="chart-wrapper"><canvas id="chartVentasMay"></canvas></div></div>
+              <div class="chart-card"><div class="chart-title">💹 % Rentabilidad</div><div class="chart-wrapper"><canvas id="chartRentabilidadMay"></canvas></div></div>
+              <div class="chart-card"><div class="chart-title">💰 Evolución Margen</div><div class="chart-wrapper"><canvas id="chartMargenMay"></canvas></div></div>
+            </div>
+            
+            <div class="section-header">
+              <span class="section-icon">📋</span>
+              <span class="section-title">Detalle Mayorista</span>
+            </div>
+            <div class="tables-grid">
+              <div class="table-card">
+                <div class="table-header">
+                  <div class="table-title">👤 Resumen por Ejecutivo</div>
+                  <button class="btn-maximize" onclick="VDA.openFullscreen('Resumen por Ejecutivo', 'tblEjecutivos', 'tblEjecutivosTotal')" title="Pantalla completa">⛶</button>
+                </div>
+                <div class="table-wrapper">
+                  <table class="data-table">
+                    <thead><tr><th>Ejecutivo</th><th>Cajas</th><th>Venta Neta</th><th>Margen</th><th>% Rent.</th><th>Var Mes</th><th>Var Acum</th><th>Var Año</th></tr></thead>
+                    <tbody id="tblEjecutivos"></tbody>
+                    <tfoot id="tblEjecutivosTotal"></tfoot>
+                  </table>
+                </div>
+              </div>
+              <div class="table-card">
+                <div class="table-header">
+                  <div class="table-title">📅 Ventas por Mes</div>
+                  <button class="btn-maximize" onclick="VDA.openFullscreen('Ventas por Mes - Mayorista', 'tblMesesMay', 'tblMesesTotalMay', 'meses')" title="Pantalla completa">⛶</button>
+                </div>
+                <div class="table-wrapper">
+                  <table class="data-table">
+                    <thead><tr><th>Mes</th><th>Cajas</th><th id="colYear1May">2025</th><th>% Rent</th><th id="colYear2May">2024</th><th>% Rent</th><th>Var %</th></tr></thead>
+                    <tbody id="tblMesesMay"></tbody>
+                    <tfoot id="tblMesesTotalMay"></tfoot>
+                  </table>
+                </div>
+              </div>
+              <div class="table-card">
+                <div class="table-header">
+                  <div class="table-title">📦 Ventas por Categoría</div>
+                  <button class="btn-maximize" onclick="VDA.openFullscreen('Ventas por Categoría - Mayorista', 'tblCategoriasMay', 'tblCategoriasTotalMay')" title="Pantalla completa">⛶</button>
+                </div>
+                <div class="table-wrapper">
+                  <table class="data-table">
+                    <thead><tr><th>Categoría</th><th>Cajas</th><th>Venta Neta</th><th>Margen</th><th>% Rent.</th><th>Var Mes</th><th>Var Acum</th><th>Var Año</th></tr></thead>
+                    <tbody id="tblCategoriasMay"></tbody>
+                    <tfoot id="tblCategoriasTotalMay"></tfoot>
+                  </table>
+                </div>
+              </div>
+              <div class="table-card">
+                <div class="table-header">
+                  <div class="table-title">🏷️ Ventas por Marca</div>
+                  <button class="btn-maximize" onclick="VDA.openFullscreen('Ventas por Marca - Mayorista', 'tblMarcasMay', 'tblMarcasTotalMay')" title="Pantalla completa">⛶</button>
+                </div>
+                <div class="table-wrapper">
+                  <table class="data-table">
+                    <thead><tr><th>Marca</th><th>Cajas</th><th>Venta Neta</th><th>Margen</th><th>% Rent.</th><th>Var Mes</th><th>Var Acum</th><th>Var Año</th></tr></thead>
+                    <tbody id="tblMarcasMay"></tbody>
+                    <tfoot id="tblMarcasTotalMay"></tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- FIN SECCIÓN MAYORISTA -->
+
+          <!-- ========== SECCIÓN SUPERMERCADO ========== -->
+          <div id="section-supermercado" style="display:none">
+            <div class="kpi-grid" id="kpiGridSup"></div>
+            
+            <div class="section-header">
+              <span class="section-icon">📈</span>
+              <span class="section-title">Gráficos Supermercado</span>
+            </div>
+            <div class="charts-grid">
+              <div class="chart-card"><div class="chart-title">📈 Evolución Ventas</div><div class="chart-wrapper"><canvas id="chartVentasSup"></canvas></div></div>
+              <div class="chart-card"><div class="chart-title">💹 % Rentabilidad</div><div class="chart-wrapper"><canvas id="chartRentabilidadSup"></canvas></div></div>
+              <div class="chart-card"><div class="chart-title">💰 Evolución Margen</div><div class="chart-wrapper"><canvas id="chartMargenSup"></canvas></div></div>
+            </div>
+            
+            <div class="section-header">
+              <span class="section-icon">📋</span>
+              <span class="section-title">Detalle Supermercado</span>
+            </div>
+            <div class="tables-grid">
+              <div class="table-card">
+                <div class="table-header">
+                  <div class="table-title">🏢 Resumen por Cliente</div>
+                  <button class="btn-maximize" onclick="VDA.openFullscreen('Resumen por Cliente', 'tblClientes', 'tblClientesTotal')" title="Pantalla completa">⛶</button>
+                </div>
+                <div class="table-wrapper">
+                  <table class="data-table">
+                    <thead><tr><th>Cliente</th><th>Cajas</th><th>Venta Neta</th><th>Margen</th><th>% Rent.</th><th>Var Mes</th><th>Var Acum</th><th>Var Año</th></tr></thead>
+                    <tbody id="tblClientes"></tbody>
+                    <tfoot id="tblClientesTotal"></tfoot>
+                  </table>
+                </div>
+              </div>
+              <div class="table-card">
+                <div class="table-header">
+                  <div class="table-title">📅 Ventas por Mes</div>
+                  <button class="btn-maximize" onclick="VDA.openFullscreen('Ventas por Mes - Supermercado', 'tblMesesSup', 'tblMesesTotalSup', 'meses')" title="Pantalla completa">⛶</button>
+                </div>
+                <div class="table-wrapper">
+                  <table class="data-table">
+                    <thead><tr><th>Mes</th><th>Cajas</th><th id="colYear1Sup">2025</th><th>% Rent</th><th id="colYear2Sup">2024</th><th>% Rent</th><th>Var %</th></tr></thead>
+                    <tbody id="tblMesesSup"></tbody>
+                    <tfoot id="tblMesesTotalSup"></tfoot>
+                  </table>
+                </div>
+              </div>
+              <div class="table-card">
+                <div class="table-header">
+                  <div class="table-title">📦 Ventas por Categoría</div>
+                  <button class="btn-maximize" onclick="VDA.openFullscreen('Ventas por Categoría - Supermercado', 'tblCategoriasSup', 'tblCategoriasTotalSup')" title="Pantalla completa">⛶</button>
+                </div>
+                <div class="table-wrapper">
+                  <table class="data-table">
+                    <thead><tr><th>Categoría</th><th>Cajas</th><th>Venta Neta</th><th>Margen</th><th>% Rent.</th><th>Var Mes</th><th>Var Acum</th><th>Var Año</th></tr></thead>
+                    <tbody id="tblCategoriasSup"></tbody>
+                    <tfoot id="tblCategoriasTotalSup"></tfoot>
+                  </table>
+                </div>
+              </div>
+              <div class="table-card">
+                <div class="table-header">
+                  <div class="table-title">🏷️ Ventas por Marca</div>
+                  <button class="btn-maximize" onclick="VDA.openFullscreen('Ventas por Marca - Supermercado', 'tblMarcasSup', 'tblMarcasTotalSup')" title="Pantalla completa">⛶</button>
+                </div>
+                <div class="table-wrapper">
+                  <table class="data-table">
+                    <thead><tr><th>Marca</th><th>Cajas</th><th>Venta Neta</th><th>Margen</th><th>% Rent.</th><th>Var Mes</th><th>Var Acum</th><th>Var Año</th></tr></thead>
+                    <tbody id="tblMarcasSup"></tbody>
+                    <tfoot id="tblMarcasTotalSup"></tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- FIN SECCIÓN SUPERMERCADO -->
+
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal Fullscreen para tablas -->
+  <div class="table-fullscreen-overlay" id="tableFullscreen">
+    <div class="table-fullscreen-content">
+      <div class="table-fullscreen-header">
+        <span class="table-fullscreen-title" id="fullscreenTitle">Tabla</span>
+        <button class="btn-close-fullscreen" onclick="VDA.closeFullscreen()">✕</button>
+      </div>
+      <div class="table-fullscreen-body" id="fullscreenBody"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <?!= include('comercial_js'); ?>
+</body>
+</html>

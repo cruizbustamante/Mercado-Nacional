@@ -1,0 +1,2948 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crear Nota de Venta - VDA</title>
+<style>
+:root{
+  --sap-shell:#354A5F;
+  --sap-blue:#0070F2;
+  --sap-header:#FAFAFA;
+  --sap-border:#D9D9D9;
+  --sap-row-hover:#F4F5F6;
+  --sap-row-alt:#FAFBFC;
+  --sap-text:#32363A;
+  --sap-text-sec:#6A6D70;
+  --sap-green:#107E3E;
+  --sap-orange:#E9730C;
+  --sap-red:#BB0000;
+  --sap-blue-light:#E3F2FD;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:'72',Arial,sans-serif;
+  font-size:13px;
+  color:var(--sap-text);
+  background:#F5F6F7;
+  line-height:1.4;
+}
+
+/* ========== SHELL BAR ========== */
+.shell{
+  background:var(--sap-shell);
+  height:44px;
+  display:flex;
+  align-items:center;
+  padding:0 16px;
+  color:#fff;
+  box-shadow:0 2px 4px rgba(0,0,0,0.1);
+  position:relative;
+  z-index:1000;
+}
+.shell-logo{font-size:18px;font-weight:700;letter-spacing:1px}
+.shell-title{margin-left:24px;font-size:13px}
+.shell-right{margin-left:auto;display:flex;gap:12px;align-items:center}
+.shell-badge{
+  background:rgba(255,255,255,0.15);
+  padding:4px 10px;
+  border-radius:3px;
+  font-size:12px;
+  font-weight:600;
+}
+.shell-btn{
+  background:rgba(255,255,255,0.1);
+  border:1px solid rgba(255,255,255,0.2);
+  color:#fff;
+  padding:5px 12px;
+  border-radius:3px;
+  text-decoration:none;
+  font-size:12px;
+  transition:background 0.2s;
+}
+.shell-btn:hover{background:rgba(255,255,255,0.2)}
+
+/* ========== TOOLBAR ========== */
+.toolbar{
+  background:#fff;
+  border-bottom:1px solid var(--sap-border);
+  padding:8px 16px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  position:sticky;
+  top:0;
+  z-index:999;
+}
+.toolbar-title{
+  font-size:16px;
+  font-weight:600;
+  color:var(--sap-text);
+}
+.toolbar-spacer{flex:1}
+.btn{
+  font-family:inherit;
+  font-size:13px;
+  font-weight:500;
+  padding:6px 14px;
+  border:1px solid var(--sap-border);
+  border-radius:3px;
+  background:#fff;
+  color:var(--sap-text);
+  cursor:pointer;
+  transition:all 0.15s;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+.btn:hover{
+  background:#F4F5F6;
+  border-color:#B3B3B3;
+}
+.btn-primary{
+  background:var(--sap-blue);
+  color:#fff;
+  border-color:var(--sap-blue);
+}
+.btn-primary:hover{
+  background:#0054B4;
+  border-color:#0054B4;
+}
+.btn-success{
+  background:var(--sap-green);
+  color:#fff;
+  border-color:var(--sap-green);
+}
+.btn-success:hover{background:#0B5A2B}
+.btn-success:disabled{opacity:0.5;cursor:not-allowed}
+
+/* ========== MAIN LAYOUT ========== */
+.main{
+  display:flex;
+  height:calc(100vh - 44px);
+  overflow:hidden;
+}
+.form-area{
+  flex:1;
+  overflow-y:auto;
+  padding:16px;
+  scroll-behavior:smooth;
+}
+.summary-panel{
+  width:280px;
+  background:#fff;
+  border-left:1px solid var(--sap-border);
+  padding:16px;
+  overflow-y:auto;
+}
+
+/* ========== SECTIONS ========== */
+.section{
+  background:#fff;
+  border:1px solid var(--sap-border);
+  border-radius:4px;
+  margin-bottom:12px;
+}
+.section-header{
+  padding:10px 12px;
+  background:var(--sap-header);
+  border-bottom:1px solid var(--sap-border);
+  font-weight:600;
+  font-size:13px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.section-body{
+  padding:12px;
+}
+
+/* ========== FORM FIELDS ========== */
+.form-row{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:12px 16px;
+  margin-bottom:8px;
+}
+.field{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.field-label{
+  font-size:12px;
+  font-weight:600;
+  color:var(--sap-text-sec);
+}
+.field-label-req::after{
+  content:'*';
+  color:var(--sap-red);
+  margin-left:2px;
+}
+.field-input{
+  font-family:inherit;
+  font-size:13px;
+  padding:6px 8px;
+  border:1px solid var(--sap-border);
+  border-radius:3px;
+  background:#fff;
+  color:var(--sap-text);
+  transition:border-color 0.2s;
+}
+.field-input:hover{border-color:#B3B3B3}
+.field-input:focus{
+  outline:none;
+  border-color:var(--sap-blue);
+  box-shadow:0 0 0 1px var(--sap-blue);
+}
+.field-input:read-only{
+  background:#F7F7F7;
+  color:var(--sap-text-sec);
+}
+.field-input.error{border-color:var(--sap-red)}
+
+/* Autocomplete - POSITION FIXED PARA CLIENTES */
+.autocomplete{position:relative}
+.autocomplete-list{
+  position:fixed;
+  background:#fff;
+  border:1px solid var(--sap-border);
+  border-radius:3px;
+  box-shadow:0 4px 16px rgba(0,0,0,0.2);
+  max-height:280px;
+  overflow-y:auto;
+  z-index:10000;
+  display:none;
+  min-width:450px;
+}
+.autocomplete-item{
+  padding:12px 14px;
+  cursor:pointer;
+  border-bottom:1px solid #F0F0F0;
+  transition:background 0.15s;
+}
+.autocomplete-item:hover{background:var(--sap-row-hover)}
+.autocomplete-item:last-child{border-bottom:none}
+.autocomplete-item-title{
+  font-weight:600;
+  font-size:13px;
+  color:var(--sap-text);
+  margin-bottom:4px;
+  line-height:1.4;
+}
+.autocomplete-item-sub{
+  font-size:11px;
+  color:var(--sap-text-sec);
+  line-height:1.3;
+}
+
+/* ========== MEJORAS PRODUCTOS TABLE ========== */
+.products-section {
+  position: relative;
+}
+
+/* Estado vacío mejorado */
+.empty-state {
+  display: none;
+  text-align: center;
+  padding: 60px 20px;
+  background: linear-gradient(135deg, #F8F9FA 0%, #E9ECEF 100%);
+  border-radius: 8px;
+  margin: 20px;
+}
+.empty-state.show {
+  display: block;
+}
+.empty-state-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+.empty-state-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--sap-text);
+  margin-bottom: 8px;
+}
+.empty-state-subtitle {
+  font-size: 14px;
+  color: var(--sap-text-sec);
+  margin-bottom: 24px;
+}
+.empty-state-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: var(--sap-blue);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.empty-state-cta:hover {
+  background: #0054B4;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 112, 242, 0.3);
+}
+
+/* Indicador de línea activa */
+.active-line-indicator {
+  position: sticky;
+  top: 0;
+  background: linear-gradient(90deg, #0070F2 0%, #0054B4 100%);
+  color: #fff;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  display: none;
+  align-items: center;
+  gap: 12px;
+  z-index: 95;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.active-line-indicator.show {
+  display: flex;
+}
+.active-line-indicator-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.active-line-indicator-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+.active-line-indicator-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.active-line-indicator-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.table-container{
+  overflow-x:auto;
+  margin-top:12px;
+  position: relative;
+}
+.products-table{
+  width:100%;
+  min-width:1120px;
+  border-collapse:collapse;
+  font-size:12px;
+}
+.products-table thead{
+  background:#F4F5F6;
+  border-top:1px solid var(--sap-border);
+  border-bottom:2px solid var(--sap-border);
+  position: sticky;
+  top: 0;
+  z-index: 96;
+}
+.products-table th{
+  padding:10px 8px;
+  text-align:left;
+  font-weight:700;
+  color:var(--sap-text-sec);
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.3px;
+  background:#F4F5F6;
+  box-sizing: border-box;
+}
+.products-table th.col-number{text-align:center;width:40px}
+.products-table th.col-actions{text-align:center;width:50px}
+.products-table th.col-producto{width:380px;max-width:380px}
+.products-table th.col-cajas{text-align:right;width:70px}
+.products-table th.col-bxc{text-align:right;width:50px}
+.products-table th.col-unidades{text-align:right;width:80px}
+.products-table th.col-precio{text-align:right;width:110px}
+.products-table th.col-neto{text-align:right;width:110px}
+.products-table th.col-total{text-align:right;width:110px}
+.products-table th.col-vb{text-align:center;width:120px}
+
+/* MEJORAS: Animación de entrada de filas */
+@keyframes rowSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.products-table tbody tr{
+  border-bottom:1px solid #E5E5E5;
+  transition:all 0.2s ease;
+  animation: rowSlideIn 0.3s ease;
+}
+.products-table tbody tr:hover{
+  background:var(--sap-row-hover);
+}
+.products-table tbody tr:nth-child(even){background:var(--sap-row-alt)}
+.products-table tbody tr:nth-child(even):hover{background:var(--sap-row-hover)}
+
+/* MEJORA PRINCIPAL: Highlight de línea activa - SIMPLIFICADO */
+.products-table tbody tr.row-active {
+  background: var(--sap-blue-light) !important;
+  outline: 3px solid var(--sap-blue);
+  outline-offset: -3px;
+}
+
+/* Barra lateral azul - usando box-shadow que NO afecta layout */
+.products-table tbody tr.row-active td:first-child {
+  box-shadow: inset 5px 0 0 0 var(--sap-blue);
+}
+
+.products-table td{
+  padding:10px 8px;
+  vertical-align:middle;
+  box-sizing: border-box;
+}
+.products-table td.col-number{
+  text-align:center;
+  color:var(--sap-text-sec);
+  font-weight:600;
+  width: 40px;
+}
+.products-table td.col-producto{
+  max-width:380px;
+  width:380px;
+}
+
+.table-input{
+  font-family:inherit;
+  font-size:13px;
+  padding:6px 8px;
+  border:1px solid #E5E5E5;
+  border-radius:2px;
+  width:100%;
+  max-width:100%;
+  background:#fff;
+  box-sizing:border-box;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  transition: all 0.2s;
+}
+.table-input:hover{border-color:#B3B3B3}
+.table-input:focus{
+  outline:none;
+  border-color:var(--sap-blue);
+  box-shadow: 0 0 0 2px rgba(0, 112, 242, 0.1);
+}
+.table-input:read-only{
+  background:#FAFAFA;
+  color:var(--sap-text-sec);
+  border-color:#E5E5E5;
+}
+
+/* MEJORA: Input de producto con mejor feedback visual */
+.table-input.producto-search {
+  font-weight: 500;
+}
+.table-input.producto-search:focus {
+  background: #FFFEF7;
+  border-color: var(--sap-orange);
+  box-shadow: 0 0 0 2px rgba(233, 115, 12, 0.1);
+}
+.table-input.producto-selected{
+  border-color:#107E3E;
+  background:#F8FFF9;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  font-weight: 600;
+}
+
+.table-input-right{text-align:right}
+
+.status-badge{
+  display:inline-block;
+  padding:3px 8px;
+  border-radius:3px;
+  font-size:11px;
+  font-weight:700;
+  white-space:nowrap;
+}
+.status-ok{
+  background:#E5F5EB;
+  color:#0B5A2B;
+  border:1px solid #A7D9B8;
+}
+.status-warning{
+  background:#FEF3E7;
+  color:#92400E;
+  border:1px solid #F9C784;
+}
+
+.stock-info{
+  font-size:10px;
+  padding:2px 6px;
+  border-radius:2px;
+  font-weight:600;
+  margin-top:2px;
+  display:inline-block;
+}
+
+.btn-icon{
+  background:transparent;
+  border:1px solid var(--sap-border);
+  padding:4px 8px;
+  border-radius:3px;
+  cursor:pointer;
+  font-size:14px;
+  transition:all 0.15s;
+}
+.btn-icon:hover{
+  background:#FEE2E2;
+  border-color:#DC2626;
+  color: #DC2626;
+}
+
+/* DROPDOWN DE PRODUCTOS MEJORADO - MÁS PROMINENTE */
+.producto-list{
+  position:fixed !important;
+  background:#fff;
+  border:2px solid var(--sap-blue);
+  border-radius:6px;
+  box-shadow:0 8px 32px rgba(0, 112, 242, 0.25);
+  max-height:400px;
+  overflow-y:auto;
+  z-index:10001;
+  display:none;
+  min-width:650px;
+  max-width:850px;
+}
+.producto-list .autocomplete-item {
+  padding: 16px 18px;
+  border-bottom: 1px solid #F0F0F0;
+}
+.producto-list .autocomplete-item:hover {
+  background: var(--sap-blue-light);
+}
+.producto-list .autocomplete-item-title {
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+.producto-list .autocomplete-item-sub {
+  font-size: 12px;
+}
+
+/* Búsqueda activa - indicador visual */
+.searching-indicator {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--sap-blue);
+  display: none;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+/* ========== SUMMARY PANEL ========== */
+.summary-header{
+  font-size:14px;
+  font-weight:700;
+  margin-bottom:16px;
+  padding-bottom:12px;
+  border-bottom:2px solid var(--sap-border);
+}
+.summary-row{
+  display:flex;
+  justify-content:space-between;
+  padding:8px 0;
+  font-size:13px;
+  border-bottom:1px solid #F0F0F0;
+}
+.summary-label{
+  color:var(--sap-text-sec);
+  font-weight:500;
+}
+.summary-value{
+  font-weight:700;
+  color:var(--sap-text);
+}
+.summary-total{
+  margin-top:12px;
+  padding-top:12px;
+  border-top:2px solid var(--sap-border);
+  font-size:15px;
+}
+.summary-total .summary-value{
+  color:var(--sap-green);
+  font-size:18px;
+}
+
+/* ========== LOADING & MODAL ========== */
+.loading{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.5);
+  z-index:9999;
+  align-items:center;
+  justify-content:center;
+}
+.loading-card{
+  background:#fff;
+  padding:32px;
+  border-radius:4px;
+  text-align:center;
+}
+.spinner{
+  width:40px;
+  height:40px;
+  border:4px solid #E5E5E5;
+  border-top-color:var(--sap-blue);
+  border-radius:50%;
+  animation:spin 0.8s linear infinite;
+  margin:0 auto 16px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.modal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.5);
+  z-index:9999;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
+.modal-card{
+  background:#fff;
+  border-radius:4px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3);
+  max-width:500px;
+  width:100%;
+}
+.modal-header{
+  background:var(--sap-green);
+  color:#fff;
+  padding:16px 20px;
+  font-size:16px;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.modal-icon{
+  width:32px;
+  height:32px;
+  background:rgba(255,255,255,0.2);
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  font-size:18px;
+}
+.modal-body{padding:20px}
+.modal-info{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.modal-info-row{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.modal-chip{
+  background:#F7F7F7;
+  border:1px solid var(--sap-border);
+  padding:8px 12px;
+  border-radius:3px;
+  font-size:13px;
+}
+.modal-chip-label{
+  color:var(--sap-text-sec);
+  font-weight:500;
+  margin-right:4px;
+}
+.modal-chip-value{
+  font-weight:700;
+  color:var(--sap-text);
+}
+.modal-actions{
+  padding:16px 20px;
+  background:#F7F7F7;
+  border-top:1px solid var(--sap-border);
+  display:flex;
+  gap:8px;
+  justify-content:flex-end;
+}
+.btn-spinner{
+  width:14px;
+  height:14px;
+  border:2px solid #fff;
+  border-top-color:transparent;
+  border-radius:50%;
+  animation:spin 0.6s linear infinite;
+}
+
+/* ========== KEYBOARD HINTS ========== */
+.keyboard-hint {
+  position: fixed;
+  bottom: 20px;
+  right: 300px;
+  background: rgba(53, 74, 95, 0.95);
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 11px;
+  display: none;
+  gap: 16px;
+  align-items: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  z-index: 900;
+}
+.keyboard-hint.show {
+  display: none;
+}
+.keyboard-hint-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.keyboard-hint-key {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  font-size: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width:1024px){
+  .summary-panel{width:240px}
+}
+@media (max-width:768px){
+  .main{flex-direction:column}
+  .summary-panel{
+    width:100%;
+    border-left:none;
+    border-top:1px solid var(--sap-border);
+  }
+  .form-row{grid-template-columns:1fr}
+  .table-container{overflow-x:scroll}
+  .keyboard-hint {
+    display: none !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- Shell Bar -->
+<div class="shell">
+  <div class="shell-logo">VDA</div>
+  <div class="shell-title">Sistema de Gestión Comercial</div>
+  <div class="shell-right">
+    <div class="shell-badge">NV: <span id="preview-nv">000001</span></div>
+    <a href="?page=home" class="shell-btn">🏠 Inicio</a>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="toolbar-title">Crear Nota de Venta</div>
+  <div class="toolbar-spacer"></div>
+  <button type="button" id="btn-clear" class="btn">🗑️ Limpiar</button>
+  <button type="button" id="btn-save" class="btn btn-success" disabled>💾 Emitir NV</button>
+</div>
+
+<!-- Main Layout -->
+<div class="main">
+  
+  <!-- Form Area -->
+  <div class="form-area" id="form-area">
+    
+    <!-- Cliente Section -->
+    <div class="section">
+      <div class="section-header">📋 Datos del Cliente</div>
+      <div class="section-body">
+        <div class="form-row">
+          <div class="field autocomplete">
+            <label class="field-label field-label-req">Cliente</label>
+            <input type="text" id="cliente-nombre" class="field-input" placeholder="Buscar cliente..." autocomplete="off">
+            <div id="cliente-list" class="autocomplete-list"></div>
+          </div>
+          <div class="field">
+            <label class="field-label">RUT</label>
+            <input type="text" id="cliente-rut" class="field-input" readonly>
+          </div>
+          <div class="field">
+            <label class="field-label">Forma de Pago</label>
+            <input type="text" id="cliente-forma-pago" class="field-input" readonly>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label class="field-label">Dirección</label>
+            <input type="text" id="cliente-direccion" class="field-input" readonly>
+          </div>
+          <div class="field">
+            <label class="field-label">Comuna</label>
+            <input type="text" id="cliente-comuna" class="field-input" readonly>
+          </div>
+          <div class="field">
+            <label class="field-label">Ciudad</label>
+            <input type="text" id="cliente-ciudad" class="field-input" readonly>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Despacho Section -->
+    <div class="section">
+      <div class="section-header">🚚 Datos de Despacho</div>
+      <div class="section-body">
+        <div class="form-row">
+          <div class="field">
+            <label class="field-label field-label-req">Despachar desde</label>
+            <select id="despachar-desde" class="field-input">
+              <option value="">Seleccionar...</option>
+              <option value="Santiago">Santiago</option>
+              <option value="Villa Alegre">Villa Alegre</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label">Dirección Despacho</label>
+            <input type="text" id="direccion-despacho" class="field-input" placeholder="Dirección de entrega">
+          </div>
+          <div class="field">
+            <label class="field-label">Horario Despacho</label>
+            <input type="text" id="horario-despacho" class="field-input" placeholder="Ej: 8:00 - 18:00">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label class="field-label field-label-req" id="vendedor-label">Vendedor</label>
+            <select id="vendedor" class="field-input">
+              <option value="">Seleccionar vendedor...</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label">Fecha</label>
+            <input type="date" id="fecha" class="field-input">
+          </div>
+          <div class="field">
+            <label class="field-label">Observaciones</label>
+            <input type="text" id="observaciones" class="field-input" placeholder="Opcional">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Productos Section -->
+    <div class="section products-section" id="products-section">
+      <div class="section-header">
+        📦 Productos
+        <div style="margin-left:auto">
+          <button type="button" id="btn-add-item" class="btn btn-primary">➕ Agregar Línea</button>
+        </div>
+      </div>
+      
+      <!-- Indicador de línea activa -->
+      <div class="active-line-indicator" id="active-line-indicator">
+        <div class="active-line-indicator-label">
+          <span>✏️</span>
+          <span id="active-line-text">Editando línea 1 de 1</span>
+        </div>
+        <div class="active-line-indicator-actions">
+          <button class="active-line-indicator-btn" onclick="focusNextField()">Siguiente campo →</button>
+          <button class="active-line-indicator-btn" onclick="clearActiveRow()">✕ Cancelar</button>
+        </div>
+      </div>
+      
+      <div class="section-body">
+        <!-- Estado vacío -->
+        <div class="empty-state show" id="empty-state">
+          <div class="empty-state-icon">📦</div>
+          <div class="empty-state-title">No hay productos agregados</div>
+          <div class="empty-state-subtitle">Comienza agregando el primer producto a esta nota de venta</div>
+          <button class="empty-state-cta" onclick="document.getElementById('btn-add-item').click()">
+            <span>➕</span>
+            <span>Agregar Primer Producto</span>
+          </button>
+        </div>
+        
+        <div class="table-container" id="table-container" style="display:none">
+          <table class="products-table" id="products-table">
+            <thead>
+              <tr>
+                <th class="col-number">#</th>
+                <th class="col-producto">Producto</th>
+                <th class="col-cajas">Cajas</th>
+                <th class="col-bxc">BxC</th>
+                <th class="col-unidades">Unidades</th>
+                <th class="col-precio">Precio Bruto U.</th>
+                <th class="col-neto">Neto Línea</th>
+                <th class="col-total">Total Línea</th>
+                <th class="col-vb">V°B° Financiero</th>
+                <th class="col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="products-tbody">
+              <!-- Rows added dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Summary Panel -->
+  <div class="summary-panel" id="summary-panel">
+    <div class="summary-header">Resumen</div>
+    <div class="summary-row">
+      <div class="summary-label">Neto:</div>
+      <div class="summary-value" id="sum-neto">$0</div>
+    </div>
+    <div class="summary-row">
+      <div class="summary-label">IVA:</div>
+      <div class="summary-value" id="sum-iva">$0</div>
+    </div>
+    <div class="summary-row">
+      <div class="summary-label">ILA:</div>
+      <div class="summary-value" id="sum-ila">$0</div>
+    </div>
+    <div class="summary-row">
+      <div class="summary-label">Logístico:</div>
+      <div class="summary-value" id="sum-logistico">$0</div>
+    </div>
+    <div class="summary-row">
+      <div class="summary-label">Cajas:</div>
+      <div class="summary-value" id="sum-cajas">0</div>
+    </div>
+    <div class="summary-row summary-total">
+      <div class="summary-label">TOTAL:</div>
+      <div class="summary-value" id="sum-total">$0</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Keyboard Hints -->
+<div class="keyboard-hint" id="keyboard-hint">
+  <div class="keyboard-hint-item">
+    <span class="keyboard-hint-key">Ctrl</span>
+    <span>+</span>
+    <span class="keyboard-hint-key">Enter</span>
+    <span>Nueva línea</span>
+  </div>
+  <div class="keyboard-hint-item">
+    <span class="keyboard-hint-key">Tab</span>
+    <span>Siguiente campo</span>
+  </div>
+  <div class="keyboard-hint-item">
+    <span class="keyboard-hint-key">Esc</span>
+    <span>Cerrar búsqueda</span>
+  </div>
+</div>
+
+<!-- Loading -->
+<div id="loading" class="loading">
+  <div class="loading-card">
+    <div class="spinner"></div>
+    <div>Procesando Nota de Venta...</div>
+  </div>
+</div>
+
+<!-- Success Modal -->
+<div id="success-modal" class="modal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-icon">✓</div>
+      <div>Nota de Venta Creada</div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-info">
+        <div class="modal-info-row">
+          <div class="modal-chip">
+            <span class="modal-chip-label">NV:</span>
+            <span class="modal-chip-value" id="modal-nv">—</span>
+          </div>
+        </div>
+        <div class="modal-info-row">
+          <div class="modal-chip">
+            <span class="modal-chip-label">Total:</span>
+            <span class="modal-chip-value" id="modal-total">$0</span>
+          </div>
+          <div class="modal-chip">
+            <span class="modal-chip-label">Cajas:</span>
+            <span class="modal-chip-value" id="modal-cajas">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button id="btn-modal-ok" class="btn">Aceptar</button>
+      <button id="btn-modal-new" class="btn">Nueva NV</button>
+      <button id="btn-modal-pdf" class="btn btn-primary" disabled>
+        <span class="btn-spinner" style="display:none"></span>
+        <span class="btn-text">⬇️ Descargar PDF</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- jsPDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+(() => {
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => Array.from(document.querySelectorAll(sel));
+  const hasGS = () => !!(window.google && google.script && google.script.run);
+
+  function gsRun(method, ...args){
+    return new Promise((resolve, reject)=>{
+      if (!hasGS()){
+        console.warn('Google Apps Script no disponible');
+        reject(new Error('GAS no disponible'));
+        return;
+      }
+      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[method](...args);
+    });
+  }
+
+  const MS_DAY = 24*60*60*1000;
+  function readNumber(v){
+    if (typeof v === 'number') return v;
+    if (v == null || v === '') return 0;
+    const n = Number(String(v).replace(/\./g,'').replace(/,/g,'.').replace(/[^\d\.\-]/g,''));
+    return isFinite(n) ? n : 0;
+  }
+  function percent(v, fb){ let x = (v == null ? fb : readNumber(v)); return x > 1 ? x/100 : x; }
+  function parseDateLoose(s){
+    if(!s) return null;
+    const t = String(s).trim();
+    let m = t.match(/^(\d{4})[-/](\d{2})[-/](\d{2})$/);
+    if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+    m = t.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+    if (m) return new Date(+m[3], +m[2]-1, +m[1]);
+    const d = new Date(t);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function deepFindCredito(obj){
+    const keyRx = /monto.*aprobado.*clp/i;
+    let found = null;
+    function walk(o){
+      if (!o || typeof o !== 'object' || found!=null) return;
+      for (const k of Object.keys(o)){
+        const v = o[k];
+        if (keyRx.test(k)) { const n = readNumber(v); if (n>0) { found = n; return; } }
+        if (v && typeof v === 'object') walk(v);
+      }
+    }
+    walk(obj);
+    return found;
+  }
+
+  async function fetchDeudaCliente(rut, nombre){
+    if (!hasGS() || !rut) return null;
+    
+    try {
+      // Usar la función correcta del backend
+      const det = await gsRun('apiDeudaGetDetalleCliente', rut).catch(()=>null);
+      
+      if (det && det.ok) {
+        const t = det.totales || {};
+        const c = det.credito || {};
+        
+        // Extraer cheques correctamente de totales
+        const cheques = readNumber(t.chequesCartera || 0);
+        const vencidas = readNumber(t.vencida || 0);
+        const porVencer = readNumber(t.porVencer || 0);
+        const noDocumentado = readNumber(t.deudaNoDocumentada || (vencidas + porVencer));
+        const credito = readNumber(c.lineaCredito || 0);
+        const disponible = credito > 0 ? credito - noDocumentado : readNumber(c.disponible || 0);
+        
+        const resumen = {
+          cliente: det.cliente || '',
+          rut: det.rut || '',
+          deudaTotal: readNumber(t.deudaTotal || 0),
+          vencidas: vencidas,
+          porVencer: porVencer,
+          cheques: cheques,  // ← CHEQUES EN CARTERA
+          chequesCartera: cheques,  // ← Alias por compatibilidad
+          noDocumentado: noDocumentado,
+          docs: readNumber(t.documentos || 0),
+          maxDias: readNumber(t.maxDias || 0),
+          credito: credito,
+          disponible: disponible,
+          utilPct: credito > 0 ? Math.round((noDocumentado / credito) * 1000) / 10 : 0
+        };
+        
+        // Intentar obtener crédito desde Seguro Vigente si es mayor
+        try {
+          const credSV = await gsRun('apiGetSeguroVigenteMontoAprobado', rut).catch(()=>0);
+          if (credSV && credSV > 0 && credSV > resumen.credito) {
+            resumen.credito = credSV;
+            resumen.disponible = credSV - noDocumentado;
+          }
+        } catch(e) {
+          console.warn('No se pudo obtener crédito de Seguro Vigente:', e);
+        }
+        
+        // Mapear items del detalle
+        const detalle = (det.items || []).map(it => {
+          // El monto puede estar en deuda O en chequesCartera según el tipo
+          const montoDeuda = readNumber(it.deuda || 0);
+          const montoCheque = readNumber(it.chequesCartera || 0);
+          // Usar el que tenga valor (uno u otro, no ambos a la vez por documento)
+          const montoTotal = montoDeuda > 0 ? montoDeuda : montoCheque;
+          
+          return {
+            doc: it.documento || '',
+            emision: it.fechaFactura || '',
+            vence: it.fechaVenc || '',
+            estado: it.estadoPago || '',
+            estadoPago: it.estadoPago || 'Pendiente',
+            neto: montoTotal,
+            total: montoTotal,
+            dias: readNumber(it.diasSigned || it.diasVenc || 0),
+            esCheque: montoCheque > 0  // ← Opcional: para identificar visualmente
+          };
+        });
+        
+        return { 
+          ok: true, 
+          resumen, 
+          detalle 
+        };
+      }
+      
+      // Fallback a apiFinGetDeudaCliente
+      const legacy = await gsRun('apiFinGetDeudaCliente', rut, nombre).catch(()=>null);
+      if (legacy && legacy.ok) {
+        // Asegurar que cheques esté presente
+        if (legacy.resumen && legacy.resumen.cheques == null) {
+          legacy.resumen.cheques = readNumber(legacy.resumen.chequesCartera || 0);
+        }
+        return legacy;
+      }
+      
+      return null;
+      
+    } catch(err) {
+      console.error('Error en fetchDeudaCliente:', err);
+      return null;
+    }
+  }
+
+  function normalizeDeudaResponse({ resumen, detalle }){
+    const d = Array.isArray(detalle) ? detalle.map(x => ({
+      doc:   x.doc || x.documento || x.numero || x.Numero || '',
+      emision: x.emision || x.fechaEmision || x.fecha || x['Fecha Facturación'] || '',
+      vence:   x['Fecha Vencimiento de Pago'] || x.vence || x.vencimiento || x.fechaVencimiento || '',
+      estado:  x.estado || x.situacion || '',
+      estadoPago: x.estadoPago || x.estado_de_pago || x.estadoDePago || x['Estado de Pago'] || 'Pendiente',
+      neto:    readNumber(x.neto || x.montoNeto || x.subtotal || 0),
+      total:   readNumber(x.total || x.montoTotal || x.bruto || (readNumber(x.neto||0)+readNumber(x.iva||0)+readNumber(x.ila||0))),
+      dias:    undefined
+    })) : [];
+    const agg = calcDebtAggregates(d);
+    const r = resumen || {};
+    const credito = readNumber(r.montoAprobadoCLP || r['Monto Aprobado CLP'] || r.credito || r.lineaCredito || 0);
+    const cheques = readNumber(r.cheques || r.chequesCartera || 0);
+    const vencidas = (r.vencidas!=null) ? readNumber(r.vencidas) : agg.vencidas;
+    const porVencer = (r.porVencer!=null) ? readNumber(r.porVencer) : agg.porVencer;
+    const disponibleCampo = (r.disponible!=null) ? r.disponible : (r.creditoDisponible!=null) ? r.creditoDisponible : null;
+    const disponible = (disponibleCampo!=null) ? readNumber(disponibleCampo) : (credito - vencidas - porVencer - cheques);
+    return { ok: true, resumen: { seguro: (r.seguro != null ? r.seguro : 'No'), credito, vencidas, porVencer, cheques, disponible, docs: r.docs || agg.docs, maxDias: r.maxDias || agg.maxDias }, detalle: d };
+  }
+
+  function deriveDias(row){
+    const v = parseDateLoose(row.vence);
+    if (v) return Math.floor((new Date() - v)/MS_DAY);
+    const n = Number(row.dias);
+    if (isFinite(n)) return n;
+    const e = String(row.estado || '');
+    let m = e.match(/\((\+?-?\d+)d\)/i) || e.match(/(\+?-?\d+)\s*d/i);
+    if (m) return Number(m[1]);
+    return 0;
+  }
+
+  function calcDebtAggregates(detalle){
+    let vencidas=0, porVencer=0, docs=0, maxDias=0;
+    (detalle||[]).forEach(r=>{
+      const dias = deriveDias(r); r.dias = dias;
+      const total = readNumber(r.total||0);
+      if (total>0){ if (dias>0) vencidas += total; else porVencer += total; }
+      maxDias = Math.max(maxDias, dias); docs++;
+    });
+    return { vencidas, porVencer, docs, maxDias };
+  }
+
+  let itemCounter = 0;
+  let clienteSeleccionado = null;
+  let lastSavedNV = null;
+  let activeRowId = null;
+  const formatCLP = (num) => '$' + Math.round(num || 0).toLocaleString('es-CL');
+
+  function getNumberFromAny(obj, keys){
+    for (const k of keys){
+      if (obj == null) break;
+      if (k in obj && obj[k] != null && obj[k] !== ''){
+        const v = (typeof obj[k] === 'string') ? Number(String(obj[k]).replace(/\./g,'').replace(/,/g,'.')) : Number(obj[k]);
+        if (!isNaN(v)) return v;
+      }
+    }
+    return null;
+  }
+
+  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); } else { init(); }
+
+  function init(){
+    setupEventListeners();
+    loadInitialData();
+    setupKeyboardShortcuts();
+    const f=$('#fecha'); if (f) f.value = new Date().toISOString().slice(0,10);
+  }
+
+  function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+      // Ctrl+Enter para agregar línea
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        addItem();
+      }
+      // Esc para cerrar dropdowns
+      if (e.key === 'Escape') {
+        $$('.autocomplete-list, .producto-list').forEach(list => list.style.display='none');
+      }
+    });
+    
+    // Mostrar hints cuando hay líneas
+    const observer = new MutationObserver(() => {
+      const hasRows = $$('#products-tbody tr').length > 0;
+      $('#keyboard-hint').classList.toggle('show', hasRows);
+    });
+    observer.observe($('#products-tbody'), { childList: true });
+  }
+
+  function setupEventListeners(){
+    // Crear función debounced para búsqueda de clientes
+    const debouncedSearch = debounce(searchClientes, 300);
+    
+    // Combinar input event para búsqueda de clientes Y desbloqueo de vendedor
+    $('#cliente-nombre').addEventListener('input', () => {
+      // Desbloquear vendedor si está bloqueado
+      const vendedorSel = $('#vendedor');
+      if (vendedorSel.disabled) {
+        vendedorSel.disabled = false;
+        vendedorSel.style.background = '#fff';
+        vendedorSel.style.color = 'var(--sap-text)';
+        vendedorSel.style.cursor = 'pointer';
+        vendedorSel.title = '';
+        
+        // Resetear label
+        const label = $('#vendedor-label');
+        if (label) {
+          label.textContent = 'Vendedor';
+        }
+      }
+      // Búsqueda de clientes con debounce
+      debouncedSearch();
+    });
+    
+    $('#cliente-nombre').addEventListener('focus', () => { if ($('#cliente-nombre').value.trim().length >= 2) searchClientes(); });
+    $('#cliente-nombre').addEventListener('blur', () => setTimeout(()=>$('#cliente-list').style.display='none',300));
+
+    $('#btn-add-item').addEventListener('click', addItem);
+    $('#btn-save').addEventListener('click', saveNV);
+
+    $('#vendedor').addEventListener('change', validateForm);
+    $('#despachar-desde').addEventListener('change', validateForm);
+
+    document.addEventListener('click', (e) => { 
+      if (!e.target.closest('.autocomplete') && !e.target.closest('.producto-search')) {
+        $$('.autocomplete-list').forEach(list => list.style.display='none');
+        $$('.producto-list').forEach(list => list.style.display='none');
+      }
+    });
+
+    $('#btn-modal-ok').addEventListener('click', closeSuccessModal);
+    $('#btn-modal-new').addEventListener('click', ()=> location.reload());
+    $('#btn-modal-pdf').addEventListener('click', ()=> { if (lastSavedNV) generatePDF(lastSavedNV); });
+    
+    // Limpiar todo incluyendo cliente y desbloquear vendedor
+    $('#btn-clear').addEventListener('click', () => {
+      if (confirm('¿Desea limpiar todo el formulario?')) {
+        // Limpiar cliente
+        clienteSeleccionado = null;
+        $('#cliente-nombre').value = '';
+        $('#cliente-rut').value = '';
+        $('#cliente-direccion').value = '';
+        $('#cliente-comuna').value = '';
+        $('#cliente-ciudad').value = '';
+        $('#cliente-forma-pago').value = '';
+        $('#direccion-despacho').value = '';
+        $('#horario-despacho').value = '';
+        $('#observaciones').value = '';
+        
+        // Desbloquear y resetear vendedor
+        const vendedorSel = $('#vendedor');
+        vendedorSel.value = '';
+        vendedorSel.disabled = false;
+        vendedorSel.style.background = '#fff';
+        vendedorSel.style.color = 'var(--sap-text)';
+        vendedorSel.style.cursor = 'pointer';
+        vendedorSel.title = '';
+        
+        // Resetear label
+        const label = $('#vendedor-label');
+        if (label) {
+          label.textContent = 'Vendedor';
+        }
+        
+        // Limpiar productos
+        $('#products-tbody').innerHTML='';
+        $('#empty-state').classList.add('show');
+        $('#table-container').style.display = 'none';
+        activeRowId = null;
+        updateActiveLineIndicator();
+        calculateGrandTotals();
+        validateForm();
+      }
+    });
+  }
+
+  function loadInitialData(){
+    if (!hasGS()){
+      $('#preview-nv').textContent = '000001';
+      return;
+    }
+    google.script.run.withSuccessHandler(nv=>{ $('#preview-nv').textContent = nv || '000001'; }).apiPreviewNV();
+    google.script.run.withSuccessHandler(vendedores=>{
+      const sel = $('#vendedor'); vendedores.forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
+    }).apiGetVendedores();
+  }
+
+  function searchClientes(){
+    const query = $('#cliente-nombre').value.trim();
+    if (query.length<2){ $('#cliente-list').style.display='none'; return; }
+    if (!hasGS()) return;
+    google.script.run.withSuccessHandler(showClientesList).apiGetClientes(query,10);
+  }
+
+  function showClientesList(clientes){
+    const list = $('#cliente-list'); 
+    const input = $('#cliente-nombre');
+    list.innerHTML='';
+    
+    if (clientes.length===0){ 
+      list.innerHTML='<div class="autocomplete-item">Sin resultados</div>'; 
+      list.style.display='block'; 
+      return; 
+    }
+    
+    clientes.forEach(c=>{
+      const el=document.createElement('div'); 
+      el.className='autocomplete-item';
+      el.innerHTML=`<div class="autocomplete-item-title">${c.nombre}</div><div class="autocomplete-item-sub">${c.rut || 'Sin RUT'} • ${c.comuna || ''}</div>`;
+      el.addEventListener('mousedown',(e)=>{
+        e.preventDefault();
+        selectCliente(c);
+      }); 
+      list.appendChild(el);
+    });
+    
+    positionDropdownFixed(input, list);
+    list.style.display='block';
+  }
+
+  function selectCliente(c){
+    clienteSeleccionado=c;
+    $('#cliente-nombre').value=c.nombre||''; 
+    $('#cliente-rut').value=c.rut||'';
+    $('#cliente-direccion').value=c.direccion||''; 
+    $('#cliente-comuna').value=c.comuna||'';
+    $('#cliente-ciudad').value=c.ciudad||''; 
+    $('#cliente-forma-pago').value=c.formaPago||'';
+    if (c.direccion && !$('#direccion-despacho').value.trim()) $('#direccion-despacho').value = c.direccion;
+    $('#cliente-list').style.display='none';
+    
+    // NUEVO: Asignar vendedor automáticamente y BLOQUEARLO
+    if (c.vendedor){ 
+      const sel=$('#vendedor'); 
+      [...sel.options].forEach(o=>{ 
+        if(o.value===c.vendedor) sel.value=c.vendedor; 
+      });
+      
+      // BLOQUEAR el vendedor para que no se pueda cambiar
+      sel.disabled = true;
+      sel.style.background = '#F7F7F7';
+      sel.style.color = '#6A6D70';
+      sel.style.cursor = 'not-allowed';
+      sel.title = '🔒 Vendedor asignado automáticamente al cliente. Para cambiar, seleccione otro cliente.';
+      
+      // Actualizar label con candado (manteniendo clase de requerido)
+      const label = $('#vendedor-label');
+      if (label) {
+        label.className = 'field-label field-label-req';
+        label.innerHTML = 'Vendedor <span style="color:#6A6D70;font-size:11px;margin-left:4px;font-weight:normal">🔒 Auto-asignado</span>';
+      }
+    }
+    
+    $('#cliente-nombre').classList.remove('error');
+    validateForm();
+  }
+
+  function addItem(){
+    itemCounter++;
+    const tbody = $('#products-tbody');
+    const tr = document.createElement('tr');
+    tr.dataset.itemId = itemCounter;
+    tr.innerHTML = `
+      <td class="col-number">${itemCounter}</td>
+      <td class="col-producto">
+        <input type="text" class="table-input producto-search" placeholder="Busque producto por nombre o SKU..." autocomplete="off" title="Busque el producto por nombre o SKU.">
+        <div class="producto-list"></div>
+        <div style="display:flex;gap:6px;margin-top:4px;max-width:100%;overflow:hidden">
+          <div class="sku-badge" style="display:none;font-size:10px;color:#6A6D70;font-weight:600;background:#F7F7F7;padding:2px 6px;border-radius:3px;border:1px solid #E5E5E5;white-space:nowrap"></div>
+          <div class="stock-info" style="display:none;white-space:nowrap"></div>
+        </div>
+      </td>
+      <td class="col-cajas">
+        <input type="number" class="table-input table-input-right cajas-input" min="0" step="1" placeholder="0">
+      </td>
+      <td class="col-bxc">
+        <input type="text" class="table-input table-input-right bxc-input" readonly>
+      </td>
+      <td class="col-unidades">
+        <input type="text" class="table-input table-input-right unidades-input" readonly>
+      </td>
+      <td class="col-precio">
+        <input type="text" class="table-input table-input-right precio-bruto-input" placeholder="0">
+      </td>
+      <td class="col-neto">
+        <span class="neto-value">$0</span>
+      </td>
+      <td class="col-total">
+        <span class="total-value">$0</span>
+      </td>
+      <td class="col-vb" style="text-align:center">
+        <span class="status-badge status-ok vb-badge">Sin V°B°</span>
+      </td>
+      <td class="col-actions" style="text-align:center">
+        <button type="button" class="btn-icon" onclick="removeItem(${itemCounter})" title="Eliminar">🗑️</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+    setupRowEvents(tr);
+    
+    // MEJORA: Ocultar estado vacío, mostrar tabla
+    $('#empty-state').classList.remove('show');
+    $('#table-container').style.display = 'block';
+    
+    // MEJORA: Scroll suave centrado en la nueva línea
+    setTimeout(() => {
+      scrollToRow(tr);
+      tr.querySelector('.producto-search').focus();
+      setActiveRow(tr);
+    }, 100);
+    
+    validateForm();
+  }
+
+  // NUEVA FUNCIÓN: Scroll inteligente centrado
+  function scrollToRow(tr) {
+    const formArea = $('#form-area');
+    const trRect = tr.getBoundingClientRect();
+    const formRect = formArea.getBoundingClientRect();
+    const offset = trRect.top - formRect.top - (formRect.height / 2) + (trRect.height / 2);
+    formArea.scrollBy({ top: offset, behavior: 'smooth' });
+  }
+
+  // NUEVA FUNCIÓN: Marcar línea como activa
+  function setActiveRow(tr) {
+    // Remover clase activa de todas las filas
+    $$('#products-tbody tr').forEach(row => row.classList.remove('row-active'));
+    
+    // Agregar clase activa a la fila actual
+    tr.classList.add('row-active');
+    activeRowId = tr.dataset.itemId;
+    
+    // Actualizar indicador
+    updateActiveLineIndicator();
+  }
+
+  // NUEVA FUNCIÓN: Actualizar indicador de línea activa
+  function updateActiveLineIndicator() {
+    const rows = $$('#products-tbody tr');
+    const activeRow = rows.find(r => r.dataset.itemId == activeRowId);
+    const indicator = $('#active-line-indicator');
+    
+    if (activeRow && rows.length > 0) {
+      const index = rows.indexOf(activeRow) + 1;
+      $('#active-line-text').textContent = `Editando línea ${index} de ${rows.length}`;
+      indicator.classList.add('show');
+    } else {
+      indicator.classList.remove('show');
+    }
+  }
+
+  // NUEVA FUNCIÓN GLOBAL: Siguiente campo
+  window.focusNextField = function() {
+    const activeRow = $(`tr[data-item-id="${activeRowId}"]`);
+    if (!activeRow) return;
+    
+    const inputs = Array.from(activeRow.querySelectorAll('input:not([readonly])'));
+    const focused = document.activeElement;
+    const currentIndex = inputs.indexOf(focused);
+    
+    if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+      inputs[currentIndex + 1].focus();
+    }
+  };
+
+  // NUEVA FUNCIÓN GLOBAL: Cancelar línea activa
+  window.clearActiveRow = function() {
+    const activeRow = $(`tr[data-item-id="${activeRowId}"]`);
+    if (activeRow) {
+      activeRow.classList.remove('row-active');
+      activeRowId = null;
+      updateActiveLineIndicator();
+    }
+  };
+
+  function setupRowEvents(tr){
+    const productoInput = tr.querySelector('.producto-search');
+    const cajasInput = tr.querySelector('.cajas-input');
+    const precioBrutoInput = tr.querySelector('.precio-bruto-input');
+    const productoList = tr.querySelector('.producto-list');
+
+    // MEJORA: Marcar fila como activa al hacer focus (SIN interferir con input)
+    const allInputs = tr.querySelectorAll('input:not([readonly])');
+    allInputs.forEach(input => {
+      input.addEventListener('mousedown', () => {
+        // Usar mousedown en lugar de focus para no interferir
+        setTimeout(() => setActiveRow(tr), 0);
+      }, { passive: true });
+      
+      input.addEventListener('focus', () => {
+        // Marcar activo sin preventDefault
+        setTimeout(() => setActiveRow(tr), 0);
+      }, { passive: true });
+    });
+
+    productoInput.addEventListener('input', ()=>{
+      const query = productoInput.value.trim();
+      const skuBadge = tr.querySelector('.sku-badge');
+      if (skuBadge) skuBadge.style.display = 'none';
+      productoInput.classList.remove('producto-selected');
+      
+      if (query.length >= 2) {
+        searchProductos(tr);
+      } else {
+        productoList.style.display = 'none';
+      }
+    });
+    
+    productoInput.addEventListener('focus', ()=>{ 
+      const query = productoInput.value.trim();
+      if (query.length >= 2) {
+        searchProductos(tr);
+      }
+    });
+    
+    productoInput.addEventListener('blur', ()=> setTimeout(()=>productoList.style.display='none',300));
+    
+    // IMPORTANTE: Permitir input normal sin interferencia
+    cajasInput.addEventListener('input', ()=>{ 
+      calculateRowTotals(tr); 
+      validateForm(); 
+    });
+    
+    cajasInput.addEventListener('keydown', (e) => {
+      // Asegurar que todos los números y teclas de navegación funcionen
+      const allowed = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'];
+      if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) {
+        if (!e.ctrlKey && !e.metaKey) {
+          // Solo permitir números y teclas de control
+          if (e.key.length === 1) {
+            e.preventDefault();
+          }
+        }
+      }
+    });
+    
+    precioBrutoInput.addEventListener('input', ()=>{ calculateRowTotals(tr); validateForm(); });
+  }
+
+  function searchProductos(tr){
+    const input = tr.querySelector('.producto-search');
+    const query = input.value.trim();
+    const list = tr.querySelector('.producto-list');
+    const skuBadge = tr.querySelector('.sku-badge');
+    
+    if (skuBadge) skuBadge.style.display = 'none';
+    input.classList.remove('producto-selected');
+    
+    if (query.length<2){ list.style.display='none'; return; }
+    if (!hasGS()) return;
+    google.script.run.withSuccessHandler(prod=>showProductosList(tr, prod)).apiGetProductos(query,15);
+  }
+
+  function showProductosList(tr, productos){
+    const list = tr.querySelector('.producto-list');
+    const input = tr.querySelector('.producto-search');
+    list.innerHTML='';
+    
+    if (productos.length===0){ 
+      list.innerHTML='<div class="autocomplete-item">Sin resultados</div>'; 
+      list.style.display='block'; 
+      return; 
+    }
+    
+    productos.forEach(p=>{
+      const el=document.createElement('div'); 
+      el.className='autocomplete-item';
+      const minTxt = p.minNetoUnitario ? ` • Min: $${Math.round(p.minNetoUnitario).toLocaleString('es-CL')}` : '';
+      el.innerHTML=`<div class="autocomplete-item-title">${p.nombre}</div><div class="autocomplete-item-sub">SKU: ${p.sku} • BxC: ${p.bxc} • Neto: $${Math.round(p._precioNetoOriginal).toLocaleString('es-CL')}${minTxt}</div>`;
+      el.addEventListener('mousedown',(e)=>{
+        e.preventDefault();
+        selectProducto(tr,p);
+      }); 
+      list.appendChild(el);
+    });
+    
+    positionDropdownFixed(input, list);
+    list.style.display='block';
+  }
+
+  function positionDropdownFixed(input, dropdown) {
+    const rect = input.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const dropdownHeight = dropdown.classList.contains('producto-list') ? 400 : 320;
+    const spaceBelow = viewportHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    
+    if (dropdown.id === 'cliente-list') {
+      const width = Math.max(rect.width, 450);
+      dropdown.style.width = width + 'px';
+      dropdown.style.left = rect.left + 'px';
+    } else {
+      let leftPos = rect.left;
+      const dropdownWidth = 650;
+      
+      if (leftPos + dropdownWidth > viewportWidth) {
+        leftPos = viewportWidth - dropdownWidth - 10;
+      }
+      
+      dropdown.style.left = leftPos + 'px';
+    }
+    
+    if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+      dropdown.style.top = 'auto';
+      dropdown.style.bottom = (viewportHeight - rect.top + 2) + 'px';
+    } else {
+      dropdown.style.top = (rect.bottom + 2) + 'px';
+      dropdown.style.bottom = 'auto';
+    }
+  }
+
+  function selectProducto(tr, p){
+    const input = tr.querySelector('.producto-search');
+    const bxcInput = tr.querySelector('.bxc-input');
+    const precioBrutoInput = tr.querySelector('.precio-bruto-input');
+    const list = tr.querySelector('.producto-list');
+    const skuBadge = tr.querySelector('.sku-badge');
+
+    const puNetoBase = getNumberFromAny(p, ['netoUnitarioBase','_precioNetoOriginal']);
+    const puBrutoBase = getNumberFromAny(p, ['brutoUnitarioBase','_precioBrutoOriginal']);
+    const puBrutoSugerido = getNumberFromAny(p, ['precioBrutoUnitario','_precioBrutoOriginal']);
+    const bxc = getNumberFromAny(p, ['bxc','BxC']) ?? 0;
+
+    input.value = `${p.nombre}`;
+    input.title = `${p.nombre}`;
+    input.dataset.selectedSku = p.sku;
+    input.classList.add('producto-selected');
+    
+    if (skuBadge && p.sku) {
+      skuBadge.textContent = `SKU: ${p.sku}`;
+      skuBadge.style.display = 'inline-block';
+    }
+    
+    bxcInput.value = bxc || '';
+    if (puBrutoSugerido != null) precioBrutoInput.value = String(puBrutoSugerido).replace('.',',');
+
+    p._puNetoBase = puNetoBase;
+    p._puBrutoBase = puBrutoBase;
+    p.bxc = bxc;
+
+    tr.dataset.producto = JSON.stringify(p);
+    list.style.display='none';
+    checkStock(tr, p.sku);
+    calculateRowTotals(tr);
+    validateForm();
+    
+    setTimeout(() => {
+      const cajasInput = tr.querySelector('.cajas-input');
+      cajasInput.focus();
+      setActiveRow(tr);
+    }, 100);
+  }
+
+  function checkStock(tr, sku){
+    const stockInfo = tr.querySelector('.stock-info');
+    if (!hasGS()) return;
+    google.script.run.withSuccessHandler(stock=>{
+      stockInfo.style.display='block';
+      if (stock.disponible>10){ 
+        stockInfo.style.background='#D1FAE5'; 
+        stockInfo.style.color='#065F46'; 
+      } else if (stock.disponible>0){ 
+        stockInfo.style.background='#FEF3C7'; 
+        stockInfo.style.color='#92400E'; 
+      } else { 
+        stockInfo.style.background='#FEE2E2'; 
+        stockInfo.style.color='#991B1B'; 
+      }
+      stockInfo.textContent = stock.mensaje;
+    }).withFailureHandler(()=>{ 
+      stockInfo.style.display='block'; 
+      stockInfo.style.background='#FEF3C7'; 
+      stockInfo.style.color='#92400E'; 
+      stockInfo.textContent='Stock no disponible'; 
+    }).apiGetStock(sku);
+  }
+
+  function calculateRowTotals(tr){
+    const productoData = tr.dataset.producto;
+    if (!productoData) return;
+    const p = JSON.parse(productoData);
+
+    const cajas = readNumber(tr.querySelector('.cajas-input').value);
+    const precioBrutoUnitario = readNumber(tr.querySelector('.precio-bruto-input').value);
+    const bxc = readNumber(p.bxc);
+    const unidades = cajas * bxc;
+    tr.querySelector('.unidades-input').value = Math.round(unidades);
+
+    const ivaPct = percent(p.ivaPorcentaje, 0.19);
+    const ilaPct = percent(p.ilaPorcentaje, 0.00);
+    const logNetoU = 360, logIVA_U = logNetoU * 0.19, logBrutoU = logNetoU + logIVA_U;
+    const prodBrutoU = Math.max(0, precioBrutoUnitario - logBrutoU);
+    const netProdU = prodBrutoU / (1 + ivaPct + ilaPct);
+    const netoProducto = netProdU * unidades;
+    const logisticoNeto = logNetoU * unidades;
+    const ivaProdU = netProdU * ivaPct;
+    const ilaU = netProdU * ilaPct;
+    const ivaProducto = ivaProdU * unidades;
+    const ivaLogistico = logIVA_U * unidades;
+    const ivaTotal = ivaProducto + ivaLogistico;
+    const ilaTotal = ilaU * unidades;
+    const netoLinea = netoProducto + logisticoNeto;
+    const totalLinea = precioBrutoUnitario * unidades;
+
+    const brutoBaseU = readNumber(p._precioBrutoOriginal);
+    const prodBrutoBaseU = Math.max(0, brutoBaseU - logBrutoU);
+    const descuentoU = Math.max(0, prodBrutoBaseU - prodBrutoU);
+    const descuentoLinea = descuentoU * unidades;
+
+    const netoBaseU = readNumber(p._puNetoBase);
+    const minU = (readNumber(p.minNetoUnitario) > 0) ? readNumber(p.minNetoUnitario) : netoBaseU;
+    
+    const vbBadge = tr.querySelector('.vb-badge');
+    let vbEstado = 'Sin V°B° Financiero';
+    
+    const netProdURounded = Math.round(netProdU * 100) / 100;
+    const minURounded = Math.round(minU * 100) / 100;
+    
+    if (netProdURounded < (minURounded - 5)){
+      vbBadge.textContent = 'Requiere V°B°';
+      vbBadge.className = 'status-badge status-warning vb-badge';
+      vbEstado = 'Requiere V°B° Financiero';
+    }else{
+      vbBadge.textContent = 'Sin V°B°';
+      vbBadge.className = 'status-badge status-ok vb-badge';
+      vbEstado = 'Sin V°B° Financiero';
+    }
+
+    tr.dataset.totales = JSON.stringify({
+      neto: Math.round(netoLinea * 100) / 100, 
+      netoProducto: Math.round(netoProducto * 100) / 100, 
+      costoLogistico: Math.round(logisticoNeto * 100) / 100,
+      iva: Math.round(ivaTotal * 100) / 100, 
+      ivaProducto: Math.round(ivaProducto * 100) / 100, 
+      ivaLogistico: Math.round(ivaLogistico * 100) / 100, 
+      ila: Math.round(ilaTotal * 100) / 100, 
+      total: Math.round(totalLinea * 100) / 100,
+      descuento: Math.round(descuentoLinea * 100) / 100, 
+      cajas, 
+      unidades, 
+      precioBrutoUnitario: Math.round(precioBrutoUnitario * 100) / 100,
+      brutoBaseU: Math.round(brutoBaseU * 100) / 100, 
+      netoFinalU: Math.round(netProdU * 100) / 100, 
+      netoBaseU: Math.round(readNumber(p._puNetoBase) * 100) / 100,
+      brutoBaseU: Math.round(readNumber(p._puBrutoBase) * 100) / 100, 
+      minNetoU: Math.round(minU * 100) / 100, 
+      vbEstado
+    });
+
+    tr.querySelector('.neto-value').textContent = formatCLP(netoLinea);
+    tr.querySelector('.total-value').textContent = formatCLP(totalLinea);
+
+    calculateGrandTotals();
+  }
+
+  function calculateGrandTotals(){
+    let totalNeto=0, totalIVA=0, totalILA=0, totalLogistico=0, totalCajas=0;
+    $$('#products-tbody tr').forEach(tr=>{
+      const t = tr.dataset.totales ? JSON.parse(tr.dataset.totales) : null;
+      if (!t) return;
+      totalNeto += readNumber(t.neto);
+      totalIVA += readNumber(t.iva);
+      totalILA += readNumber(t.ila);
+      totalLogistico += readNumber(t.costoLogistico);
+      totalCajas += readNumber(t.cajas);
+    });
+    const totalGeneral = totalNeto + totalIVA + totalILA;
+    $('#sum-neto').textContent = formatCLP(totalNeto);
+    $('#sum-iva').textContent = formatCLP(totalIVA);
+    $('#sum-ila').textContent = formatCLP(totalILA);
+    $('#sum-logistico').textContent = formatCLP(totalLogistico);
+    $('#sum-cajas').textContent = Math.round(totalCajas);
+    $('#sum-total').textContent = formatCLP(totalGeneral);
+  }
+
+  function removeItem(id){
+    const tr = document.querySelector(`tr[data-item-id="${id}"]`);
+    if (tr){ 
+      // MEJORA: Animación de salida
+      tr.style.opacity = '0';
+      tr.style.transform = 'translateX(-20px)';
+      setTimeout(() => {
+        tr.remove(); 
+        calculateGrandTotals(); 
+        validateForm();
+        
+        // MEJORA: Mostrar estado vacío si no hay productos
+        const hasRows = $$('#products-tbody tr').length > 0;
+        if (!hasRows) {
+          $('#empty-state').classList.add('show');
+          $('#table-container').style.display = 'none';
+        }
+        
+        // Actualizar indicador
+        if (activeRowId == id) {
+          activeRowId = null;
+        }
+        updateActiveLineIndicator();
+      }, 200);
+    }
+  }
+  window.removeItem = removeItem;
+
+  function clearItems(){
+    if (confirm('¿Eliminar todos los productos?')){
+      $('#products-tbody').innerHTML='';
+      $('#empty-state').classList.add('show');
+      $('#table-container').style.display = 'none';
+      activeRowId = null;
+      updateActiveLineIndicator();
+      calculateGrandTotals();
+      validateForm();
+    }
+  }
+
+  function validateForm(){
+    const hasCliente = !!(clienteSeleccionado && $('#cliente-nombre').value.trim());
+    const vendedorSel = $('#vendedor');
+    // Vendedor válido si tiene valor (incluso si está disabled)
+    const hasVendedor = !!vendedorSel.value.trim();
+    const hasDespacho = !!$('#despachar-desde').value.trim();
+    const rows = $$('#products-tbody tr');
+    const hasItems = rows.length>0 && rows.some(tr=>!!tr.dataset.producto);
+    $('#despachar-desde').classList.toggle('error', !hasDespacho);
+    const ok = (hasCliente && hasVendedor && hasDespacho && hasItems);
+    $('#btn-save').disabled = !ok;
+    return ok;
+  }
+
+  function saveNV(){
+    if (!validateForm()){ alert('Faltan datos requeridos.'); return; }
+    const payload = {
+      cliente: clienteSeleccionado,
+      vendedor: $('#vendedor').value,
+      fecha: $('#fecha').value,
+      formaPago: $('#cliente-forma-pago').value || (clienteSeleccionado ? clienteSeleccionado.formaPago : ''),
+      despacharDesde: $('#despachar-desde').value,
+      direccionDespacho: $('#direccion-despacho').value.trim(),
+      horarioDespacho: $('#horario-despacho').value.trim(),
+      observaciones: $('#observaciones').value.trim(),
+      items: collectItems()
+    };
+    
+    $('#loading').style.display='flex';
+    $('#btn-save').disabled = true;
+    if (!hasGS()) { 
+      alert('Google Apps Script no disponible'); 
+      $('#loading').style.display='none'; 
+      $('#btn-save').disabled = false; 
+      return; 
+    }
+    google.script.run.withSuccessHandler(handleSaveSuccess).withFailureHandler(handleSaveError).apiGuardarNV(payload);
+  }
+
+  function collectItems(){
+    const items=[];
+    $$('#products-tbody tr').forEach(tr=>{
+      const pData = tr.dataset.producto;
+      const tData = tr.dataset.totales;
+      if (!pData || !tData) return;
+      const p = JSON.parse(pData);
+      const t = JSON.parse(tData);
+      if (t.cajas>0){
+        items.push({
+          sku: p.sku, nombre: p.nombre, categoria: p.categoria || '', marca: p.marca || '',
+          bxc: readNumber(p.bxc), cajas: readNumber(t.cajas),
+          netoUnitarioMin: Math.round(readNumber(t.minNetoU) * 100) / 100,
+          netoUnitarioBase: Math.round(readNumber(t.netoBaseU) * 100) / 100,
+          brutoUnitarioBase: Math.round(readNumber(t.brutoBaseU) * 100) / 100,
+          netoUnitarioFinal: Math.round(readNumber(t.netoFinalU) * 100) / 100,
+          brutoUnitarioFinal: Math.round(readNumber(t.precioBrutoUnitario) * 100) / 100,
+          ivaPorcentaje: p.ivaPorcentaje,
+          ilaPorcentaje: p.ilaPorcentaje
+        });
+      }
+    });
+    return items;
+  }
+
+  function openSuccessModal(nv, total, cajas){
+    $('#modal-nv').textContent = nv || '—';
+    $('#modal-total').textContent = formatCLP(total||0);
+    $('#modal-cajas').textContent = String(cajas||0);
+    $('#success-modal').style.display='flex';
+  }
+  function closeSuccessModal(){
+    $('#success-modal').style.display='none';
+  }
+
+  function showPdfLoading() {
+    const btn = $('#btn-modal-pdf');
+    btn.querySelector('.btn-spinner').style.display = 'inline-block';
+    btn.querySelector('.btn-text').textContent = 'Cargando...';
+    btn.disabled = true;
+  }
+  function showPdfReady(hasDeuda = false) {
+    const btn = $('#btn-modal-pdf');
+    btn.querySelector('.btn-spinner').style.display = 'none';
+    btn.querySelector('.btn-text').textContent = hasDeuda ? '⬇️ PDF (con deuda)' : '⬇️ Descargar PDF';
+    btn.disabled = false;
+  }
+
+  async function handleSaveSuccess(res){
+    $('#loading').style.display='none';
+    if (!res.success){ alert('❌ '+res.message); $('#btn-save').disabled = false; return; }
+    lastSavedNV = {
+      numeroNV: res.numeroNV, cliente: clienteSeleccionado, vendedor: $('#vendedor').value, fecha: $('#fecha').value,
+      formaPago: $('#cliente-forma-pago').value || (clienteSeleccionado ? clienteSeleccionado.formaPago : ''),
+      despacharDesde: $('#despachar-desde').value, direccionDespacho: $('#direccion-despacho').value.trim(),
+      horarioDespacho: $('#horario-despacho').value.trim(), observaciones: $('#observaciones').value.trim(),
+      items: collectItemsForPDF(), totales: res.totales, deuda: null
+    };
+    openSuccessModal(res.numeroNV, res.totales?.total, res.totales?.cajas);
+    showPdfLoading();
+    const rut = (clienteSeleccionado?.rut || '').trim();
+    const name = (clienteSeleccionado?.nombre || '').trim();
+    let deudaPromise = Promise.resolve(null);
+    if (rut) { deudaPromise = fetchDeudaCliente(rut, name).catch(() => null); }
+    try {
+      const deudaResult = await deudaPromise;
+      if (deudaResult && deudaResult.ok) { lastSavedNV.deuda = deudaResult; showPdfReady(true); generatePDF(lastSavedNV); }
+      else { showPdfReady(false); generatePDF(lastSavedNV); }
+    } catch (error) { console.warn('Error deuda:', error); showPdfReady(false); generatePDF(lastSavedNV); }
+    $('#btn-save').disabled = false;
+  }
+
+  function collectItemsForPDF(){
+    const items=[];
+    $$('#products-tbody tr').forEach(tr=>{
+      const pData = tr.dataset.producto;
+      const tData = tr.dataset.totales;
+      if (!pData || !tData) return;
+      const p = JSON.parse(pData);
+      const t = JSON.parse(tData);
+      if (t.cajas>0){
+        items.push({
+          sku: p.sku, nombre: p.nombre, categoria: p.categoria || '', marca: p.marca || '',
+          bxc: readNumber(p.bxc), cajas: readNumber(t.cajas), unidades: readNumber(t.unidades),
+          precioBrutoUnitario: readNumber(t.precioBrutoUnitario),
+          neto: readNumber(t.neto), iva: readNumber(t.iva), ila: readNumber(t.ila),
+          logistico: readNumber(t.costoLogistico), total: readNumber(t.total),
+          netoUnitarioBase: readNumber(t.netoBaseU),
+          brutoUnitarioBase: readNumber(t.brutoBaseU),
+          netoUnitarioFinal: readNumber(t.netoFinalU),
+          vbEstado: t.vbEstado || 'Sin V°B° Financiero'
+        });
+      }
+    });
+    return items;
+  }
+
+  // [RESTO DEL CÓDIGO DE generatePDF SE MANTIENE IGUAL...]
+  function generatePDF(nvData) {
+    const { jsPDF } = window.jspdf;
+    
+    // ==================== UTILIDADES ====================
+    const fmtCLP = (n) => '$' + Math.round(readNumber(n || 0)).toLocaleString('es-CL');
+    const fmtNum = (n) => Math.round(readNumber(n || 0)).toLocaleString('es-CL');
+    
+    // Colores corporativos
+    const COLORS = {
+      primary: [0, 82, 147],
+      primaryLight: [232, 240, 254],
+      accent: [0, 150, 136],
+      dark: [33, 37, 41],
+      gray: [108, 117, 125],
+      lightGray: [248, 249, 250],
+      border: [222, 226, 230],
+      success: [40, 167, 69],
+      warning: [255, 193, 7],
+      danger: [220, 53, 69],
+      blue: [0, 123, 255],
+      orange: [253, 126, 20],
+      white: [255, 255, 255]
+    };
+
+    // ==================== FUNCIONES DE DIBUJO ====================
+    
+    /**
+     * Encabezado compacto
+     */
+    function drawHeader(doc, pageW, margin, nvData) {
+      const headerH = 30;  // ← Aumentado a 30
+      
+      doc.setFillColor(...COLORS.primary);
+      doc.rect(margin, margin, pageW - margin * 2, headerH, 'F');
+      
+      doc.setFillColor(...COLORS.accent);
+      doc.rect(margin, margin + headerH - 2, pageW - margin * 2, 2, 'F');
+      
+      // Logo VDA
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(20);
+      doc.text('VDA', margin + 8, margin + 12);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text('VINA DE AGUIRRE', margin + 8, margin + 18);
+      
+      // Título central
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text('NOTA DE VENTA', pageW / 2, margin + 9, { align: 'center' });
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text('Mercado Nacional', pageW / 2, margin + 15, { align: 'center' });
+      
+      // *** Nombre del cliente ***
+      const nombreCliente = nvData.cliente?.nombre || '';
+      if (nombreCliente) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);  // ← Reducido a 8 para que quepa mejor
+        doc.setTextColor(255, 255, 255);
+        
+        // Truncar si es muy largo (considerando el espacio disponible)
+        let clienteDisplay = nombreCliente;
+        const maxWidth = 100;  // ← Reducido para no chocar con la caja NV
+        if (doc.getTextWidth(clienteDisplay) > maxWidth) {
+          while (doc.getTextWidth(clienteDisplay + '...') > maxWidth && clienteDisplay.length > 0) {
+            clienteDisplay = clienteDisplay.slice(0, -1);
+          }
+          clienteDisplay += '...';
+        }
+        
+        doc.text(clienteDisplay, pageW / 2, margin + 22, { align: 'center' });  // ← Posición ajustada
+      }
+      
+      // Caja número NV
+      const nvBoxW = 50;
+      const nvBoxX = pageW - margin - nvBoxW - 5;
+      const nvBoxY = margin + 5;
+      
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(nvBoxX, nvBoxY, nvBoxW, 18, 2, 2, 'F');
+      
+      doc.setTextColor(...COLORS.primary);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('N NOTA VENTA', nvBoxX + nvBoxW / 2, nvBoxY + 6, { align: 'center' });
+      
+      doc.setFontSize(12);
+      doc.text(nvData.numeroNV || '', nvBoxX + nvBoxW / 2, nvBoxY + 14, { align: 'center' });
+      
+      return headerH + 4;
+    }
+
+    /**
+     * Información compacta en 2 columnas
+     */
+    function drawInfoSection(doc, y, margin, pageW, nvData) {
+      const colW = (pageW - margin * 2 - 6) / 2;
+      const lineH = 4.2;
+      const padding = 5;
+      
+      // === CLIENTE ===
+      const leftX = margin;
+      let leftY = y;
+      
+      doc.setFillColor(...COLORS.primary);
+      doc.rect(leftX, leftY, colW, 6, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('CLIENTE', leftX + padding, leftY + 4.2);
+      leftY += 8;
+      
+      const clienteData = [
+        ['Cliente:', nvData.cliente?.nombre || '-'],
+        ['RUT:', nvData.cliente?.rut || '-'],
+        ['Direccion:', nvData.cliente?.direccion || '-'],
+        ['Comuna:', nvData.cliente?.comuna || '-'],
+        ['F. Pago:', nvData.formaPago || '-']
+      ];
+      
+      const clienteH = clienteData.length * lineH + padding * 2;
+      doc.setFillColor(...COLORS.lightGray);
+      doc.setDrawColor(...COLORS.border);
+      doc.rect(leftX, leftY, colW, clienteH, 'FD');
+      
+      let cy = leftY + padding;
+      doc.setFontSize(8);
+      clienteData.forEach(([label, value]) => {
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...COLORS.gray);
+        doc.text(label, leftX + padding, cy + 3);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...COLORS.dark);
+        let val = String(value || '-');
+        const maxW = colW - 35;
+        if (doc.getTextWidth(val) > maxW) {
+          while (doc.getTextWidth(val + '...') > maxW && val.length > 0) {
+            val = val.slice(0, -1);
+          }
+          val += '...';
+        }
+        doc.text(val, leftX + 30, cy + 3);
+        cy += lineH;
+      });
+      
+      // === DESPACHO ===
+      const rightX = margin + colW + 6;
+      let rightY = y;
+      
+      doc.setFillColor(...COLORS.accent);
+      doc.rect(rightX, rightY, colW, 6, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('DESPACHO', rightX + padding, rightY + 4.2);
+      rightY += 8;
+      
+      const despachoData = [
+        ['Desde:', nvData.despacharDesde || '-'],
+        ['Direccion:', nvData.direccionDespacho || '-'],
+        ['Horario:', nvData.horarioDespacho || '-'],
+        ['Vendedor:', nvData.vendedor || '-'],
+        ['Fecha:', new Date(nvData.fecha).toLocaleDateString('es-CL')]
+      ];
+      
+      const despachoH = despachoData.length * lineH + padding * 2;
+      doc.setFillColor(...COLORS.lightGray);
+      doc.rect(rightX, rightY, colW, despachoH, 'FD');
+      
+      cy = rightY + padding;
+      despachoData.forEach(([label, value]) => {
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...COLORS.gray);
+        doc.text(label, rightX + padding, cy + 3);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...COLORS.dark);
+        let val = String(value || '-');
+        const maxW = colW - 35;
+        if (doc.getTextWidth(val) > maxW) {
+          while (doc.getTextWidth(val + '...') > maxW && val.length > 0) {
+            val = val.slice(0, -1);
+          }
+          val += '...';
+        }
+        doc.text(val, rightX + 30, cy + 3);
+        cy += lineH;
+      });
+      
+      return Math.max(clienteH, despachoH) + 12;
+    }
+
+    /**
+     * Tabla de productos
+     */
+    function drawProductsTable(doc, startY, margin, pageW, items, reserveSpace) {
+      const pageH = doc.internal.pageSize.getHeight();
+      
+      // ⭐ MODIFICADO: Encabezados abreviados
+      const cols = [
+        { label: 'PRODUCTO', width: 70, align: 'left' },
+        { label: 'CAJAS', width: 11, align: 'right' },
+        { label: 'UND', width: 11, align: 'right' },
+        { label: 'P.N BASE', width: 14, align: 'right' },      // ⭐ Abreviado
+        { label: 'P.N FINAL', width: 14, align: 'right' },     // ⭐ Abreviado
+        { label: 'P.B FINAL', width: 14, align: 'right' },     // ⭐ Abreviado (NUEVO)
+        { label: '% DESC', width: 12, align: 'right' },
+        { label: 'NETO LINEA', width: 20, align: 'right' },
+        { label: 'TOTAL', width: 20, align: 'right' }
+      ];
+      
+      const tableW = pageW - margin * 2;
+      let y = startY;
+      
+      function drawTableHeader() {
+        doc.setFillColor(...COLORS.primary);
+        doc.rect(margin, y, tableW, 8, 'F');
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.setTextColor(255, 255, 255);
+        
+        let xPos = margin + 2;
+        cols.forEach(col => {
+          const textX = col.align === 'right' ? xPos + col.width - 2 : xPos;
+          doc.text(col.label, textX, y + 5.5, { align: col.align });
+          xPos += col.width;
+        });
+        
+        y += 10;
+      }
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(...COLORS.dark);
+      doc.text('PRODUCTOS', margin, y);
+      y += 5;
+      
+      drawTableHeader();
+      
+      items.forEach((item, idx) => {
+        const rowH = 10;
+        
+        if (y + rowH > pageH - reserveSpace) {
+          doc.addPage();
+          y = margin + 8;
+          drawTableHeader();
+        }
+        
+        if (idx % 2 === 0) {
+          doc.setFillColor(...COLORS.lightGray);
+          doc.rect(margin, y - 1, tableW, rowH, 'F');
+        }
+        
+        doc.setDrawColor(...COLORS.border);
+        doc.line(margin, y + rowH - 1, margin + tableW, y + rowH - 1);
+        
+        const netoBase = Number(item.netoUnitarioBase || 0);
+        const netoFinal = Number(item.netoUnitarioFinal || 0);
+        const brutoFinal = Number(item.precioBrutoUnitario || 0);
+        const descPct = netoBase > 0 ? ((1 - netoFinal / netoBase) * 100) : 0;
+        
+        let xPos = margin + 2;
+        
+        // PRODUCTO (col 0)
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(...COLORS.dark);
+        
+        let nombre = item.nombre || '';
+        const maxNombreW = cols[0].width - 4;
+        if (doc.getTextWidth(nombre) > maxNombreW) {
+          while (doc.getTextWidth(nombre + '...') > maxNombreW && nombre.length > 0) {
+            nombre = nombre.slice(0, -1);
+          }
+          nombre += '...';
+        }
+        doc.text(nombre, xPos, y + 3.5);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6);
+        doc.setTextColor(...COLORS.gray);
+        doc.text(`SKU: ${item.sku || '-'}`, xPos, y + 7.5);
+        xPos += cols[0].width;
+        
+        doc.setFontSize(7.5);
+        doc.setTextColor(...COLORS.dark);
+        
+        // CAJAS (col 1)
+        doc.setFont('helvetica', 'normal');
+        doc.text(fmtNum(item.cajas), xPos + cols[1].width - 2, y + 5, { align: 'right' });
+        xPos += cols[1].width;
+        
+        // UNIDADES (col 2)
+        doc.text(fmtNum(item.unidades), xPos + cols[2].width - 2, y + 5, { align: 'right' });
+        xPos += cols[2].width;
+        
+        // P.N BASE (col 3)
+        doc.text(fmtCLP(netoBase), xPos + cols[3].width - 2, y + 5, { align: 'right' });
+        xPos += cols[3].width;
+        
+        // P.N FINAL (col 4)
+        doc.setFont('helvetica', 'bold');
+        doc.text(fmtCLP(netoFinal), xPos + cols[4].width - 2, y + 5, { align: 'right' });
+        xPos += cols[4].width;
+        
+        // P.B FINAL (col 5) - NUEVO
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...COLORS.primary);
+        doc.text(fmtCLP(brutoFinal), xPos + cols[5].width - 2, y + 5, { align: 'right' });
+        doc.setTextColor(...COLORS.dark);
+        xPos += cols[5].width;
+        
+        // % DESC (col 6)
+        doc.setFont('helvetica', 'normal');
+        if (descPct > 0.5) {
+          doc.setTextColor(...COLORS.danger);
+          doc.text(`-${descPct.toFixed(1)}%`, xPos + cols[6].width - 2, y + 5, { align: 'right' });
+        } else {
+          doc.setTextColor(...COLORS.gray);
+          doc.text('0%', xPos + cols[6].width - 2, y + 5, { align: 'right' });
+        }
+        xPos += cols[6].width;
+        
+        // NETO LINEA (col 7)
+        doc.setTextColor(...COLORS.dark);
+        doc.text(fmtCLP(item.neto), xPos + cols[7].width - 2, y + 5, { align: 'right' });
+        xPos += cols[7].width;
+        
+        // TOTAL (col 8)
+        doc.setFont('helvetica', 'bold');
+        doc.text(fmtCLP(item.total), xPos + cols[8].width - 2, y + 5, { align: 'right' });
+        
+        // Badge V°B° (si aplica)
+        if (item.vbEstado && item.vbEstado.includes('Requiere')) {
+          doc.setFillColor(255, 243, 205);
+          doc.setDrawColor(255, 193, 7);
+          doc.roundedRect(margin + 54, y + 5.5, 18, 4, 1, 1, 'FD');
+          doc.setFontSize(5);
+          doc.setTextColor(133, 100, 4);
+          doc.text('Req.VB', margin + 63, y + 8, { align: 'center' });
+        }
+        
+        y += rowH;
+      });
+      
+      return y + 4;
+    }
+
+    /**
+     * ============================================================
+     * CAJA DE CRÉDITO DISPONIBLE - CORREGIDA CON DATOS REALES
+     * ============================================================
+     */
+    function drawCreditBox(doc, x, y, w, nvData) {
+      const lineH = 5.5;
+      const padding = 5;
+      
+      const deuda = nvData.deuda || {};
+      const resumen = deuda.resumen || {};
+      
+      const credito = Number(resumen.credito || 0);
+      const vencidas = Number(resumen.vencidas || resumen.vencida || 0);
+      const porVencer = Number(resumen.porVencer || 0);
+      const cheques = Number(resumen.cheques || resumen.chequesCartera || 0);
+      const noDocumentado = vencidas + porVencer;
+      
+      // *** CORREGIDO: Restar cheques del disponible ***
+      const disponible = credito > 0 
+        ? credito - noDocumentado - cheques 
+        : Number(resumen.disponible || 0);
+      
+      const tieneSeguro = credito > 0 ? 'Si' : 'No';
+      
+      // Campos con valores reales
+      const fields = [
+        { label: 'Seguro:', value: tieneSeguro },
+        { label: '+ Monto credito:', value: fmtCLP(credito) },
+        { label: '- Deudas vencidas:', value: fmtCLP(vencidas), color: vencidas > 0 ? COLORS.danger : null },
+        { label: '- Deudas por vencer:', value: fmtCLP(porVencer) },
+        { label: '- Cheques en cartera:', value: fmtCLP(cheques), color: cheques > 0 ? COLORS.blue : null },
+        { label: '= Credito disponible:', value: fmtCLP(disponible), bold: true, color: disponible < 0 ? COLORS.danger : COLORS.success }
+      ];
+      
+      const h = 10 + fields.length * lineH + padding + 2;
+      
+      // Fondo
+      doc.setDrawColor(...COLORS.primary);
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(x, y, w, h, 2, 2, 'FD');
+      
+      // Header
+      doc.setFillColor(...COLORS.primary);
+      doc.roundedRect(x, y, w, 8, 2, 2, 'F');
+      doc.rect(x, y + 6, w, 3, 'F');
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(255, 255, 255);
+      doc.text('CREDITO DISPONIBLE', x + w / 2, y + 5.5, { align: 'center' });
+      
+      // Campos
+      let cy = y + 14;
+      doc.setFontSize(8);
+      
+      fields.forEach(field => {
+        // Label
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...COLORS.gray);
+        doc.text(field.label, x + padding, cy);
+        
+        // Valor
+        doc.setFont('helvetica', field.bold ? 'bold' : 'normal');
+        if (field.color) {
+          doc.setTextColor(...field.color);
+        } else {
+          doc.setTextColor(...COLORS.dark);
+        }
+        doc.text(field.value, x + w - padding, cy, { align: 'right' });
+        
+        cy += lineH;
+      });
+      
+      return h;
+    }
+
+    /**
+     * Panel de Resumen (DERECHA)
+     */
+    function drawSummaryPanel(doc, x, y, w, nvData) {
+      const items = nvData.items || [];
+      
+      const totalCajas = items.reduce((s, i) => s + Number(i.cajas || 0), 0);
+      const totalUnidades = items.reduce((s, i) => s + Number(i.unidades || 0), 0);
+      const totalNeto = items.reduce((s, i) => s + Number(i.neto || 0), 0);
+      const totalIVA = items.reduce((s, i) => s + Number(i.iva || 0), 0);
+      const totalILA = items.reduce((s, i) => s + Number(i.ila || 0), 0);
+      const totalLogistico = items.reduce((s, i) => s + Number(i.logistico || 0), 0);
+      const totalGeneral = totalNeto + totalIVA + totalILA;
+      
+      const lineH = 5.5;
+      const padding = 5;
+      const h = 75;
+      
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(...COLORS.border);
+      doc.roundedRect(x, y, w, h, 2, 2, 'FD');
+      
+      doc.setFillColor(...COLORS.primary);
+      doc.roundedRect(x, y, w, 8, 2, 2, 'F');
+      doc.rect(x, y + 6, w, 3, 'F');
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(255, 255, 255);
+      doc.text('RESUMEN', x + w / 2, y + 5.5, { align: 'center' });
+      
+      let cy = y + 15;
+      
+      const drawLine = (label, value, isBold = false) => {
+        doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...COLORS.gray);
+        doc.text(label, x + padding, cy);
+        doc.setTextColor(...COLORS.dark);
+        doc.text(value, x + w - padding, cy, { align: 'right' });
+        cy += lineH;
+      };
+      
+      drawLine('Cajas:', fmtNum(totalCajas));
+      drawLine('Unidades:', fmtNum(totalUnidades));
+      
+      cy += 1;
+      doc.setDrawColor(...COLORS.border);
+      doc.line(x + padding, cy, x + w - padding, cy);
+      cy += 4;
+      
+      drawLine('Neto:', fmtCLP(totalNeto));
+      drawLine('IVA (19%):', fmtCLP(totalIVA));
+      drawLine('ILA:', fmtCLP(totalILA));
+      
+      cy += 1;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(...COLORS.gray);
+      doc.text('(Logistico incl.:', x + padding, cy);
+      doc.text(fmtCLP(totalLogistico) + ')', x + w - padding, cy, { align: 'right' });
+      cy += 5;
+      
+      doc.setFillColor(...COLORS.primary);
+      doc.roundedRect(x + 3, cy, w - 6, 11, 2, 2, 'F');
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(255, 255, 255);
+      doc.text('TOTAL', x + padding + 2, cy + 7);
+      doc.text(fmtCLP(totalGeneral), x + w - padding - 2, cy + 7, { align: 'right' });
+      
+      return h;
+    }
+
+    /**
+     * Observaciones
+     */
+    function drawObservaciones(doc, x, y, w, nvData) {
+      if (!nvData.observaciones) return 0;
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(...COLORS.dark);
+      doc.text('OBSERVACIONES:', x, y);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...COLORS.gray);
+      const obsLines = doc.splitTextToSize(nvData.observaciones, w);
+      const maxLines = obsLines.slice(0, 2);
+      if (obsLines.length > 2) maxLines[1] += '...';
+      doc.text(maxLines, x, y + 5);
+      
+      return 5 + maxLines.length * 3.5 + 4;
+    }
+
+    /**
+     * Firmas
+     */
+    function drawSignatures(doc, y, margin, pageW) {
+      const signW = 70;
+      const gap = 25;
+      const totalW = signW * 2 + gap;
+      const startX = (pageW - totalW) / 2;
+      
+      doc.setDrawColor(...COLORS.dark);
+      doc.setLineWidth(0.4);
+      
+      const x1 = startX;
+      doc.line(x1, y, x1 + signW, y);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...COLORS.dark);
+      doc.text('V.B. Gerente Mercado Nacional', x1 + signW / 2, y + 5, { align: 'center' });
+      
+      const x2 = startX + signW + gap;
+      doc.line(x2, y, x2 + signW, y);
+      doc.text('V.B. Gerente Adm. Finanzas', x2 + signW / 2, y + 5, { align: 'center' });
+      
+      return 15;
+    }
+
+    /**
+     * Footer
+     */
+    function drawFooter(doc, pageW, pageH, margin) {
+      const footerY = pageH - 8;
+      
+      doc.setDrawColor(...COLORS.border);
+      doc.line(margin, footerY - 3, pageW - margin, footerY - 3);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6);
+      doc.setTextColor(...COLORS.gray);
+      doc.text(`Generado: ${new Date().toLocaleString('es-CL')}`, margin, footerY);
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.primary);
+      doc.text('Vina de Aguirre - Sistema de Gestion Comercial', pageW / 2, footerY, { align: 'center' });
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.gray);
+      doc.text(`Pagina ${doc.internal.getCurrentPageInfo().pageNumber}`, pageW - margin, footerY, { align: 'right' });
+    }
+
+    /**
+     * ============================================================
+     * PÁGINA DE DEUDA - Con Cheques en Cartera
+     * ============================================================
+     */
+    function drawDebtPage(doc, nvData) {
+      doc.addPage('a4', 'landscape');
+      
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const margin = 10;
+      
+      // === HEADER ===
+      doc.setFillColor(...COLORS.primary);
+      doc.rect(margin, margin, pageW - margin * 2, 16, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text('ANALISIS DE DEUDA', margin + 8, margin + 11);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      const clienteText = `${nvData.cliente?.nombre || ''} - RUT: ${nvData.cliente?.rut || ''}`;
+      doc.text(clienteText, pageW - margin - 8, margin + 11, { align: 'right' });
+      
+      let y = margin + 24;
+      
+      // === DATOS DE DEUDA ===
+      const deuda = nvData.deuda;
+      const detalle = Array.isArray(deuda?.detalle) ? deuda.detalle : [];
+      const resumen = deuda?.resumen || {};
+      
+      // Extraer valores
+      const vencidas = Number(resumen.vencidas || resumen.vencida || 0);
+      const porVencer = Number(resumen.porVencer || 0);
+      const cheques = Number(resumen.cheques || resumen.chequesCartera || 0);
+      const credito = Number(resumen.credito || 0);
+      const noDocumentado = vencidas + porVencer;
+      const totalUtilizado = noDocumentado + cheques;  // ← CORREGIDO: incluye cheques
+      const deudaTotal = totalUtilizado;
+      const disponibleReal = credito > 0 ? credito - totalUtilizado : Number(resumen.disponible || 0);  // ← CORREGIDO
+      
+      // === FILA 1: 4 CARDS DE DEUDA ===
+      const cardW = (pageW - margin * 2 - 15) / 4;
+      const cardH = 28;
+      
+      const cards1 = [
+        { title: 'NO DOCUMENTADO', value: fmtCLP(noDocumentado), color: COLORS.danger, subtitle: 'Facturas pendientes' },
+        { title: 'CHEQUES', value: fmtCLP(cheques), color: COLORS.blue, subtitle: 'En cartera' },
+        { title: 'TOTAL DEUDA', value: fmtCLP(deudaTotal), color: COLORS.dark, subtitle: 'No Doc. + Cheques' },
+        { title: 'VENCIDA', value: fmtCLP(vencidas), color: COLORS.danger, subtitle: resumen.maxDias ? `Max ${resumen.maxDias} dias` : '' }
+      ];
+      
+      cards1.forEach((card, i) => {
+        const cx = margin + i * (cardW + 5);
+        
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(...COLORS.border);
+        doc.roundedRect(cx, y, cardW, cardH, 2, 2, 'FD');
+        
+        doc.setFillColor(...card.color);
+        doc.rect(cx, y, 4, cardH, 'F');
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(...COLORS.gray);
+        doc.text(card.title, cx + 10, y + 8);
+        
+        doc.setFontSize(14);
+        doc.setTextColor(...card.color);
+        doc.text(card.value, cx + 10, y + 20);
+        
+        if (card.subtitle) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7);
+          doc.setTextColor(...COLORS.gray);
+          doc.text(card.subtitle, cx + 10, y + 26);
+        }
+      });
+      
+      y += cardH + 8;
+      
+      // === FILA 2: LÍNEA DE CRÉDITO ===
+      const creditBoxW = pageW - margin * 2;
+      const creditBoxH = 22;
+      
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(...COLORS.border);
+      doc.roundedRect(margin, y, creditBoxW, creditBoxH, 2, 2, 'FD');
+      
+      doc.setFillColor(...COLORS.primary);
+      doc.rect(margin, y, 4, creditBoxH, 'F');
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(...COLORS.dark);
+      doc.text('Linea de Credito', margin + 12, y + 8);
+      
+      const creditStartX = margin + 80;
+      const creditGap = 70;
+      
+      // Aprobado
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...COLORS.gray);
+      doc.text('Aprobado:', creditStartX, y + 8);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(...COLORS.dark);
+      doc.text(fmtCLP(credito), creditStartX, y + 16);
+      
+      // Utilizado (CORREGIDO: incluye cheques)
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...COLORS.gray);
+      doc.text('Utilizado:', creditStartX + creditGap, y + 8);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(...COLORS.dark);
+      doc.text(fmtCLP(totalUtilizado), creditStartX + creditGap, y + 16);  // ← CORREGIDO
+      
+      // Disponible (CORREGIDO)
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...COLORS.gray);
+      doc.text('Disponible:', creditStartX + creditGap * 2, y + 8);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      const dispColor = disponibleReal >= 0 ? COLORS.success : COLORS.danger;
+      doc.setTextColor(...dispColor);
+      doc.text(fmtCLP(disponibleReal), creditStartX + creditGap * 2, y + 16);  // ← CORREGIDO
+      
+      // Utilización (CORREGIDO)
+      const utilizacion = credito > 0 ? Math.round((totalUtilizado / credito) * 100) : 0;  // ← CORREGIDO
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...COLORS.gray);
+      doc.text('Utilizacion:', creditStartX + creditGap * 3, y + 8);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      const utilColor = utilizacion > 80 ? COLORS.danger : COLORS.dark;
+      doc.setTextColor(...utilColor);
+      doc.text(`${utilizacion}%`, creditStartX + creditGap * 3, y + 16);
+      
+      y += creditBoxH + 10;
+      
+      // === TABLA DE DOCUMENTOS ===
+      if (detalle.length > 0) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(...COLORS.dark);
+        doc.text('Detalle de Documentos', margin, y);
+        y += 6;
+        
+        const colsDebt = [
+          { label: 'N DOCUMENTO', width: 45 },
+          { label: 'F. FACTURA', width: 40 },
+          { label: 'F. VENCIMIENTO', width: 45 },
+          { label: 'DIAS', width: 30 },
+          { label: 'ESTADO PAGO', width: 50 },
+          { label: 'MONTO', width: 50 }
+        ];
+        
+        doc.setFillColor(...COLORS.primary);
+        doc.rect(margin, y, pageW - margin * 2, 8, 'F');
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(255, 255, 255);
+        
+        let xPos = margin + 4;
+        colsDebt.forEach(col => {
+          doc.text(col.label, xPos, y + 5.5);
+          xPos += col.width;
+        });
+        
+        y += 10;
+        
+        detalle.forEach((d, idx) => {
+          if (y > pageH - 18) {
+            doc.addPage('a4', 'landscape');
+            y = margin + 10;
+            
+            doc.setFillColor(...COLORS.primary);
+            doc.rect(margin, y, pageW - margin * 2, 8, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(255, 255, 255);
+            xPos = margin + 4;
+            colsDebt.forEach(col => {
+              doc.text(col.label, xPos, y + 5.5);
+              xPos += col.width;
+            });
+            y += 10;
+          }
+          
+          if (idx % 2 === 0) {
+            doc.setFillColor(...COLORS.lightGray);
+            doc.rect(margin, y - 2, pageW - margin * 2, 8, 'F');
+          }
+          
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(...COLORS.dark);
+          
+          const dias = Number(d.dias ?? d.diasSigned ?? 0);
+          
+          xPos = margin + 4;
+          
+          doc.text(String(d.doc || d.documento || ''), xPos, y + 4);
+          xPos += colsDebt[0].width;
+          
+          doc.text(String(d.emision || d.fechaFactura || '').slice(0, 10), xPos, y + 4);
+          xPos += colsDebt[1].width;
+          
+          doc.text(String(d.vence || d.fechaVenc || '').slice(0, 10), xPos, y + 4);
+          xPos += colsDebt[2].width;
+          
+          if (dias > 0) {
+            doc.setTextColor(...COLORS.danger);
+            doc.setFont('helvetica', 'bold');
+          } else if (dias < 0) {
+            doc.setTextColor(...COLORS.success);
+          }
+          doc.text(String(dias), xPos, y + 4);
+          doc.setTextColor(...COLORS.dark);
+          doc.setFont('helvetica', 'normal');
+          xPos += colsDebt[3].width;
+          
+          doc.text(String(d.estadoPago || d.estado || '').slice(0, 15), xPos, y + 4);
+          xPos += colsDebt[4].width;
+          
+          // *** CORREGIDO: Tomar el monto correcto (deuda o cheque) ***
+          const montoDocumento = Number(d.total || d.deuda || d.neto || 0);
+          doc.setFont('helvetica', 'bold');
+          doc.text(fmtCLP(montoDocumento), xPos, y + 4);
+          
+          y += 8;
+        });
+      } else {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(...COLORS.gray);
+        doc.text('No hay documentos pendientes registrados', margin, y + 10);
+      }
+      
+      drawFooter(doc, pageW, pageH, margin);
+    }
+
+    // ==================== GENERACIÓN DEL DOCUMENTO ====================
+    
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const margin = 8;
+    let pageW = doc.internal.pageSize.getWidth();
+    let pageH = doc.internal.pageSize.getHeight();
+    
+    // 1. Header
+    let y = margin + drawHeader(doc, pageW, margin, nvData);
+    
+    // 2. Info Cliente/Despacho
+    y += drawInfoSection(doc, y, margin, pageW, nvData);
+    
+    // 3. Tabla de productos
+    const items = nvData.items || [];
+    const reserveSpace = 85;
+    y = drawProductsTable(doc, y, margin, pageW, items, reserveSpace);
+    
+    // 4. LAYOUT: Crédito (IZQUIERDA) + Resumen (DERECHA)
+    const boxGap = 8;
+    const creditW = 75;
+    const summaryW = 70;
+    const totalBoxesW = creditW + boxGap + summaryW;
+    const boxesStartX = (pageW - totalBoxesW) / 2;
+    
+    const panelY = y + 2;
+    
+    // *** CAMBIO CLAVE: Ahora pasamos nvData a drawCreditBox ***
+    const creditH = drawCreditBox(doc, boxesStartX, panelY, creditW, nvData);
+    const summaryH = drawSummaryPanel(doc, boxesStartX + creditW + boxGap, panelY, summaryW, nvData);
+    
+    const maxPanelH = Math.max(creditH, summaryH);
+    
+    // 5. Observaciones
+    let obsY = panelY + creditH + 4;
+    if (nvData.observaciones) {
+      drawObservaciones(doc, boxesStartX, obsY, creditW, nvData);
+    }
+    
+    // 6. Firmas
+    const signaturesY = panelY + maxPanelH + 18;
+    drawSignatures(doc, signaturesY, margin, pageW);
+    
+    // 7. Footer
+    drawFooter(doc, pageW, pageH, margin);
+    
+    // 8. Página de deuda
+    if (nvData.deuda && nvData.deuda.ok) {
+      drawDebtPage(doc, nvData);
+    }
+    
+    // 9. Guardar
+    const safeName = String(nvData.cliente?.nombre || 'cliente')
+      .replace(/\s+/g, '_')
+      .replace(/[^\w\-]/g, '');
+    
+    doc.save(`NV_${nvData.numeroNV}_${safeName}.pdf`);
+    
+    // 10. Enviar por correo
+    enviarPDFPorCorreoSiCorresponde(doc, nvData);
+  }
+
+
+  function handleSaveError(err){
+    $('#loading').style.display='none';
+    console.error(err);
+    alert('❌ Error: ' + (err && err.message ? err.message : err));
+    $('#btn-save').disabled = false;
+  }
+
+  function debounce(fn, wait){ let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); }; }
+
+  /**
+ * Envía el PDF por correo al servidor si el usuario corresponde
+ */
+  function enviarPDFPorCorreoSiCorresponde(doc, nvData) {
+    if (!hasGS()) return;
+    
+    try {
+      // Obtener el PDF como base64
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      
+      // Llamar al servidor para enviar el correo
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result && result.enviado) {
+            console.log('📧 PDF enviado por correo a:', result.destinatario);
+          } else {
+            console.log('📧 Correo no enviado:', result?.razon || result?.error || 'Usuario no corresponde');
+          }
+        })
+        .withFailureHandler(function(err) {
+          console.warn('Error al enviar PDF por correo:', err);
+        })
+        .apiEnviarNVPorCorreo(
+          nvData.numeroNV,
+          pdfBase64,
+          nvData.cliente?.nombre || '',
+          nvData.totales?.total || 0,
+          nvData.totales?.cajas || 0
+        );
+    } catch (e) {
+      console.warn('Error preparando PDF para correo:', e);
+    }
+  }
+
+})();
+</script>
+</body>
+</html>

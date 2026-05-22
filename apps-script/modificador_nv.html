@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Modificar Nota de Venta — VDA</title>
+<meta name="theme-color" content="#B07437">
+<base target="_top">
+<style>
+  :root{
+    --primary:#B07437; --primary-dark:#8B5A00; --bg:#F6F4EF; --card:#FFFFFF; --text:#2E2E2E;
+    --muted:#6B6B6B; --border:#E6E0D6; --success:#22C55E; --warning:#F59E0B; --error:#EF4444;
+    --shadow:0 4px 20px rgba(0,0,0,.08); --radius:12px;
+    --font:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;font-family:var(--font)}
+  body{margin:0;background:var(--bg);color:var(--text);line-height:1.6}
+  .container{max-width:1200px;margin:0 auto;padding:20px}
+  .header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:24px;border-radius:var(--radius);margin-bottom:24px;box-shadow:var(--shadow)}
+  .header-content{display:flex;align-items:center;gap:20px}
+  .logo{font-size:42px;font-weight:900;font-family:serif}
+  .header-text h1{margin:0;font-size:26px;font-weight:800}
+  .header-text p{margin:4px 0 0;opacity:.9}
+  .header-actions{margin-left:auto;display:flex;gap:12px}
+  .btn-h{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;box-shadow:var(--shadow)}
+  .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+  .card-title{margin:0;font-size:18px;font-weight:800}
+  .sub{color:var(--muted);font-size:13px;margin:2px 0 0}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+  .group{display:flex;flex-direction:column;gap:6px}
+  .label{font-size:13px;font-weight:700;color:#374151}
+  .input{padding:10px 12px;border:2px solid var(--border);border-radius:10px;font-size:14px;background:#fff}
+  .input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(176,116,55,.12)}
+  .input[readonly]{background:#f8f9fa;color:#6b7280}
+  .btn{padding:10px 14px;border:none;border-radius:10px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+  .btn-primary{background:var(--primary);color:#fff}
+  .btn-secondary{background:#6B7280;color:#fff}
+  .btn-outline{background:#fff;color:var(--primary);border:2px solid var(--primary)}
+
+  .item{background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px}
+  .item-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .sku{font-size:12px;color:var(--muted)}
+  .vb{font-size:11px;font-weight:900;border-radius:20px;padding:6px 10px;border:1px solid var(--border);background:#fff}
+  .vb.ok{background:#E6FDEB;border-color:#A7F3D0;color:#065F46}
+  .vb.req{background:#FFE8E8;border-color:#FCA5A5;color:#991B1B}
+
+  /* ⬇️ ahora son 7 columnas: SKU | Producto | % ILA | Cajas | BxC | Unidades | Precio Bruto U */
+  .row{display:grid;grid-template-columns:1.1fr 2.2fr .8fr .9fr .9fr 1.1fr 1.1fr;gap:10px;align-items:end}
+  .row2{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:10px}
+  .box{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center}
+  .box .lab{font-size:11px;color:var(--muted);font-weight:700}
+  .box .val{font-size:15px;font-weight:900}
+  .sum{background:linear-gradient(135deg,#F3F4F6,#E5E7EB);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:16px}
+  .sumg{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+  .total{color:#16a34a;font-weight:900}
+  .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+  .tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:900}
+  .tag-warn{background:rgba(234,179,8,.15);color:#92400E;border:1px solid #F59E0B}
+
+  .warn{display:none;margin-top:8px;padding:10px 12px;border-radius:10px;border:1px dashed #F59E0B;background:#FFF7ED;color:#7C2D12}
+  .loading{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;align-items:center;justify-content:center}
+  .spinner{width:40px;height:40px;border:4px solid rgba(255,255,255,.35);border-top:4px solid #fff;border-radius:50%;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (max-width:860px){ .row{grid-template-columns:1fr 1fr 1fr 1fr 1fr} }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="header-content">
+      <div class="logo">VDA</div>
+      <div class="header-text">
+        <h1>Modificar Nota de Venta</h1>
+        <p>Usa la misma lógica del Emisor. Incluye ILA, IVA y Logístico en todos los cálculos.</p>
+      </div>
+      <div class="header-actions">
+        <a class="btn-h" href="<?= getWebAppUrl() ?>?page=home">🏠 Inicio</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Buscar/Cargar NV -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h2 class="card-title">Cargar NV</h2>
+        <p class="sub">Ingresa el número de Nota de Venta. Si la NV está facturada, se habilitará el campo para Nota de Crédito.</p>
+      </div>
+      <button id="btn-load" class="btn btn-primary">🔎 Cargar NV</button>
+    </div>
+    <div class="grid">
+      <div class="group">
+        <label class="label">N° NV *</label>
+        <input id="nv-num" class="input" placeholder="Ej: 001234">
+      </div>
+      <div class="group">
+        <label class="label">N° Nota de Crédito (solo si está Facturado)</label>
+        <input id="nc-num" class="input" placeholder="Ej: 000123-1" disabled>
+      </div>
+      <div class="group">
+        <label class="label">Estado actual</label>
+        <input id="estado-actual" class="input" readonly>
+      </div>
+      <div class="group">
+        <label class="label">Cliente</label>
+        <input id="cliente-nombre" class="input" readonly>
+      </div>
+    </div>
+    <div id="nc-warn" class="warn">🧾 Esta NV está <b>FACTURADA</b>. Para modificar debes registrar el <b>N° de Nota de Crédito</b>. El estado permanecerá como <b>FACTURADO</b>.</div>
+  </div>
+
+  <!-- Items -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h2 class="card-title">Productos</h2>
+        <p class="sub">Edita <b>Cajas</b> y el <b>Precio Bruto Unitario</b>. Se recalcula automáticamente PU Neto Final, IVA, ILA, Logístico y Totales.</p>
+      </div>
+    </div>
+    <div id="items"></div>
+    <div class="sum" id="summary" style="display:none">
+      <div class="sumg">
+        <div class="box"><div class="lab">NETO</div><div class="val" id="s-neto">$0</div></div>
+        <div class="box"><div class="lab">IVA</div><div class="val" id="s-iva">$0</div></div>
+        <div class="box"><div class="lab">ILA</div><div class="val" id="s-ila">$0</div></div>
+        <div class="box"><div class="lab">LOGÍSTICO</div><div class="val" id="s-log">$0</div></div>
+        <div class="box"><div class="lab">CAJAS</div><div class="val" id="s-cajas">0</div></div>
+        <div class="box"><div class="lab">TOTAL</div><div class="val total" id="s-total">$0</div></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="btn-save" class="btn btn-primary" disabled>💾 Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- Loading -->
+<div id="loading" class="loading"><div class="spinner"></div></div>
+
+<script>
+(() => {
+  // === Constantes ===
+  const LOG_NETO_U = 360;      // logístico neto por unidad
+  const LOG_IVA_PCT = 0.19;    // IVA logístico
+  const fmt = n => '$' + Math.round(n || 0).toLocaleString('es-CL');
+  const hasGS = () => !!(window.google && google.script && google.script.run);
+  const normPct = (x, fb=0) => {
+    if (x===null||x===undefined||x==='') return fb;
+    const v = Number(String(x).replace(',','.'));
+    if (!isFinite(v)) return fb;
+    return v>1 ? v/100 : (v<0?0:v);
+  };
+
+  let detActual = null;      // detalle devuelto por backend
+  let esFacturado = false;   // bandera de estado
+
+  document.addEventListener('DOMContentLoaded', init);
+  function init(){
+    byId('btn-load').addEventListener('click', cargarNV);
+    byId('btn-save').addEventListener('click', guardar);
+  }
+
+  function byId(id){ return document.getElementById(id); }
+  function showLoading(v){ byId('loading').style.display = v ? 'flex' : 'none'; }
+
+  // === Cargar NV desde backend ===
+  function cargarNV(){
+    const nv = String(byId('nv-num').value||'').trim();
+    if (!nv){ alert('Ingresa el número de NV'); return; }
+    if (!hasGS()){ alert('Este módulo funciona desde el despliegue de Apps Script.'); return; }
+
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(det=>{
+        showLoading(false);
+        if (!det){ alert('No se encontró la NV.'); return; }
+        detActual = det;
+        esFacturado = String(det.estado||'').toUpperCase()==='FACTURADO';
+
+        byId('estado-actual').value = det.estado || '';
+        byId('cliente-nombre').value = det.cliente?.nombre || '';
+        byId('nc-num').disabled = !esFacturado;
+        byId('nc-warn').style.display = esFacturado ? 'block':'none';
+
+        renderItems(det.items||[]);
+        recalcSummary();
+        byId('btn-save').disabled = false;
+      })
+      .withFailureHandler(err=>{ showLoading(false); alert('Error al cargar: '+(err?.message||err)); })
+      .apiGetDetalleNV(nv); // ya existe en tu backend
+  }
+
+  // === Render de líneas ===
+  function renderItems(items){
+    const c = byId('items');
+    if (!items.length){ c.innerHTML = '<div style="color:#6b7280">Sin productos</div>'; return; }
+
+    c.innerHTML = items.map((it,idx)=> {
+      const nb = Number(it.precios?.netoBase || it.netoUnitarioBase || 0);
+      const bb = Number(it.precios?.brutoBase || it.brutoUnitarioBase || 0);
+      const nf = Number(it.precios?.netoFinal || it.netoUnitarioFinal || 0);
+      const bf = Number(it.precios?.brutoFinal || it.brutoUnitarioFinal || 0);
+
+      // SOLO porcentajes (evita montos)
+      const rawIva =  it.ivaPct ?? it.ivaPorcentaje ?? it.porcentajeIVA ?? it['%IVA'] ?? it.pctIVA;
+      const rawIla =  it.ilaPct ?? it.ilaPorcentaje ?? it.porcentajeILA ?? it['%ILA'] ?? it.pctILA;
+
+      const iva = normPct((typeof rawIva === 'number' && rawIva <= 1) ? rawIva : rawIva, 0.19);
+      const ila = normPct((typeof rawIla === 'number' && rawIla <= 1) ? rawIla : rawIla, 0.00);
+
+      const cajas = Number(it.cajas||0);
+      const bxc   = Number(it.bxc||0);
+      const unidades = Number(it.unidades || (cajas*bxc));
+
+      const minNeto = Number(it.minNetoUnitario ?? 0) || nb;
+
+      // VB
+      const vbReq = nf && nf < minNeto;
+      const vbTxt = vbReq ? 'Requiere V°B° Financiero' : 'Sin V°B° Financiero';
+      const vbCls = vbReq ? 'vb req' : 'vb ok';
+
+      // texto % ILA para mostrar como dato
+      const ilaPctTxt = (ila*100).toLocaleString('es-CL',{minimumFractionDigits:2,maximumFractionDigits:2}) + '%';
+
+      return `
+      <div class="item" id="row-${idx}"
+           data-idx="${idx}"
+           data-sku="${String(it.sku||'').replace(/\\s/g,'')}"
+           data-nombre="${escapeHtml(it.nombre||'')}"
+           data-bxc="${bxc}"
+           data-iva="${iva}"
+           data-ila="${ila}"
+           data-min="${minNeto}"
+           data-nb="${nb}"
+           data-bb="${bb}">
+        <div class="item-h">
+          <div>
+            <div style="font-weight:900">${escapeHtml(it.nombre||'')}</div>
+            <div class="sku">SKU: ${String(it.sku||'')}</div>
+          </div>
+          <span class="vb ${vbCls}" id="vb-${idx}">${vbTxt}</span>
+        </div>
+
+        <div class="row">
+          <!-- ⬅️ NUEVO: SKU antes de Producto -->
+          <div class="group">
+            <label class="label">SKU</label>
+            <input class="input" id="sku-${idx}" value="${String(it.sku||'')}" readonly>
+          </div>
+
+          <div class="group">
+            <label class="label">Producto</label>
+            <input class="input" value="${escapeHtml(it.nombre||'')}" readonly>
+          </div>
+
+          <!-- ⬅️ NUEVO: % ILA después de la descripción -->
+          <div class="group">
+            <label class="label">% ILA</label>
+            <input class="input" id="ila-pct-${idx}" value="${ilaPctTxt}" readonly>
+          </div>
+
+          <div class="group">
+            <label class="label">Cajas *</label>
+            <input class="input" type="number" min="0" step="1" id="cajas-${idx}" value="${cajas}">
+          </div>
+          <div class="group">
+            <label class="label">BxC</label>
+            <input class="input" id="bxc-${idx}" value="${bxc}" readonly>
+          </div>
+          <div class="group">
+            <label class="label">Unidades</label>
+            <input class="input" id="unidades-${idx}" value="${unidades}" readonly>
+          </div>
+          <div class="group">
+            <label class="label">Precio Bruto Unitario *</label>
+            <input class="input" type="number" min="0" step="1" id="bf-${idx}" value="${Math.round(bf)||0}">
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="box"><div class="lab">PU NETO BASE</div><div class="val" id="nb-${idx}">${nb?fmt(nb):'-'}</div></div>
+          <div class="box"><div class="lab">PU BRUTO BASE</div><div class="val" id="bb-${idx}">${bb?fmt(bb):'-'}</div></div>
+          <div class="box"><div class="lab">PU NETO FINAL</div><div class="val" id="nf-${idx}">${nf?fmt(nf):'-'}</div></div>
+          <div class="box"><div class="lab">% DESC</div><div class="val" id="desc-${idx}">-</div></div>
+          <div class="box"><div class="lab">NETO</div><div class="val" id="neto-${idx}">${fmt(it.totales?.neto||0)}</div></div>
+          <div class="box"><div class="lab">TOTAL</div><div class="val" id="total-${idx}">${fmt(it.totales?.total||0)}</div></div>
+        </div>
+
+        <div class="row2">
+          <div class="box"><div class="lab">IVA</div><div class="val" id="iva-${idx}">${fmt(it.totales?.iva||0)}</div></div>
+          <div class="box"><div class="lab">ILA</div><div class="val" id="ila-${idx}">${fmt(it.totales?.ila||0)}</div></div>
+          <div class="box"><div class="lab">LOGÍSTICO</div><div class="val" id="log-${idx}">${fmt(it.totales?.logistico||0)}</div></div>
+          <div class="box"><div class="lab">DESCUENTO</div><div class="val" id="dsc-${idx}">${fmt(it.totales?.descuento||0)}</div></div>
+          <div class="box" style="grid-column:span 2"><div class="lab"> </div><div class="val"> </div></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // listeners
+    (items||[]).forEach((_,idx)=>{
+      onInput(`cajas-${idx}`, ()=>{ recalcRow(idx); recalcSummary(); });
+      onInput(`bf-${idx}`,    ()=>{ recalcRow(idx); recalcSummary(); });
+    });
+    // primer cálculo para %desc (si venía 0)
+    (items||[]).forEach((_,idx)=>recalcRow(idx,true));
+  }
+
+  function onInput(id, fn){ const el=byId(id); if(el) el.addEventListener('input', fn); }
+
+  function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m])); }
+
+  // === Recalcular una línea ===
+  function recalcRow(idx, init=false){
+    const r  = byId(`row-${idx}`); if(!r) return;
+
+    const cajas = Number(byId(`cajas-${idx}`).value||0);
+    const bxc   = Number(r.dataset.bxc||0);
+    const unidades = cajas*bxc;
+    byId(`unidades-${idx}`).value = unidades;
+
+    const ivaPct = normPct(r.dataset.iva, 0.19);
+    const ilaPct = normPct(r.dataset.ila, 0.00);
+    const nb     = Number(r.dataset.nb||0);
+    const min    = Number(r.dataset.min||0) || nb;
+
+    const bf   = Number(byId(`bf-${idx}`).value||0);
+    const logBrutoU = LOG_NETO_U*(1+LOG_IVA_PCT);
+
+    // 1) Back-out logístico -> bruto producto
+    const prodBrutoU = Math.max(0, bf - logBrutoU);
+    // 2) Neto unitario final del producto
+    const netProdU   = prodBrutoU / (1 + ivaPct + ilaPct);
+
+    // 3) Totales de producto y logístico
+    const netoProd   = netProdU * unidades;
+    const logNeto    = LOG_NETO_U * unidades;
+
+    const ivaProd    = netProdU * ivaPct * unidades;
+    const ivaLog     = LOG_NETO_U * LOG_IVA_PCT * unidades;
+    const ilaTotal   = netProdU * ilaPct * unidades;
+
+    const netoLinea  = netoProd + logNeto;
+    const ivaLinea   = ivaProd + ivaLog;
+    const totalLinea = netoLinea + ivaLinea + ilaTotal;
+
+    // Descuento por unidad (comparado con neto base del producto)
+    const dPct = (nb>0 && netProdU<nb) ? Math.round((1 - (netProdU/nb))*1000)/10 : 0;
+    const descLinea = Math.max(0, (nb - netProdU)) * unidades;
+
+    // VB
+    const vbReq = (netProdU < min);
+    const vb = byId(`vb-${idx}`); if (vb){ vb.className = 'vb ' + (vbReq?'req':'ok'); vb.textContent = vbReq?'Requiere V°B° Financiero':'Sin V°B° Financiero'; }
+
+    // pintar
+    byId(`nf-${idx}`).textContent    = isFinite(netProdU)&&netProdU>0 ? fmt(netProdU) : '-';
+    byId(`desc-${idx}`).innerHTML    = dPct>0 ? `<span class="tag tag-warn">-${dPct}%</span>` : '-';
+    byId(`neto-${idx}`).textContent  = fmt(netoLinea);
+    byId(`iva-${idx}`).textContent   = fmt(ivaLinea);
+    byId(`ila-${idx}`).textContent   = fmt(ilaTotal);
+    byId(`log-${idx}`).textContent   = fmt(logNeto);
+    byId(`total-${idx}`).textContent = fmt(totalLinea);
+    byId(`dsc-${idx}`).textContent   = fmt(descLinea);
+
+    // guarda en dataset para sumar
+    r.dataset.cajas       = String(cajas);
+    r.dataset.unidades    = String(unidades);
+    r.dataset.puBrutoFin  = String(bf);
+    r.dataset.puNetoFin   = String(netProdU);
+    r.dataset.netoLinea   = String(netoLinea);
+    r.dataset.ivaLinea    = String(ivaLinea);
+    r.dataset.ilaLinea    = String(ilaTotal);
+    r.dataset.logLinea    = String(logNeto);
+    r.dataset.totalLinea  = String(totalLinea);
+    r.dataset.descLinea   = String(descLinea);
+
+    if (init){ /* solo para poblar %desc si ya estaba */ }
+  }
+
+  // === Recalcular totales ===
+  function recalcSummary(){
+    const rows = Array.from(document.querySelectorAll('[id^="row-"]'));
+    let neto=0, iva=0, ila=0, log=0, total=0, cajas=0;
+    rows.forEach(r=>{
+      neto += Number(r.dataset.netoLinea||0);
+      iva  += Number(r.dataset.ivaLinea||0);
+      ila  += Number(r.dataset.ilaLinea||0);
+      log  += Number(r.dataset.logLinea||0);
+      total+= Number(r.dataset.totalLinea||0);
+      cajas+= Number(r.dataset.cajas||0);
+    });
+    byId('s-neto').textContent  = fmt(neto);
+    byId('s-iva').textContent   = fmt(iva);
+    byId('s-ila').textContent   = fmt(ila);
+    byId('s-log').textContent   = fmt(log);
+    byId('s-cajas').textContent = String(Math.round(cajas));
+    byId('s-total').textContent = fmt(total);
+    byId('summary').style.display = rows.length ? 'block':'none';
+  }
+
+  // === Guardar cambios ===
+  function guardar(){
+    if (!detActual){ alert('Primero carga una NV.'); return; }
+
+    // si está facturada, exigir NC
+    const nc = String(byId('nc-num').value||'').trim();
+    if (esFacturado && !nc){ alert('Ingresa el N° de Nota de Crédito.'); return; }
+
+    // armar items
+    const rows = Array.from(document.querySelectorAll('[id^="row-"]'));
+    if (!rows.length){ alert('No hay productos.'); return; }
+
+    const items = rows.map(r => ({
+      sku: r.dataset.sku,
+      nombre: r.dataset.nombre,
+      cajas: Number(r.dataset.cajas||0),
+      bxc: Number(r.dataset.bxc||0),
+      unidades: Number(r.dataset.unidades||0),
+      puBrutoFinal: Number(r.dataset.puBrutoFin||0),
+      puNetoFinal: Number(r.dataset.puNetoFin||0),
+      netoBase: Number(r.dataset.nb||0),
+      brutoBase: Number(r.dataset.bb||0),
+      ivaPct: normPct(r.dataset.iva,0.19),
+      ilaPct: normPct(r.dataset.ila,0.00),
+      minNetoUnitario: Number(r.dataset.min||0),
+      descLinea: Number(r.dataset.descLinea||0),
+      netoLinea: Number(r.dataset.netoLinea||0),
+      ivaLinea: Number(r.dataset.ivaLinea||0),
+      ilaLinea: Number(r.dataset.ilaLinea||0),
+      logLinea: Number(r.dataset.logLinea||0),
+      totalLinea: Number(r.dataset.totalLinea||0)
+    }));
+
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res=>{
+        showLoading(false);
+        if (res && res.success){
+          alert('✅ Cambios guardados correctamente.');
+          location.href = '<?= getWebAppUrl() ?>?page=aprobador';
+        } else {
+          alert('❌ '+(res?.message || 'No se pudo guardar'));
+        }
+      })
+      .withFailureHandler(err=>{ showLoading(false); alert('❌ Error al guardar: '+(err?.message||err)); })
+      .apiGuardarEdicionNV(String(detActual.numeroNV || byId('nv-num').value), items, nc);
+  }
+})();
+</script>
+</body>
+</html>

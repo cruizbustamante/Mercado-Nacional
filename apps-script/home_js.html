@@ -1,0 +1,925 @@
+<script>
+/**
+ * HOME VDA - JavaScript Completo con Reporte Ejecutivo
+ * Versión 3.2
+ */
+(function() {
+  'use strict';
+  
+  let state = { 
+    data: null,
+    simulatedEmail: null,
+    mesSeleccionado: null,
+    mesesDisponibles: [],
+    puedeActualizar: false,
+    mesFacturas: null,
+    facturasActuales: []
+  };
+  
+  const ICONS = {
+    'calendar': '📅', 'trending-up': '📈', 'percentage': '💹', 'wallet': '💰',
+    'store': '🏪', 'cart': '🛒', 'alert-triangle': '⚠️', 'alert-circle': '🔴',
+    'users': '👥', 'credit-card': '💳', 'shield-check': '🛡️', 'check-circle': '✅',
+    'file-text': '📄', 'clock': '⏱️', 'truck': '🚚', 'trophy': '🏆', 'package': '📦',
+    'chart-bar': '📊'
+  };
+
+  const MODULE_ICONS = {
+    'emisor_nv': '📋', 'aprobador': '✅', 'finanzas': '💰', 'facturador': '🧾',
+    'comercial': '📈', 'deuda_clientes': '💳', 'despacho': '🚚',
+    'oc_supermercados': '🛒', 'stock': '📦', 'op_licores': '🍷'
+  };
+  
+  const MESES_NOMBRES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const MESES_COMPLETOS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  
+  document.addEventListener('DOMContentLoaded', init);
+  
+  function init() { 
+    loadAll();
+  } 
+  
+  // ★★★ CARGA COMBINADA - UNA SOLA LLAMADA ★★★
+  function loadAll() {
+    google.script.run
+      .withSuccessHandler(onDataLoaded)
+      .withFailureHandler(onError)
+      .apiHomeLoad(state.simulatedEmail, state.mesSeleccionado);
+  }
+  
+  function onDataLoaded(data) {
+    state.data = data;
+    state.mesesDisponibles = data.mesesDisponibles || [];
+    state.mesSeleccionado = data.mesSeleccionado;
+    state.puedeActualizar = data.puedeActualizar || false;
+    
+    // Renderizar todo
+    updateHeader(data);
+    updateModules(data.modulos);
+    renderMonthSelector();
+    updateMonthSelectorActive();
+    
+    if (data.isAdmin && data.listaUsuarios.length > 0) {
+      setupAdminSelector(data.listaUsuarios);
+    }
+    
+    if (data.isSimulando) {
+      showSimBanner(data.usuario.nombre, data.usuario.rol);
+    }
+
+    // ⬇️ AGREGAR ESTA LÍNEA
+    setupReporteEjecutivo();
+    
+    // Ocultar loading y mostrar KPIs
+    document.getElementById('kpi-loading').style.display = 'none';
+    
+    if (data.principales && data.principales.length > 0) {
+      renderMainKPIs(data.principales);
+    }
+    
+    if (data.secundarios && data.secundarios.length > 0) {
+      renderSecondaryKPIs(data.secundarios);
+    }
+    
+    if (data.vendedores && data.vendedores.length > 0) {
+      renderTeam(data.vendedores);
+    }
+    
+    // Tabla de facturas del mes (solo para vendedores)
+    if (data.esVendedor && data.facturasMes) {
+      state.mesFacturas = data.mesFacturas;
+      state.facturasActuales = data.facturasMes;
+      renderFacturasMes(data.facturasMes, data.mesFacturas);
+    }
+  }
+  
+  /* ============================================================
+     SELECTOR DE MES + BOTÓN ACTUALIZAR
+     ============================================================ */
+  function renderMonthSelector() {
+    const container = document.getElementById('month-selector-container');
+    if (!container) return;
+    
+    const year = state.data?.anioActual || new Date().getFullYear();
+    const mesesConDatos = state.mesesDisponibles.map(m => m.valor);
+    
+    let tabsHtml = '';
+    for (let m = 1; m <= 12; m++) {
+      const tieneDatos = mesesConDatos.includes(m);
+      const esActivo = state.mesSeleccionado === m;
+      
+      let clases = 'month-selector__tab';
+      if (esActivo) clases += ' month-selector__tab--active';
+      if (!tieneDatos) clases += ' month-selector__tab--no-data';
+      
+      tabsHtml += '<button class="' + clases + '" data-mes="' + m + '" ' + 
+        (tieneDatos ? '' : 'disabled') + '>' + MESES_NOMBRES[m - 1] + '</button>';
+    }
+    
+    // Botón de actualizar solo si tiene permisos
+    let refreshBtnHtml = '';
+    if (state.puedeActualizar) {
+      refreshBtnHtml = '<button class="btn-refresh" id="btn-refresh" title="Actualizar datos desde origen">' +
+        '<span class="btn-refresh__icon">🔄</span>' +
+        '<span class="btn-refresh__text">Actualizar</span>' +
+      '</button>';
+    }
+    
+    container.innerHTML = 
+      '<div class="month-selector">' +
+        '<span class="month-selector__label">' +
+          '<span class="month-selector__label-icon">📅</span> Período de Ventas:' +
+        '</span>' +
+        '<div class="month-selector__tabs">' + tabsHtml + '</div>' +
+        '<div class="month-selector__info">' +
+          '<span>Año</span>' +
+          '<span class="month-selector__info-badge">' + year + '</span>' +
+          refreshBtnHtml +
+        '</div>' +
+      '</div>';
+    
+    // Event listeners para meses
+    container.querySelectorAll('.month-selector__tab:not([disabled])').forEach(btn => {
+      btn.addEventListener('click', onMonthClick);
+    });
+    
+    // Event listener para botón actualizar
+    const btnRefresh = document.getElementById('btn-refresh');
+    if (btnRefresh) {
+      btnRefresh.addEventListener('click', onRefreshClick);
+    }
+  }
+  
+  function onRefreshClick() {
+    const btn = document.getElementById('btn-refresh');
+    if (!btn || btn.classList.contains('btn-refresh--loading')) return;
+    
+    btn.classList.add('btn-refresh--loading');
+    btn.querySelector('.btn-refresh__text').textContent = 'Actualizando...';
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result.ok) {
+          state.mesSeleccionado = null;
+          document.getElementById('kpi-loading').style.display = 'flex';
+          document.getElementById('kpi-section').style.display = 'none';
+          document.getElementById('kpi-secondary').style.display = 'none';
+          document.getElementById('team-section').style.display = 'none';
+          loadAll();
+        } else {
+          alert('Error: ' + (result.error || 'No se pudo actualizar'));
+          resetRefreshButton();
+        }
+      })
+      .withFailureHandler(function(err) {
+        alert('Error al actualizar: ' + err);
+        resetRefreshButton();
+      })
+      .apiHomeLimpiarCache();
+  }
+  
+  function resetRefreshButton() {
+    const btn = document.getElementById('btn-refresh');
+    if (btn) {
+      btn.classList.remove('btn-refresh--loading');
+      btn.querySelector('.btn-refresh__text').textContent = 'Actualizar';
+    }
+  }
+  
+  function updateMonthSelectorActive() {
+    const container = document.getElementById('month-selector-container');
+    if (!container) return;
+    
+    container.querySelectorAll('.month-selector__tab').forEach(btn => {
+      const mes = parseInt(btn.dataset.mes);
+      if (mes === state.mesSeleccionado) {
+        btn.classList.add('month-selector__tab--active');
+      } else {
+        btn.classList.remove('month-selector__tab--active');
+      }
+    });
+    
+    resetRefreshButton();
+  }
+  
+  function onMonthClick(e) {
+    const mes = parseInt(e.target.dataset.mes);
+    if (isNaN(mes) || mes === state.mesSeleccionado) return;
+    
+    state.mesSeleccionado = mes;
+    
+    document.getElementById('kpi-loading').style.display = 'flex';
+    document.getElementById('kpi-section').style.display = 'none';
+    document.getElementById('kpi-secondary').style.display = 'none';
+    document.getElementById('team-section').style.display = 'none';
+    
+    updateMonthSelectorActive();
+    loadAll();
+  }
+  
+  function updateHeader(data) {
+    const hour = new Date().getHours();
+    let greeting = 'Buenos días';
+    if (hour >= 12 && hour < 19) greeting = 'Buenas tardes';
+    else if (hour >= 19) greeting = 'Buenas noches';
+    
+    document.getElementById('greeting').textContent = greeting;
+    document.getElementById('user-name').textContent = data.usuario.nombreCorto || data.usuario.nombre;
+    document.getElementById('date-str').textContent = data.fechaStr;
+    
+    const initials = (data.usuario.nombre || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    document.getElementById('avatar-initials').textContent = initials;
+  }
+  
+  function setupAdminSelector(usuarios) {
+    const container = document.getElementById('profile-switcher');
+    const select = document.getElementById('user-select');
+    
+    if (select.options.length > 1) return;
+    
+    container.style.display = 'block';
+    
+    usuarios.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.email;
+      opt.textContent = u.nombre + ' (' + u.rol + ')';
+      if (state.simulatedEmail === u.email) opt.selected = true;
+      select.appendChild(opt);
+    });
+    
+    select.addEventListener('change', function() {
+      state.simulatedEmail = this.value || null;
+      state.mesSeleccionado = null;
+      document.getElementById('kpi-loading').style.display = 'flex';
+      document.getElementById('kpi-section').style.display = 'none';
+      document.getElementById('kpi-secondary').style.display = 'none';
+      document.getElementById('team-section').style.display = 'none';
+      loadAll();
+    });
+  }
+  
+  function showSimBanner(nombre, rol) {
+    document.getElementById('sim-name').textContent = nombre + ' (' + rol + ')';
+    document.getElementById('sim-banner').style.display = 'flex';
+  }
+  
+  window.clearSimulation = function() {
+    state.simulatedEmail = null;
+    state.mesSeleccionado = null;
+    document.getElementById('user-select').value = '';
+    document.getElementById('sim-banner').style.display = 'none';
+    document.getElementById('kpi-loading').style.display = 'flex';
+    document.getElementById('kpi-section').style.display = 'none';
+    document.getElementById('kpi-secondary').style.display = 'none';
+    document.getElementById('team-section').style.display = 'none';
+    loadAll();
+  };
+  
+  function renderMainKPIs(kpis) {
+    const grid = document.getElementById('kpi-grid');
+    const section = document.getElementById('kpi-section');
+    
+    const esDeuda = kpis.length > 0 && kpis[0].esDeuda;
+    grid.className = 'kpi-grid' + (esDeuda ? ' kpi-grid--deuda' : '');
+    
+    grid.innerHTML = kpis.map((kpi, i) => {
+      const stateClass = kpi.estado ? 'kpi-card--' + kpi.estado : '';
+      const deudaClass = kpi.esDeuda ? 'kpi-card--deuda' : '';
+      const icon = ICONS[kpi.icono] || '📊';
+      
+      let variationHtml = '';
+      if (kpi.variacion !== null && kpi.variacion !== undefined) {
+        const varClass = kpi.variacion >= 0 ? 'positive' : 'negative';
+        const arrow = kpi.variacion >= 0 ? '↑' : '↓';
+        variationHtml = '<span class="kpi-card__variation kpi-card__variation--' + varClass + '">' + 
+          arrow + ' ' + Math.abs(kpi.variacion).toFixed(1) + '%</span>';
+      }
+      
+      let margenHtml = '';
+      if (kpi.margen !== null && kpi.margen !== undefined) {
+        margenHtml = '<div class="kpi-card__margen">' +
+          '<span>Margen:</span> ' +
+          '<span class="kpi-card__margen-value">' + formatFull(kpi.margen) + '</span>' +
+          (kpi.margenPct ? ' <span class="kpi-card__margen-pct">(' + kpi.margenPct.toFixed(1) + '%)</span>' : '') +
+        '</div>';
+      }
+      
+      return '<div class="kpi-card ' + stateClass + ' ' + deudaClass + ' fade-in stagger-' + ((i % 4) + 1) + '">' +
+        '<div class="kpi-card__header">' +
+          '<span class="kpi-card__title">' + kpi.titulo + '</span>' +
+          '<div class="kpi-card__icon">' + icon + '</div>' +
+        '</div>' +
+        '<div class="kpi-card__body">' +
+          '<div class="kpi-card__main">' +
+            '<div class="kpi-card__value">' + formatValue(kpi.valor, kpi.formato) + '</div>' +
+            '<div class="kpi-card__subtitle">' + (kpi.subtitulo || '') + '</div>' +
+          '</div>' +
+          '<div class="kpi-card__right">' +
+            variationHtml +
+            '<div class="kpi-card__extra">' + (kpi.extraInfo || '') + '</div>' +
+          '</div>' +
+        '</div>' +
+        margenHtml +
+      '</div>';
+    }).join('');
+    
+    section.style.display = 'block';
+  }
+  
+  function renderSecondaryKPIs(kpis) {
+    const grid = document.getElementById('kpi-secondary-grid');
+    const section = document.getElementById('kpi-secondary');
+    
+    const esVentasCFO = kpis.length === 4 && kpis.every(k => k.esVenta && k.margen !== undefined);
+    
+    if (esVentasCFO) {
+      grid.className = 'kpi-grid kpi-grid--ventas';
+      
+      grid.innerHTML = kpis.map((kpi, i) => {
+        const stateClass = kpi.estado ? 'kpi-card--' + kpi.estado : '';
+        const icon = ICONS[kpi.icono] || '📊';
+        
+        let variationHtml = '';
+        if (kpi.variacion !== null && kpi.variacion !== undefined) {
+          const varClass = kpi.variacion >= 0 ? 'positive' : 'negative';
+          const arrow = kpi.variacion >= 0 ? '↑' : '↓';
+          variationHtml = '<span class="kpi-card__variation kpi-card__variation--' + varClass + '">' + 
+            arrow + ' ' + Math.abs(kpi.variacion).toFixed(1) + '%</span>';
+        }
+        
+        let margenHtml = '';
+        if (kpi.margen !== null && kpi.margen !== undefined) {
+          margenHtml = '<div class="kpi-card__margen">' +
+            '<span>Margen:</span> ' +
+            '<span class="kpi-card__margen-value">' + formatFull(kpi.margen) + '</span>' +
+            (kpi.margenPct ? ' <span class="kpi-card__margen-pct">(' + kpi.margenPct.toFixed(1) + '%)</span>' : '') +
+          '</div>';
+        }
+        
+        return '<div class="kpi-card kpi-card--ventas ' + stateClass + ' fade-in stagger-' + ((i % 4) + 1) + '">' +
+          '<div class="kpi-card__header">' +
+            '<span class="kpi-card__title">' + kpi.titulo + '</span>' +
+            '<div class="kpi-card__icon">' + icon + '</div>' +
+          '</div>' +
+          '<div class="kpi-card__body">' +
+            '<div class="kpi-card__main">' +
+              '<div class="kpi-card__value">' + formatValue(kpi.valor, kpi.formato) + '</div>' +
+              '<div class="kpi-card__subtitle">' + (kpi.subtitulo || '') + '</div>' +
+            '</div>' +
+            '<div class="kpi-card__right">' +
+              variationHtml +
+            '</div>' +
+          '</div>' +
+          margenHtml +
+        '</div>';
+      }).join('');
+    } else {
+      grid.className = 'kpi-secondary-grid';
+      
+      grid.innerHTML = kpis.map(kpi => {
+        const stateClass = kpi.estado ? 'kpi-mini--' + kpi.estado : '';
+        const icon = ICONS[kpi.icono] || '📊';
+        
+        let variationHtml = '';
+        if (kpi.variacion !== null && kpi.variacion !== undefined) {
+          const varClass = kpi.variacion >= 0 ? 'positive' : 'negative';
+          const arrow = kpi.variacion >= 0 ? '↑' : '↓';
+          variationHtml = '<div class="kpi-mini__variation kpi-mini__variation--' + varClass + '">' + 
+            arrow + ' ' + Math.abs(kpi.variacion).toFixed(1) + '%</div>';
+        }
+        
+        let margenHtml = '';
+        if (kpi.margen !== null && kpi.margen !== undefined) {
+          margenHtml = '<div class="kpi-mini__margen">M: ' + formatFull(kpi.margen) + 
+            (kpi.margenPct ? ' (' + kpi.margenPct.toFixed(1) + '%)' : '') + '</div>';
+        }
+        
+        return '<div class="kpi-mini ' + stateClass + '">' +
+          '<div class="kpi-mini__icon">' + icon + '</div>' +
+          '<div class="kpi-mini__content">' +
+            '<div class="kpi-mini__value">' + formatValue(kpi.valor, kpi.formato) + '</div>' +
+            '<div class="kpi-mini__label">' + kpi.titulo + '</div>' +
+            variationHtml +
+            margenHtml +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+    
+    section.style.display = 'block';
+  }
+  
+  function renderTeam(vendedores) {
+    const grid = document.getElementById('team-grid');
+    const section = document.getElementById('team-section');
+    
+    const mesNombre = state.mesSeleccionado ? MESES_COMPLETOS[state.mesSeleccionado - 1] : '';
+    const titleEl = section.querySelector('.section-title');
+    if (titleEl && mesNombre) {
+      titleEl.innerHTML = '👥 Equipo Comercial <span style="font-weight:400;color:var(--sapTextTertiary)">(' + mesNombre + ')</span>';
+    }
+    
+    grid.innerHTML = vendedores.map(v => {
+      const canalClass = (v.canal || '').toLowerCase() === 'supermercado' ? 'team-card--supermercado' : '';
+      
+      const varMesClass = v.varMes >= 0 ? 'positive' : 'negative';
+      const arrowMes = v.varMes >= 0 ? '↑' : '↓';
+      
+      const varAcumClass = v.varAcum >= 0 ? 'positive' : 'negative';
+      const arrowAcum = v.varAcum >= 0 ? '↑' : '↓';
+      
+      return '<div class="team-card ' + canalClass + '">' +
+        '<div class="team-card__header">' +
+          '<div class="team-card__avatar" style="background:' + (v.color || '#0854A0') + '">' + v.iniciales + '</div>' +
+          '<div>' +
+            '<div class="team-card__name">' + v.nombre + '</div>' +
+            '<div class="team-card__canal">' + (v.canal || '') + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="team-card__metrics">' +
+          '<div class="team-card__metric">' +
+            '<span class="team-card__metric-label">Venta Mes</span>' +
+            '<span class="team-card__metric-value">' + formatFull(v.ventaMes) + 
+              ' <span class="team-card__variation team-card__variation--' + varMesClass + '">' + 
+                arrowMes + Math.abs(v.varMes).toFixed(1) + '%</span>' +
+            '</span>' +
+          '</div>' +
+          '<div class="team-card__metric">' +
+            '<span class="team-card__metric-label">Venta Acum.</span>' +
+            '<span class="team-card__metric-value team-card__metric-value--small">' + formatFull(v.ventaAcum) + 
+              ' <span class="team-card__variation team-card__variation--' + varAcumClass + '">' + 
+                arrowAcum + Math.abs(v.varAcum).toFixed(1) + '%</span>' +
+            '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="team-card__rentabilidad">' +
+          '<span class="team-card__rent-label">Rentabilidad</span>' +
+          '<div class="team-card__rent-values">' +
+            '<div class="team-card__rent-item">' +
+              '<span>Mes:</span>' +
+              '<span>' + (v.margenPctMes !== undefined ? v.margenPctMes.toFixed(1) + '%' : '--') + '</span>' +
+            '</div>' +
+            '<div class="team-card__rent-item">' +
+              '<span>Acum:</span>' +
+              '<span>' + (v.margenPctAcum !== undefined ? v.margenPctAcum.toFixed(1) + '%' : '--') + '</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    
+    section.style.display = 'block';
+  }
+  
+  function updateModules(modulos) {
+    const grid = document.getElementById('modules-grid');
+    
+    if (!modulos || modulos.length === 0) {
+      grid.innerHTML = '<p style="color:var(--sapTextSecondary);grid-column:1/-1;text-align:center">Sin módulos</p>';
+      return;
+    }
+    
+    grid.innerHTML = modulos.map((m, i) => {
+      const icon = MODULE_ICONS[m.id] || '📁';
+      const color = m.color || '#0854A0';
+      
+      return '<a href="' + m.url + '" class="module-tile fade-in stagger-' + ((i % 4) + 1) + '">' +
+        '<div class="module-tile__icon" style="background:' + color + '20;color:' + color + '">' + icon + '</div>' +
+        '<div class="module-tile__title">' + m.titulo + '</div>' +
+        '<div class="module-tile__desc">' + m.descripcion + '</div>' +
+      '</a>';
+    }).join('');
+  }
+  
+  function formatFull(n) {
+    if (n === null || n === undefined) return '--';
+    return '$' + Math.round(n).toLocaleString('es-CL');
+  }
+  
+  function formatValue(value, format) {
+    if (value === null || value === undefined) return '--';
+    
+    switch(format) {
+      case 'money':
+        return '$' + Math.round(value).toLocaleString('es-CL');
+      case 'percent':
+        return value.toFixed(1) + '%';
+      case 'ranking':
+        return '#' + value;
+      default:
+        return typeof value === 'number' ? value.toLocaleString('es-CL') : value;
+    }
+  }
+  
+  function renderFacturasMes(facturas, mesActual) {
+    const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const mesAnterior = mesActual > 1 ? mesActual - 1 : 12;
+    
+    let section = document.getElementById('facturas-section');
+    if (!section) {
+      section = document.createElement('section');
+      section.id = 'facturas-section';
+      section.className = 'facturas-section fade-in';
+      
+      const modulesGrid = document.getElementById('modules-grid');
+      if (modulesGrid && modulesGrid.parentNode && modulesGrid.parentNode.parentNode) {
+        const appSection = modulesGrid.parentNode;
+        appSection.parentNode.insertBefore(section, appSection.nextSibling);
+      } else {
+        const sections = document.querySelectorAll('section');
+        if (sections.length > 0) {
+          const lastSection = sections[sections.length - 1];
+          lastSection.parentNode.insertBefore(section, lastSection.nextSibling);
+        }
+      }
+    }
+    
+    const headerHtml = '<div class="facturas-header">' +
+      '<h2 class="section-title">📄 Mis Facturas</h2>' +
+      '<div class="facturas-actions">' +
+        '<div class="facturas-mes-selector">' +
+          '<button type="button" class="facturas-mes-btn' + (state.mesFacturas === mesAnterior ? ' active' : '') + '" data-mes="' + mesAnterior + '">' + 
+            meses[mesAnterior - 1] + '</button>' +
+          '<button type="button" class="facturas-mes-btn' + (state.mesFacturas === mesActual ? ' active' : '') + '" data-mes="' + mesActual + '">' + 
+            meses[mesActual - 1] + '</button>' +
+        '</div>' +
+        '<button type="button" class="facturas-download-btn" id="btn-download-facturas" title="Descargar Excel">📥 Excel</button>' +
+      '</div>' +
+    '</div>' +
+    '<div id="facturas-container"></div>';
+    
+    section.innerHTML = headerHtml;
+    
+    section.querySelectorAll('.facturas-mes-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const mes = Number(this.dataset.mes);
+        if (mes !== state.mesFacturas) {
+          loadFacturasMes(mes);
+        }
+      });
+    });
+    
+    const btnDownload = document.getElementById('btn-download-facturas');
+    if (btnDownload) {
+      btnDownload.addEventListener('click', descargarFacturasExcel);
+    }
+    
+    state.facturasActuales = facturas;
+    renderFacturasTabla(facturas);
+    section.style.display = 'block';
+  }
+  
+  function renderFacturasTabla(facturas) {
+    const container = document.getElementById('facturas-container');
+    if (!container) return;
+    
+    if (!facturas || facturas.length === 0) {
+      container.innerHTML = '<div class="facturas-empty">No hay facturas en este mes</div>';
+      return;
+    }
+    
+    let totalNeto = 0, totalCajas = 0;
+    facturas.forEach(f => {
+      totalNeto += f.neto || 0;
+      totalCajas += f.cajas || 0;
+    });
+    
+    let html = '<table class="facturas-table">' +
+      '<thead><tr>' +
+        '<th>Factura</th>' +
+        '<th>NV</th>' +
+        '<th>Fecha</th>' +
+        '<th>Cliente</th>' +
+        '<th>Neto</th>' +
+        '<th>Cajas</th>' +
+      '</tr></thead><tbody>';
+    
+    facturas.forEach(f => {
+      html += '<tr>' +
+        '<td>' + (f.factura || '--') + '</td>' +
+        '<td>' + (f.nv || '--') + '</td>' +
+        '<td>' + (f.fecha || '--') + '</td>' +
+        '<td class="facturas-table__cliente" title="' + (f.cliente || '') + '">' + (f.cliente || '--') + '</td>' +
+        '<td class="facturas-table__monto">' + formatFull(f.neto) + '</td>' +
+        '<td>' + (f.cajas || 0) + '</td>' +
+      '</tr>';
+    });
+    
+    html += '</tbody><tfoot><tr class="facturas-total">' +
+      '<td colspan="4"><strong>Total (' + facturas.length + ' facturas)</strong></td>' +
+      '<td class="facturas-table__monto"><strong>' + formatFull(totalNeto) + '</strong></td>' +
+      '<td><strong>' + totalCajas + '</strong></td>' +
+    '</tr></tfoot></table>';
+    
+    container.innerHTML = html;
+  }
+  
+  function loadFacturasMes(mes) {
+    const container = document.getElementById('facturas-container');
+    if (container) {
+      container.innerHTML = '<div class="facturas-loading">Cargando...</div>';
+    }
+    
+    document.querySelectorAll('.facturas-mes-btn').forEach(btn => {
+      btn.classList.toggle('active', Number(btn.dataset.mes) === mes);
+    });
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result.ok) {
+          state.mesFacturas = result.mes;
+          state.facturasActuales = result.facturas;
+          renderFacturasTabla(result.facturas);
+        } else {
+          container.innerHTML = '<div class="facturas-empty">Error: ' + result.error + '</div>';
+        }
+      })
+      .withFailureHandler(function(err) {
+        container.innerHTML = '<div class="facturas-empty">Error al cargar</div>';
+      })
+      .apiHomeGetFacturasMes(state.simulatedEmail, mes);
+  }
+  
+  function descargarFacturasExcel() {
+    const datos = state.facturasActuales;
+    
+    if (!datos || datos.length === 0) {
+      alert('No hay facturas para descargar');
+      return;
+    }
+    
+    const btn = document.getElementById('btn-download-facturas');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '⏳ Generando...';
+    }
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '📥 Excel';
+        }
+        
+        if (result.ok && result.base64) {
+          const byteCharacters = atob(result.base64);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = result.filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        } else {
+          alert('Error al generar Excel: ' + (result.error || 'desconocido'));
+        }
+      })
+      .withFailureHandler(function(err) {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '📥 Excel';
+        }
+        alert('Error: ' + err);
+      })
+      .apiHomeExportFacturasExcel(state.simulatedEmail, state.mesFacturas);
+  }
+  
+  /* ============================================================
+  REPORTE EJECUTIVO - VERSIÓN CORREGIDA
+  ============================================================ */
+    
+  function setupReporteEjecutivo() {
+    const usuario = state.data?.usuario;
+    
+    // Solo para admin, ceo, cfo
+    const rolesPermitidos = ['admin', 'ceo', 'cfo'];
+    if (!usuario || !rolesPermitidos.includes(usuario.rol)) {
+      console.log('Usuario sin permisos para reporte ejecutivo');
+      return;
+    }
+    
+    // Verificar si ya existe el botón
+    if (document.getElementById('btn-reporte-ejecutivo')) {
+      console.log('Botón de reporte ya existe');
+      return;
+    }
+    
+    console.log('✅ Creando botón de reporte ejecutivo para:', usuario.rol);
+    
+    // Crear botón
+    const btnContainer = document.createElement('div');
+    btnContainer.className = 'reporte-ejecutivo-container';
+    btnContainer.innerHTML = `
+      <button class="btn-reporte-ejecutivo" id="btn-reporte-ejecutivo" title="Descargar Reporte Ejecutivo en Excel">
+        <span class="btn-reporte-ejecutivo__icon">📊</span>
+        <span class="btn-reporte-ejecutivo__text">Reporte Ejecutivo</span>
+      </button>
+    `;
+    
+    // Insertar DESPUÉS de la fecha, dentro del page-header
+    const pageHeader = document.querySelector('.page-header');
+    if (pageHeader) {
+      pageHeader.appendChild(btnContainer);
+      
+      // Event listener
+      document.getElementById('btn-reporte-ejecutivo').addEventListener('click', mostrarModalReporte);
+      
+      console.log('✅ Botón de reporte ejecutivo agregado');
+    } else {
+      console.error('❌ No se encontró .page-header');
+    }
+  }
+  
+  function mostrarModalReporte() {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'modal-reporte';
+    
+    const mesActual = state.mesSeleccionado || new Date().getMonth() + 1;
+    const yearActual = new Date().getFullYear();
+    
+    const mesesOpciones = MESES_COMPLETOS.map((nombre, i) => {
+      const valor = i + 1;
+      const selected = valor === mesActual ? 'selected' : '';
+      return `<option value="${valor}" ${selected}>${nombre}</option>`;
+    }).join('');
+    
+    overlay.innerHTML = `
+      <div class="modal-reporte">
+        <div class="modal-reporte__header">
+          <h2 class="modal-reporte__title">📊 Reporte Ejecutivo de Ventas</h2>
+          <button class="modal-reporte__close" onclick="window.cerrarModalReporte()">✕</button>
+        </div>
+        
+        <div class="modal-reporte__body">
+          <p class="modal-reporte__description">
+            Este reporte incluye 8-9 hojas con análisis completo de ventas por canal, categoría, marca, 
+            top clientes, desempeño ejecutivos, líneas de vino, precios y márgenes.
+          </p>
+          
+          <div class="modal-reporte__form">
+            <div class="modal-reporte__field">
+              <label class="modal-reporte__label">
+                <span class="modal-reporte__label-icon">📅</span>
+                Mes hasta (acumulado):
+              </label>
+              <select id="reporte-mes" class="modal-reporte__select">
+                ${mesesOpciones}
+              </select>
+            </div>
+            
+            <div class="modal-reporte__field">
+              <label class="modal-reporte__label">
+                <span class="modal-reporte__label-icon">📆</span>
+                Año:
+              </label>
+              <select id="reporte-year" class="modal-reporte__select">
+                <option value="${yearActual}" selected>${yearActual}</option>
+                <option value="${yearActual - 1}">${yearActual - 1}</option>
+                <option value="${yearActual - 2}">${yearActual - 2}</option>
+              </select>
+            </div>
+            
+            <div class="modal-reporte__field modal-reporte__field--checkbox">
+              <label class="modal-reporte__checkbox-label">
+                <input type="checkbox" id="reporte-detalle" checked class="modal-reporte__checkbox">
+                <span>Incluir detalle transaccional (primeros 5,000 registros)</span>
+              </label>
+            </div>
+            
+            <div class="modal-reporte__info">
+              <span class="modal-reporte__info-icon">ℹ️</span>
+              <span>El reporte se generará en formato Excel (.xlsx) y puede tardar 10-30 segundos</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-reporte__footer">
+          <button class="modal-reporte__btn modal-reporte__btn--secondary" onclick="window.cerrarModalReporte()">
+            Cancelar
+          </button>
+          <button class="modal-reporte__btn modal-reporte__btn--primary" id="btn-generar-reporte">
+            <span class="modal-reporte__btn-icon">📥</span>
+            <span class="modal-reporte__btn-text">Generar Reporte</span>
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    
+    document.getElementById('btn-generar-reporte').addEventListener('click', generarReporteEjecutivo);
+    
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) window.cerrarModalReporte();
+    });
+  }
+  
+  window.cerrarModalReporte = function() {
+    const modal = document.getElementById('modal-reporte');
+    if (modal) modal.remove();
+  };
+  
+  function generarReporteEjecutivo() {
+    const mes = Number(document.getElementById('reporte-mes').value);
+    const year = Number(document.getElementById('reporte-year').value);
+    const incluirDetalle = document.getElementById('reporte-detalle').checked;
+    
+    const btn = document.getElementById('btn-generar-reporte');
+    const btnIcon = btn.querySelector('.modal-reporte__btn-icon');
+    const btnText = btn.querySelector('.modal-reporte__btn-text');
+    
+    btn.disabled = true;
+    btn.classList.add('modal-reporte__btn--loading');
+    btnIcon.textContent = '⏳';
+    btnText.textContent = 'Generando reporte...';
+    
+    const params = { mes, year, incluirDetalle };
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result.ok && result.base64) {
+          descargarExcelBase64(result.base64, result.filename);
+          
+          btnIcon.textContent = '✅';
+          btnText.textContent = 'Reporte generado';
+          
+          setTimeout(() => {
+            window.cerrarModalReporte();
+          }, 1500);
+          
+        } else {
+          alert('Error al generar reporte: ' + (result.error || 'desconocido'));
+          resetBtnGenerar();
+        }
+      })
+      .withFailureHandler(function(err) {
+        alert('Error: ' + err);
+        resetBtnGenerar();
+      })
+      .apiReporteEjecutivoExcel(params);
+  }
+  
+  function resetBtnGenerar() {
+    const btn = document.getElementById('btn-generar-reporte');
+    if (!btn) return;
+    
+    btn.disabled = false;
+    btn.classList.remove('modal-reporte__btn--loading');
+    
+    const btnIcon = btn.querySelector('.modal-reporte__btn-icon');
+    const btnText = btn.querySelector('.modal-reporte__btn-text');
+    
+    if (btnIcon) btnIcon.textContent = '📥';
+    if (btnText) btnText.textContent = 'Generar Reporte';
+  }
+  
+  function descargarExcelBase64(base64, filename) {
+    try {
+      const byteCharacters = atob(base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      console.log('✅ Reporte descargado: ' + filename);
+      
+    } catch(e) {
+      console.error('Error al descargar:', e);
+      alert('Error al descargar el archivo');
+    }
+  }
+  
+  function onError(err) {
+    console.error('Error:', err);
+    document.getElementById('kpi-loading').innerHTML = 
+      '<p style="color:var(--sapNegativeColor)">Error: ' + err + '</p>';
+  }
+  
+})();
+</script>

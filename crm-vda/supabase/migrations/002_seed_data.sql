@@ -1,5 +1,5 @@
 -- ============================================================
--- CRM VDA — Datos Semilla (Seed Data)
+-- Mercado Nacional — Datos Semilla (Seed Data)
 -- ============================================================
 
 -- 1. ROLES
@@ -125,18 +125,18 @@ INSERT INTO system_config (key, value, description) VALUES
   ('vb_tolerance_clp',            '5',         'Tolerancia en CLP para V°B° financiero'),
   ('nv_prefix',                   '',          'Prefijo para número de NV'),
   ('nv_padding',                  '6',         'Dígitos de padding para correlativo NV'),
-  ('company_name',                'Viña de Aguirre', 'Razón social'),
+  ('company_name',                'Mercado Nacional', 'Razón social'),
   ('company_rut',                 '',          'RUT de la empresa');
 
 -- 9. CATEGORÍAS DE COSTOS OPERACIONALES
 -- ============================================================
-INSERT INTO operational_cost_categories (name, description) VALUES
-  ('almacen',    'Costos de almacenamiento y bodegaje'),
-  ('transporte', 'Costos de transporte y distribución'),
-  ('rrhh',       'Recursos humanos operativos'),
-  ('servicios',  'Servicios básicos y mantención'),
-  ('seguros',    'Seguros y garantías'),
-  ('otros',      'Otros costos operacionales');
+INSERT INTO operational_cost_categories (group_name, name, display_order) VALUES
+  ('operaciones', 'almacen',    1),
+  ('operaciones', 'transporte', 2),
+  ('rrhh',        'rrhh',       3),
+  ('servicios',   'servicios',  4),
+  ('seguros',     'seguros',    5),
+  ('otros',       'otros',      6);
 
 -- 10. PERFILES DE USUARIOS
 -- ============================================================

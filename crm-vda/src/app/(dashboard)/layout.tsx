@@ -41,6 +41,22 @@ export default async function DashboardLayout({
               <span>{m.display_name}</span>
             </Link>
           ))}
+          {profile.role?.name === "admin" && (
+            <>
+              <div className="mt-4 mb-1 px-4 text-[10px] font-medium uppercase tracking-widest text-zinc-400">
+                Administración
+              </div>
+              <Link
+                href="/admin"
+                className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-zinc-100"
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded bg-zinc-200 text-base">
+                  ⚙️
+                </span>
+                <span>Admin / Cargadores</span>
+              </Link>
+            </>
+          )}
         </nav>
       </aside>
 

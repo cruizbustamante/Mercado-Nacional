@@ -24,13 +24,7 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "VDA",
   },
-  icons: {
-    icon: [
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
-  },
+  // icons se generan automáticamente desde src/app/icon.tsx, apple-icon.tsx, icon-192.tsx, icon-512.tsx
   formatDetection: { telephone: false },
 };
 

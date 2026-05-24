@@ -360,7 +360,7 @@ export async function loadOcDetail(id: string): Promise<OcDetail | null> {
     }
   }
 
-  const itemsRaw = (oc.items ?? []) as Array<Omit<OcDetailLine, "assignment">>;
+  const itemsRaw = (oc.items ?? []) as unknown as Array<Omit<OcDetailLine, "assignment">>;
   const items: OcDetailLine[] = itemsRaw
     .map((it) => ({ ...it, assignment: assignmentByLine.get(it.id) ?? null }))
     .sort((a, b) => (a.line_number ?? 0) - (b.line_number ?? 0));
@@ -388,7 +388,7 @@ export async function loadOcDetail(id: string): Promise<OcDetail | null> {
     source_pdf: oc.source_pdf as string | null,
     buyer: oc.buyer as string | null,
     issuer: oc.issuer as string | null,
-    chain: oc.chain as { id: string; name: string } | null,
+    chain: oc.chain as unknown as { id: string; name: string } | null,
     items,
     invoices: assignedInvoices,
     totalFacturado,

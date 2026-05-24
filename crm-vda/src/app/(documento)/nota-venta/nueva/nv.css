@@ -458,6 +458,10 @@
   outline: none; border-color: var(--text);
   box-shadow: 0 0 0 2px rgba(26,22,18,0.08);
 }
+/* Esconder spinners de inputs numéricos para que no tapen el número */
+.nv-root .cell-input::-webkit-outer-spin-button,
+.nv-root .cell-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.nv-root .cell-input[type=number] { -moz-appearance: textfield; }
 .nv-root .cell-value {
   font-family: var(--f-mono); font-size: 13px;
   color: var(--text); font-variant-numeric: tabular-nums;

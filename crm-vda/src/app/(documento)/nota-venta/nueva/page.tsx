@@ -9,7 +9,7 @@ export default async function NuevaNVPage() {
   if (!profile) redirect("/login");
 
   const supabase = await createClient();
-  const [clientsRes, productsRes, warehousesRes, paymentTermsRes] = await Promise.all([
+  const [clientsRes, productsRes, warehousesRes, paymentTermsRes, configRes] = await Promise.all([
     supabase
       .from("clients")
       .select("id, rut_body, rut_dv, name, address, commune, city, credit_line_clp, insurer_credit_line_clp, payment_term:payment_terms(id, name)")
@@ -25,6 +25,7 @@ export default async function NuevaNVPage() {
       .limit(500),
     supabase.from("warehouses").select("id, code, name").eq("is_active", true),
     supabase.from("payment_terms").select("id, name, days").eq("is_active", true).order("days"),
+    supabase.from("system_config").select("key, value").in("key", ["logistics_cost_net_per_unit", "logistics_cost_iva_rate", "vb_tolerance_clp"]),
   ]);
 
   const clients = (clientsRes.data ?? []) as unknown as NvClient[];
@@ -32,12 +33,20 @@ export default async function NuevaNVPage() {
   const warehouses = (warehousesRes.data ?? []) as NvWarehouse[];
   const paymentTerms = (paymentTermsRes.data ?? []) as NvPaymentTerm[];
 
+  const cfg = new Map((configRes.data ?? []).map((r) => [r.key, r.value]));
+  const config = {
+    logisticsNetPerUnit: parseFloat(cfg.get("logistics_cost_net_per_unit") ?? "360"),
+    logisticsIvaRate: parseFloat(cfg.get("logistics_cost_iva_rate") ?? "0.19"),
+    vbToleranceClp: parseFloat(cfg.get("vb_tolerance_clp") ?? "5"),
+  };
+
   const today = new Date().toISOString().split("T")[0];
 
   return (
     <div className="nv-root">
       <NvForm
         emisor={{
+          id: profile.id,
           full_name: profile.full_name,
           short_name: profile.short_name ?? profile.full_name,
         }}
@@ -46,6 +55,7 @@ export default async function NuevaNVPage() {
         products={products}
         warehouses={warehouses}
         paymentTerms={paymentTerms}
+        config={config}
       />
     </div>
   );

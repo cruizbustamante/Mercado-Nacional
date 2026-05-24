@@ -34,44 +34,74 @@ export interface NvProduct {
 export interface NvWarehouse { id: string; code: string; name: string }
 export interface NvPaymentTerm { id: string; name: string; days: number }
 
+export interface NvConfig {
+  logisticsNetPerUnit: number;
+  logisticsIvaRate: number;
+  vbToleranceClp: number;
+}
+
 interface NvLine {
   product?: NvProduct;
   search: string;
-  cajas: number;
-  precio_neto: number;
-  descuento_pct: number; // 0–100
+  cajas: string; // string para manejar input vacío
+  precio_bruto: string; // string idem
 }
 
-const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
-const fmtClp = (n: number) => `$${fmt.format(n)}`;
+const fmtN = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
+const fmtClp = (n: number) => `$${fmtN.format(n)}`;
 
-function calcLine(l: NvLine) {
+interface LineCalc {
+  unidades: number;
+  precio_bruto: number;
+  precio_neto: number;
+  total_factor: number; // 1 + iva + ila
+  neto_producto: number;
+  iva_producto: number;
+  ila_producto: number;
+  log_neto: number;
+  log_iva: number;
+  total: number;
+  requires_vb: boolean;
+  descuento_pesos: number; // contra base_price_gross
+}
+
+function calcLine(l: NvLine, cfg: NvConfig): LineCalc | null {
   if (!l.product) return null;
+  const cajas = parseInt(l.cajas || "0", 10) || 0;
+  const precio_bruto = parseInt(l.precio_bruto || "0", 10) || 0;
   const upb = l.product.units_per_box;
-  const unidades = l.cajas * upb;
-  const precio_neto_final = Math.round(l.precio_neto * (1 - l.descuento_pct / 100));
-  const line_net = unidades * precio_neto_final;
-  const line_iva = Math.round(line_net * l.product.iva_rate);
-  const line_ila = Math.round(line_net * l.product.ila_rate);
-  const descuento_pesos = (l.precio_neto - precio_neto_final) * unidades;
-  const requires_vb = precio_neto_final < l.product.min_price_net;
-  const total = line_net + line_iva + line_ila;
-  return { unidades, precio_neto_final, line_net, line_iva, line_ila, descuento_pesos, requires_vb, total };
+  const unidades = cajas * upb;
+  const factor = 1 + l.product.iva_rate + l.product.ila_rate;
+  const precio_neto = factor > 0 ? Math.round(precio_bruto / factor) : 0;
+  const neto_producto = unidades * precio_neto;
+  const iva_producto = Math.round(neto_producto * l.product.iva_rate);
+  const ila_producto = Math.round(neto_producto * l.product.ila_rate);
+  const log_neto = Math.round(unidades * cfg.logisticsNetPerUnit);
+  const log_iva = Math.round(log_neto * cfg.logisticsIvaRate);
+  const total = neto_producto + iva_producto + ila_producto + log_neto + log_iva;
+  const requires_vb = precio_neto < (l.product.min_price_net - cfg.vbToleranceClp);
+  const descuento_pesos = unidades * Math.max(0, l.product.base_price_gross - precio_bruto);
+  return {
+    unidades, precio_bruto, precio_neto, total_factor: factor,
+    neto_producto, iva_producto, ila_producto,
+    log_neto, log_iva, total, requires_vb, descuento_pesos,
+  };
 }
 
 function newLine(): NvLine {
-  return { search: "", cajas: 0, precio_neto: 0, descuento_pct: 0 };
+  return { search: "", cajas: "", precio_bruto: "" };
 }
 
 export function NvForm({
-  emisor, today, clients, products, warehouses, paymentTerms,
+  emisor, today, clients, products, warehouses, paymentTerms, config,
 }: {
-  emisor: { full_name: string; short_name: string };
+  emisor: { id: string; full_name: string; short_name: string };
   today: string;
   clients: NvClient[];
   products: NvProduct[];
   warehouses: NvWarehouse[];
   paymentTerms: NvPaymentTerm[];
+  config: NvConfig;
 }) {
   const [clientId, setClientId] = useState<string>("");
   const client = useMemo(() => clients.find((c) => c.id === clientId), [clientId, clients]);
@@ -82,6 +112,11 @@ export function NvForm({
   const [lines, setLines] = useState<NvLine[]>([newLine()]);
   const [editingIdx, setEditingIdx] = useState<number | null>(0);
 
+  // Auto-actualizar dirección al cambiar cliente
+  useEffect(() => {
+    if (client) setDeliveryAddr(client.address ?? "");
+  }, [client]);
+
   function updateLine(idx: number, patch: Partial<NvLine>) {
     setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
   }
@@ -90,8 +125,8 @@ export function NvForm({
     updateLine(idx, {
       product: p,
       search: `${p.sku} · ${p.name}`,
-      cajas: lines[idx].cajas || 1,
-      precio_neto: p.base_price_net,
+      cajas: lines[idx].cajas || "1",
+      precio_bruto: String(p.base_price_gross),
     });
   }
 
@@ -102,24 +137,30 @@ export function NvForm({
 
   function removeLine(idx: number) {
     setLines((prev) => prev.filter((_, i) => i !== idx));
+    if (editingIdx === idx) setEditingIdx(null);
   }
 
-  const calculated = lines.map(calcLine);
+  const calculated = lines.map((l) => calcLine(l, config));
+
   const totals = useMemo(() => {
-    let net = 0, iva = 0, ila = 0, descuento = 0, cajas = 0, unidades = 0;
+    let neto_productos = 0, iva = 0, ila = 0, log_neto = 0, log_iva = 0;
+    let cajas = 0, unidades = 0, descuento = 0;
     let requires_vb = false;
     for (let i = 0; i < lines.length; i++) {
       const c = calculated[i];
       if (!c) continue;
-      net += c.line_net;
-      iva += c.line_iva;
-      ila += c.line_ila;
-      descuento += c.descuento_pesos;
-      cajas += lines[i].cajas;
+      neto_productos += c.neto_producto;
+      iva += c.iva_producto + c.log_iva; // IVA del producto + del logístico
+      ila += c.ila_producto;
+      log_neto += c.log_neto;
+      log_iva += c.log_iva;
+      cajas += parseInt(lines[i].cajas || "0", 10) || 0;
       unidades += c.unidades;
+      descuento += c.descuento_pesos;
       if (c.requires_vb) requires_vb = true;
     }
-    return { net, iva, ila, descuento, cajas, unidades, total: net + iva + ila, requires_vb };
+    const total = neto_productos + iva + ila + log_neto;
+    return { neto_productos, iva, ila, log_neto, log_iva, cajas, unidades, descuento, total, requires_vb };
   }, [calculated, lines]);
 
   const usedCredit = totals.total;
@@ -129,14 +170,16 @@ export function NvForm({
   const creditPct = effectiveLine > 0 ? Math.min(100, Math.round((usedCredit / effectiveLine) * 100)) : 0;
   const available = Math.max(0, effectiveLine - usedCredit);
 
+  const canEmit = !!client && lines.some((l) => l.product && (parseInt(l.cajas || "0", 10) || 0) > 0);
+
   return (
     <>
       <header className="app-header">
-        <div className="brand">
+        <Link href="/" className="brand" style={{ textDecoration: "none", color: "inherit" }}>
           <div className="brand-mark">MN</div>
           <span className="brand-name">Mercado Nacional</span>
           <span className="brand-sub">· Gestión Comercial</span>
-        </div>
+        </Link>
         <div className="divider-v"></div>
         <nav className="crumbs">
           <Link href="/">Inicio</Link>
@@ -155,7 +198,7 @@ export function NvForm({
             <div className="doc-eyebrow">Documento comercial</div>
             <div className="doc-title-row">
               <h1 className="doc-title">Nota de Venta</h1>
-              <span className="badge badge-pending"><span className="dot"></span> Borrador · pendiente V°B°</span>
+              <span className="badge badge-pending"><span className="dot"></span> Borrador</span>
             </div>
             <div className="doc-meta-row">
               <div className="doc-meta-item">
@@ -171,8 +214,8 @@ export function NvForm({
                 <span className="doc-meta-val">{warehouses.find((w) => w.id === warehouseId)?.name ?? "—"}</span>
               </div>
               <div className="doc-meta-item">
-                <span className="doc-meta-key">Canal</span>
-                <span className="doc-meta-val">Mayorista</span>
+                <span className="doc-meta-key">Cliente</span>
+                <span className="doc-meta-val">{client?.name ?? "—"}</span>
               </div>
             </div>
           </div>
@@ -199,9 +242,6 @@ export function NvForm({
           <section className="section">
             <div className="section-head">
               <h2 className="section-title"><span className="section-num">1</span>Cliente</h2>
-              <div className="section-actions">
-                <button type="button" className="btn btn-ghost btn-sm">Repetir último pedido</button>
-              </div>
             </div>
 
             <div className="client-split">
@@ -233,7 +273,7 @@ export function NvForm({
                     <input className="field-input" value={[client?.commune, client?.city].filter(Boolean).join(" · ")} readOnly />
                   </div>
 
-                  <div className="field col-2">
+                  <div className="field col-3">
                     <label className="field-label">Forma de pago <span className="req">*</span></label>
                     <select className="field-select" value={paymentTermId} onChange={(e) => setPaymentTermId(e.target.value)}>
                       <option value="">— Sin asignar —</option>
@@ -242,20 +282,13 @@ export function NvForm({
                       ))}
                     </select>
                   </div>
-                  <div className="field">
-                    <label className="field-label">Lista de precios</label>
-                    <select className="field-select" defaultValue="mayorista">
-                      <option value="mayorista">Mayorista</option>
-                      <option value="supermercado">Supermercado</option>
-                    </select>
-                  </div>
                 </div>
               </div>
 
               <div className="client-intel">
                 <div className="intel-head">
                   <span className="intel-title">Inteligencia comercial</span>
-                  <span className="intel-cat">Cliente {client && insurerLine > 1_000_000 ? <span className="grade">A</span> : <span className="grade" style={{ background: "var(--warning)" }}>B</span>}</span>
+                  <span className="intel-cat">Cliente</span>
                 </div>
                 <div className="intel-body">
                   <div className="intel-row">
@@ -271,17 +304,19 @@ export function NvForm({
                     <span className="val">{client?.payment_term?.name ?? "—"}</span>
                   </div>
 
-                  <div className="credit-bar">
-                    <div className="credit-bar-head">
-                      <span className="key">Uso de crédito</span>
-                      <span className="val">{fmtClp(usedCredit)} / {fmtClp(effectiveLine)}</span>
+                  {effectiveLine > 0 && (
+                    <div className="credit-bar">
+                      <div className="credit-bar-head">
+                        <span className="key">Uso de crédito</span>
+                        <span className="val">{fmtClp(usedCredit)} / {fmtClp(effectiveLine)}</span>
+                      </div>
+                      <div className="credit-track"><div className="credit-fill" style={{ width: `${creditPct}%` }}></div></div>
+                      <div className="credit-bar-foot">
+                        <span>Disponible: <strong style={{ color: "var(--success)" }}>{fmtClp(available)}</strong></span>
+                        <span>{creditPct}% utilizado</span>
+                      </div>
                     </div>
-                    <div className="credit-track"><div className="credit-fill" style={{ width: `${creditPct}%` }}></div></div>
-                    <div className="credit-bar-foot">
-                      <span>Disponible: <strong style={{ color: "var(--success)" }}>{fmtClp(available)}</strong></span>
-                      <span>{creditPct}% utilizado</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 {totals.requires_vb && (
@@ -309,7 +344,6 @@ export function NvForm({
                     <option key={w.id} value={w.id}>{w.name}</option>
                   ))}
                 </select>
-                <div className="field-hint info">Stock disponible se calculará desde esta bodega</div>
               </div>
 
               <div className="field col-2">
@@ -346,7 +380,7 @@ export function NvForm({
           <section className="section">
             <div className="section-head">
               <h2 className="section-title"><span className="section-num">3</span>Productos</h2>
-              <span className="section-hint">Tab avanza · Enter fija línea</span>
+              <span className="section-hint">Solo edita <b>cajas</b> y <b>precio bruto</b>. El neto, IVA, ILA y logístico se calculan.</span>
             </div>
 
             <div className="load-strip">
@@ -373,14 +407,17 @@ export function NvForm({
                   <tr>
                     <th style={{ width: 32 }}>#</th>
                     <th>Producto</th>
-                    <th className="num" style={{ width: 60 }}>Cj</th>
-                    <th className="num" style={{ width: 60 }}>U/Cj</th>
+                    <th className="num" style={{ width: 70 }}>Cj</th>
+                    <th className="num" style={{ width: 50 }}>U/Cj</th>
                     <th className="num" style={{ width: 70 }}>U.</th>
-                    <th className="num" style={{ width: 110 }}>Precio neto</th>
-                    <th className="num" style={{ width: 80 }}>Desc %</th>
+                    <th className="num" style={{ width: 100 }}>P. Bruto</th>
+                    <th className="num" style={{ width: 100 }}>P. Neto</th>
+                    <th className="num" style={{ width: 100 }}>IVA</th>
+                    <th className="num" style={{ width: 100 }}>ILA</th>
+                    <th className="num" style={{ width: 100 }}>Logíst.</th>
                     <th className="num" style={{ width: 120 }}>Total</th>
-                    <th className="num" style={{ width: 80 }}>V°B°</th>
-                    <th style={{ width: 40 }}></th>
+                    <th className="num" style={{ width: 50 }}>V°B°</th>
+                    <th style={{ width: 32 }}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -396,7 +433,11 @@ export function NvForm({
                               <span className="prod-name">{l.product.name}</span>
                               <span className="prod-sku">
                                 <span className="pill">SKU {l.product.sku}</span>
-                                <span>{l.product.category?.name ?? ""}{l.product.brand?.name ? ` · ${l.product.brand.name}` : ""}</span>
+                                <span>
+                                  {l.product.category?.name ?? ""}
+                                  {l.product.brand?.name ? ` · ${l.product.brand.name}` : ""}
+                                  {l.product.ila_rate > 0 && ` · ILA ${(l.product.ila_rate * 100).toFixed(1)}%`}
+                                </span>
                               </span>
                             </div>
                           ) : (
@@ -409,24 +450,35 @@ export function NvForm({
                           )}
                         </td>
                         <td className="num">
-                          {isEditing && l.product ? (
-                            <input className="cell-input" type="number" min={0} value={l.cajas} onChange={(e) => updateLine(i, { cajas: Math.max(0, parseInt(e.target.value || "0", 10)) })} />
-                          ) : <span className="cell-value strong">{l.cajas}</span>}
+                          {l.product ? (
+                            <input
+                              className="cell-input"
+                              type="text"
+                              inputMode="numeric"
+                              value={l.cajas}
+                              onClick={(e) => { e.stopPropagation(); setEditingIdx(i); }}
+                              onChange={(e) => updateLine(i, { cajas: e.target.value.replace(/\D/g, "") })}
+                            />
+                          ) : <span className="cell-value muted">—</span>}
                         </td>
                         <td className="num"><span className="cell-value muted">{l.product?.units_per_box ?? "—"}</span></td>
                         <td className="num"><span className="cell-value">{c?.unidades ?? 0}</span></td>
                         <td className="num">
-                          {isEditing && l.product ? (
-                            <input className="cell-input" type="number" min={0} value={l.precio_neto} onChange={(e) => updateLine(i, { precio_neto: Math.max(0, parseInt(e.target.value || "0", 10)) })} />
-                          ) : <span className="cell-value">{fmtClp(l.precio_neto)}</span>}
-                        </td>
-                        <td className="num">
-                          {isEditing && l.product ? (
-                            <input className="cell-input" type="number" min={0} max={100} value={l.descuento_pct} onChange={(e) => updateLine(i, { descuento_pct: Math.max(0, Math.min(100, parseInt(e.target.value || "0", 10))) })} />
-                          ) : l.descuento_pct > 0 ? (
-                            <span className="discount-tag">-{l.descuento_pct}%</span>
+                          {l.product ? (
+                            <input
+                              className="cell-input"
+                              type="text"
+                              inputMode="numeric"
+                              value={l.precio_bruto}
+                              onClick={(e) => { e.stopPropagation(); setEditingIdx(i); }}
+                              onChange={(e) => updateLine(i, { precio_bruto: e.target.value.replace(/\D/g, "") })}
+                            />
                           ) : <span className="cell-value muted">—</span>}
                         </td>
+                        <td className="num"><span className="cell-value">{c ? fmtClp(c.precio_neto) : "—"}</span></td>
+                        <td className="num"><span className="cell-value muted">{c ? fmtClp(c.iva_producto) : "—"}</span></td>
+                        <td className="num"><span className="cell-value muted">{c ? fmtClp(c.ila_producto) : "—"}</span></td>
+                        <td className="num"><span className="cell-value muted">{c ? fmtClp(c.log_neto + c.log_iva) : "—"}</span></td>
                         <td className="num"><span className="cell-value strong">{fmtClp(c?.total ?? 0)}</span></td>
                         <td className="num">{c?.requires_vb ? <span className="badge badge-pending">SÍ</span> : <span className="cell-value muted">—</span>}</td>
                         <td>
@@ -467,12 +519,18 @@ export function NvForm({
 
           <div className="summary-card">
             <div className="sline">
-              <span className="sline-key">Neto</span>
-              <span className="sline-val">{fmtClp(totals.net + totals.descuento)}</span>
+              <span className="sline-key">Neto productos</span>
+              <span className="sline-val">{fmtClp(totals.neto_productos)}</span>
             </div>
+            {totals.descuento > 0 && (
+              <div className="sline">
+                <span className="sline-key">Descuento aplicado</span>
+                <span className="sline-val" style={{ color: "var(--info)" }}>−{fmtClp(totals.descuento)}</span>
+              </div>
+            )}
             <div className="sline">
-              <span className="sline-key">Descuento comercial</span>
-              <span className="sline-val" style={{ color: "var(--info)" }}>−{fmtClp(totals.descuento)}</span>
+              <span className="sline-key">Logístico ({fmtN.format(config.logisticsNetPerUnit)}/u)</span>
+              <span className="sline-val">{fmtClp(totals.log_neto)}</span>
             </div>
             <div className="sline">
               <span className="sline-key">IVA <span className="muted">(19%)</span></span>
@@ -480,13 +538,13 @@ export function NvForm({
             </div>
             <div className="sline">
               <span className="sline-key">ILA <span className="muted">(variable)</span></span>
-              <span className="sline-val">{fmtClp(totals.ila)}</span>
+              <span className={`sline-val ${totals.ila === 0 ? "zero" : ""}`}>{fmtClp(totals.ila)}</span>
             </div>
           </div>
 
           <div className="total-stamp">
             <span className="total-label">Total a facturar</span>
-            <div className="total-value"><span className="currency">CLP</span>{fmt.format(totals.total)}</div>
+            <div className="total-value"><span className="currency">CLP</span>{fmtN.format(totals.total)}</div>
             <span className="total-sub">{totals.cajas} cj · {totals.unidades} u</span>
           </div>
 
@@ -497,14 +555,14 @@ export function NvForm({
               <div className="approval-body">
                 <span className="approval-name">V°B° Financiero</span>
                 <span className={`approval-meta ${totals.requires_vb ? "pending" : ""}`}>
-                  {totals.requires_vb ? "Pendiente · al menos una línea bajo mínimo" : "No requerido"}
+                  {totals.requires_vb ? "Pendiente · línea bajo mínimo" : "No requerido"}
                 </span>
               </div>
             </div>
           </div>
 
           <div className="summary-actions">
-            <button type="button" className="btn btn-emit btn-lg" disabled={lines.filter((l) => l.product).length === 0}>
+            <button type="button" className="btn btn-emit btn-lg" disabled={!canEmit}>
               {totals.requires_vb ? "Solicitar V°B° y emitir" : "Emitir NV"}
             </button>
             <button type="button" className="btn btn-ghost">Guardar borrador</button>
@@ -513,7 +571,7 @@ export function NvForm({
 
           <div className="smeta">
             <span>Borrador no persistido</span>
-            <span>v 0.1</span>
+            <span>v 0.2</span>
           </div>
         </aside>
       </div>
@@ -593,9 +651,10 @@ function ProductSearch({
               <div style={{ fontFamily: "var(--f-mono)", fontSize: 10.5, color: "var(--text-3)", marginTop: 2, display: "flex", gap: 10 }}>
                 <span>{p.sku}</span>
                 <span>·</span>
-                <span>{fmtClp(p.base_price_net)} neto</span>
+                <span>{fmtClp(p.base_price_gross)} bruto</span>
                 <span>·</span>
                 <span>{p.units_per_box} u/cj</span>
+                {p.ila_rate > 0 && <><span>·</span><span>ILA {(p.ila_rate * 100).toFixed(1)}%</span></>}
                 {p.category && <><span>·</span><span>{p.category.name}</span></>}
               </div>
             </li>

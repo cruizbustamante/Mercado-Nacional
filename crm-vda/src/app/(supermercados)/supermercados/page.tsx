@@ -157,19 +157,19 @@ export default async function CumplimientoPage({
                             {ch.name}
                           </Link>
                         </td>
-                        <td className="num mono">{ch.ocCount}</td>
-                        <td className="num mono">{fmtClp(ch.totalOc, true)}</td>
-                        <td className="num mono">{fmtClp(ch.totalFacturado, true)}</td>
-                        <td className={`num mono ${ch.totalPendiente > 0 ? "warn-text" : ""}`}>
+                        <td className="num mono" data-label="OC">{ch.ocCount}</td>
+                        <td className="num mono" data-label="Monto OC">{fmtClp(ch.totalOc, true)}</td>
+                        <td className="num mono" data-label="Facturado">{fmtClp(ch.totalFacturado, true)}</td>
+                        <td className={`num mono ${ch.totalPendiente > 0 ? "warn-text" : ""}`} data-label="Pendiente">
                           {fmtClp(ch.totalPendiente, true)}
                         </td>
-                        <td className="num mono">
+                        <td className="num mono" data-label="Margen $">
                           {ch.marginAmount > 0 ? fmtClp(ch.marginAmount, true) : "—"}
                         </td>
-                        <td className="num mono">
+                        <td className="num mono" data-label="Margen %">
                           {ch.marginRate > 0 ? fmtPct(ch.marginRate) : "—"}
                         </td>
-                        <td>
+                        <td data-label="Fill rate">
                           <div className="fr-inline">
                             <div className="fr-bar"><div className={`fr-fill ${tone}`} style={{ width: `${Math.min(100, frPct)}%` }} /></div>
                             <span className={`fr-pct ${tone}`}>{frPct}%</span>
@@ -233,11 +233,11 @@ export default async function CumplimientoPage({
                           {s.sku ?? <span className="badge badge-warn">sin SKU</span>}
                         </div>
                       </td>
-                      <td className="num mono">{fmtNum(s.boxes)}</td>
-                      <td className="num mono">{fmtNum(s.units)}</td>
-                      <td className="num mono">{fmtClp(s.totalOc, true)}</td>
-                      <td className="num mono">{fmtClp(s.totalFacturado, true)}</td>
-                      <td className="num mono">
+                      <td className="num mono" data-label="Cajas">{fmtNum(s.boxes)}</td>
+                      <td className="num mono" data-label="Unidades">{fmtNum(s.units)}</td>
+                      <td className="num mono" data-label="Monto OC">{fmtClp(s.totalOc, true)}</td>
+                      <td className="num mono" data-label="Facturado est.">{fmtClp(s.totalFacturado, true)}</td>
+                      <td className="num mono" data-label="Margen $">
                         {s.marginAmount === null ? <span style={{ color: "var(--text-4)" }}>—</span>
                           : fmtClp(s.marginAmount, true)}
                       </td>

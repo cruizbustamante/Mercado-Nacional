@@ -211,16 +211,16 @@ export default async function AnalisisPage({
                             {inPareto && <span className="pareto-dot" title="Dentro del 80% del facturado">★</span>}
                           </td>
                           <td>{r.label}</td>
-                          <td className="num mono">{r.ocCount}</td>
-                          <td className="num mono">{fmtNum(r.boxes)}</td>
-                          <td className="num mono">{fmtClp(r.totalOc, true)}</td>
-                          <td className="num mono">{fmtClp(r.totalFacturado, true)}</td>
-                          <td className="num mono">
+                          <td className="num mono" data-label="OC">{r.ocCount}</td>
+                          <td className="num mono" data-label="Cajas">{fmtNum(r.boxes)}</td>
+                          <td className="num mono" data-label="Monto OC">{fmtClp(r.totalOc, true)}</td>
+                          <td className="num mono" data-label="Facturado">{fmtClp(r.totalFacturado, true)}</td>
+                          <td className="num mono" data-label="Margen $">
                             {r.marginAmount === null
                               ? <span style={{ color: "var(--text-4)" }}>—</span>
                               : fmtClp(r.marginAmount, true)}
                           </td>
-                          <td className="num mono">
+                          <td className="num mono" data-label="Margen %">
                             {r.marginRate === null ? (
                               <span style={{ color: "var(--text-4)" }}>—</span>
                             ) : (
@@ -230,13 +230,13 @@ export default async function AnalisisPage({
                               </span>
                             )}
                           </td>
-                          <td>
+                          <td data-label="Fill rate">
                             <div className="fr-inline">
                               <div className="fr-bar"><div className={`fr-fill ${frTone}`} style={{ width: `${Math.min(100, frPct)}%` }} /></div>
                               <span className={`fr-pct ${frTone}`}>{frPct}%</span>
                             </div>
                           </td>
-                          <td className="num">
+                          <td className="num" data-label={`Δ vs ${prevP.kind === "month" ? "mes ant." : "año ant."}`}>
                             <span className={`delta-pill tone-${delta.tone}`}>{delta.text}</span>
                           </td>
                         </tr>
@@ -290,20 +290,20 @@ export default async function AnalisisPage({
                         return (
                           <tr key={r.key} style={{ background: "#FDF6F4" }}>
                             <td>{r.label}</td>
-                            <td className="num mono">{fmtNum(r.boxes)}</td>
-                            <td className="num mono">{fmtClp(r.totalOc, true)}</td>
-                            <td className="num mono">
+                            <td className="num mono" data-label="Cajas">{fmtNum(r.boxes)}</td>
+                            <td className="num mono" data-label="Monto OC">{fmtClp(r.totalOc, true)}</td>
+                            <td className="num mono" data-label="Margen $">
                               {r.marginAmount === null
                                 ? <span style={{ color: "var(--text-4)" }}>—</span>
                                 : fmtClp(r.marginAmount, true)}
                             </td>
-                            <td>
+                            <td data-label="Fill rate">
                               <div className="fr-inline">
                                 <div className="fr-bar"><div className={`fr-fill ${frTone}`} style={{ width: `${Math.min(100, frPct)}%` }} /></div>
                                 <span className={`fr-pct ${frTone}`}>{frPct}%</span>
                               </div>
                             </td>
-                            <td className="num"><span className={`delta-pill tone-${delta.tone}`}>{delta.text}</span></td>
+                            <td className="num" data-label="Δ vs ant."><span className={`delta-pill tone-${delta.tone}`}>{delta.text}</span></td>
                           </tr>
                         );
                       })}

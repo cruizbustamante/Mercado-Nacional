@@ -399,6 +399,214 @@ export async function loadOcDetail(id: string): Promise<OcDetail | null> {
   };
 }
 
+/* ============= Alertas accionables ============= */
+
+export type AlertSeverity = "critical" | "high" | "medium" | "low";
+
+export interface AlertItem {
+  id: string;
+  label: string;        // ej. "OC 78079142 · Rendic"
+  detail?: string;      // ej. "Vencida hace 5 días · $274K pendiente"
+  href: string;
+}
+
+export interface AlertGroup {
+  id: string;
+  title: string;
+  description: string;
+  severity: AlertSeverity;
+  count: number;
+  owner: string;        // a quién dirigir la acción
+  items: AlertItem[];   // primeros N items para preview (max 8)
+  hasMore: boolean;
+  cta?: { label: string; href: string };
+}
+
+const fmtClpAlert = (n: number) => {
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(n) >= 1_000) return `$${Math.round(n / 1_000)}K`;
+  return `$${n}`;
+};
+
+export async function getAlerts(): Promise<AlertGroup[]> {
+  const supabase = await createClient();
+  const todayIso = new Date().toISOString().split("T")[0];
+  const groups: AlertGroup[] = [];
+
+  // 1. OC vencidas sin facturar al 100%
+  const { data: ocs } = await supabase
+    .from("purchase_orders")
+    .select(`
+      id, order_number, order_date, cancellation_date, total_amount, status,
+      chain:supermarket_chains(name),
+      invoices:oc_invoices(oc_invoice_items(amount_invoiced))
+    `)
+    .not("cancellation_date", "is", null)
+    .lt("cancellation_date", todayIso)
+    .neq("status", "COMPLETADA")
+    .order("cancellation_date", { ascending: true })
+    .limit(50);
+
+  type OcAlert = {
+    id: string; order_number: string; order_date: string;
+    cancellation_date: string; total_amount: number; status: string;
+    chain: { name: string }[] | null;
+    invoices: { oc_invoice_items: { amount_invoiced: number }[] }[];
+  };
+  const vencidas = ((ocs ?? []) as unknown as OcAlert[])
+    .map((o) => {
+      const facturado = o.invoices.reduce(
+        (s, inv) => s + inv.oc_invoice_items.reduce((a, it) => a + (it.amount_invoiced || 0), 0),
+        0
+      );
+      const pendiente = Math.max(0, o.total_amount - facturado);
+      const daysLate = Math.floor(
+        (new Date(todayIso).getTime() - new Date(o.cancellation_date).getTime()) / 86400000
+      );
+      const chainName = Array.isArray(o.chain) ? o.chain[0]?.name : "—";
+      return { o, facturado, pendiente, daysLate, chainName };
+    })
+    .filter((x) => x.pendiente > 0);
+
+  if (vencidas.length > 0) {
+    const totalPerdido = vencidas.reduce((s, v) => s + v.pendiente, 0);
+    groups.push({
+      id: "oc-vencidas",
+      title: "OC vencidas sin facturar",
+      description: `${vencidas.length} OC con fecha de entrega vencida y monto pendiente · $${fmtClpAlert(totalPerdido).slice(1)} en juego`,
+      severity: "critical",
+      count: vencidas.length,
+      owner: "Operaciones / KAM",
+      items: vencidas.slice(0, 8).map((v) => ({
+        id: v.o.id,
+        label: `OC ${v.o.order_number} · ${v.chainName}`,
+        detail: `Vencida hace ${v.daysLate}d · ${fmtClpAlert(v.pendiente)} pendiente`,
+        href: `/supermercados/oc/${v.o.id}`,
+      })),
+      hasMore: vencidas.length > 8,
+      cta: { label: "Ver todas en Órdenes", href: "/supermercados/ordenes" },
+    });
+  }
+
+  // 2. Líneas OC sin SKU mapeado
+  const { count: huerfanasCount } = await supabase
+    .from("purchase_order_items")
+    .select("id", { count: "exact", head: true })
+    .is("product_id", null)
+    .not("upc_code", "is", null);
+
+  const { data: huerfanasSample } = await supabase
+    .from("purchase_order_items")
+    .select("id, upc_code, product_name_oc, purchase_order_id")
+    .is("product_id", null)
+    .not("upc_code", "is", null)
+    .limit(8);
+
+  if ((huerfanasCount ?? 0) > 0) {
+    const uniqueDuns = new Set((huerfanasSample ?? []).map((l) => l.upc_code));
+    groups.push({
+      id: "dun-sin-mapear",
+      title: "DUN sin mapear",
+      description: `${huerfanasCount} líneas de OC con código de barras sin SKU asignado · el dashboard subestima totales reales`,
+      severity: "high",
+      count: huerfanasCount ?? 0,
+      owner: "Maestro de datos",
+      items: (huerfanasSample ?? []).map((l) => ({
+        id: l.id,
+        label: `DUN ${l.upc_code}`,
+        detail: l.product_name_oc ?? "—",
+        href: `/supermercados/oc/${l.purchase_order_id}`,
+      })),
+      hasMore: uniqueDuns.size < (huerfanasCount ?? 0),
+      cta: { label: "Resolver en Mapeo Supermercados", href: "/admin/mapeo-upc" },
+    });
+  }
+
+  // 3. OC sin facturar > 14 días desde emisión
+  const cutoff14d = new Date(Date.now() - 14 * 86400000).toISOString().split("T")[0];
+  const { data: oldOcs } = await supabase
+    .from("purchase_orders")
+    .select(`
+      id, order_number, order_date, total_amount, status,
+      chain:supermarket_chains(name),
+      invoices:oc_invoices(oc_invoice_items(amount_invoiced))
+    `)
+    .lte("order_date", cutoff14d)
+    .neq("status", "COMPLETADA")
+    .order("order_date", { ascending: true })
+    .limit(50);
+
+  const stale = ((oldOcs ?? []) as unknown as OcAlert[])
+    .map((o) => {
+      const facturado = o.invoices.reduce(
+        (s, inv) => s + inv.oc_invoice_items.reduce((a, it) => a + (it.amount_invoiced || 0), 0),
+        0
+      );
+      const days = Math.floor(
+        (new Date(todayIso).getTime() - new Date(o.order_date).getTime()) / 86400000
+      );
+      const chainName = Array.isArray(o.chain) ? o.chain[0]?.name : "—";
+      return { o, facturado, days, chainName };
+    })
+    .filter((x) => x.facturado === 0);
+
+  if (stale.length > 0) {
+    groups.push({
+      id: "oc-sin-facturar",
+      title: "OC sin facturar > 14 días",
+      description: `${stale.length} OC abiertas con cero facturas asignadas · DSO en riesgo`,
+      severity: "high",
+      count: stale.length,
+      owner: "Facturación / KAM",
+      items: stale.slice(0, 8).map((v) => ({
+        id: v.o.id,
+        label: `OC ${v.o.order_number} · ${v.chainName}`,
+        detail: `Emitida hace ${v.days}d · ${fmtClpAlert(v.o.total_amount)}`,
+        href: `/supermercados/oc/${v.o.id}`,
+      })),
+      hasMore: stale.length > 8,
+    });
+  }
+
+  // 4. Cadena dormida (sin OC en últimos 21 días pero tuvo OC mes anterior)
+  const cutoff21d = new Date(Date.now() - 21 * 86400000).toISOString().split("T")[0];
+  const cutoff60d = new Date(Date.now() - 60 * 86400000).toISOString().split("T")[0];
+
+  const [{ data: recentOrders }, { data: olderOrders }, { data: allChains }] = await Promise.all([
+    supabase.from("purchase_orders").select("chain_id").gte("order_date", cutoff21d).not("chain_id", "is", null),
+    supabase.from("purchase_orders").select("chain_id").gte("order_date", cutoff60d).lt("order_date", cutoff21d).not("chain_id", "is", null),
+    supabase.from("supermarket_chains").select("id, name").eq("is_active", true),
+  ]);
+
+  const recentSet = new Set((recentOrders ?? []).map((r) => r.chain_id));
+  const olderSet = new Set((olderOrders ?? []).map((r) => r.chain_id));
+  const dormant = (allChains ?? []).filter((ch) => !recentSet.has(ch.id) && olderSet.has(ch.id));
+
+  if (dormant.length > 0) {
+    groups.push({
+      id: "cadena-dormida",
+      title: "Cadenas sin actividad reciente",
+      description: `${dormant.length} cadena(s) sin OC nuevas en 21 días que sí tuvieron actividad antes`,
+      severity: "medium",
+      count: dormant.length,
+      owner: "KAM / Gerente Comercial",
+      items: dormant.map((ch) => ({
+        id: ch.id,
+        label: ch.name,
+        detail: "Sin OC en 21 días",
+        href: `/supermercados/ordenes?chain=${ch.id}`,
+      })),
+      hasMore: false,
+    });
+  }
+
+  // Ordenar por severidad
+  const sevOrder: Record<AlertSeverity, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+  groups.sort((a, b) => sevOrder[a.severity] - sevOrder[b.severity]);
+
+  return groups;
+}
+
 /* ============= Análisis comercial: ranking por dimensión + comparativa MoM ============= */
 
 export type Dimension = "marca" | "categoria" | "sku" | "cadena";

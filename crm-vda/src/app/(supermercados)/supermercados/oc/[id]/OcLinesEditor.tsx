@@ -301,9 +301,9 @@ export function OcLinesEditor({ oc }: { oc: OcDetail }) {
                           : <span className="badge badge-warn" style={{ fontSize: 10 }}>sin mapear</span>}
                       </div>
                     </td>
-                    <td className="num mono">{line.quantity_boxes}</td>
-                    <td className="num mono">{fmtClp(line.unit_price)}</td>
-                    <td className="num">
+                    <td className="num mono" data-label="Cj OC">{line.quantity_boxes}</td>
+                    <td className="num mono" data-label="Precio">{fmtClp(line.unit_price)}</td>
+                    <td className="num" data-label="Cj fact.">
                       <input
                         type="text"
                         inputMode="numeric"
@@ -315,7 +315,7 @@ export function OcLinesEditor({ oc }: { oc: OcDetail }) {
                         max={line.quantity_boxes}
                       />
                     </td>
-                    <td>
+                    <td data-label="N° factura">
                       <input
                         type="text"
                         className={`cell-input cell-input-text ${isAssigned ? "is-assigned" : ""} ${isLost ? "is-disabled" : ""}`}
@@ -325,7 +325,7 @@ export function OcLinesEditor({ oc }: { oc: OcDetail }) {
                         placeholder="F-…"
                       />
                     </td>
-                    <td>
+                    <td data-label="Fecha">
                       <input
                         type="date"
                         className={`cell-input cell-input-date ${isLost ? "is-disabled" : ""}`}
@@ -334,7 +334,7 @@ export function OcLinesEditor({ oc }: { oc: OcDetail }) {
                         disabled={isLost}
                       />
                     </td>
-                    <td>
+                    <td data-label="Estado">
                       {isLost ? (
                         <div className="status-edit-cell">
                           <select

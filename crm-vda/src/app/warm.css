@@ -216,6 +216,68 @@
 .warm .data-card-foot a:hover, .warm .data-card-foot button:hover { background: var(--surface); color: var(--text); }
 .warm .data-card-foot a.primary, .warm .data-card-foot button.primary { color: var(--text); font-weight: 600; }
 
+/* ============ MODULE CARDS (home) ============ */
+.warm .module-card { min-height: 240px; }
+
+.warm .module-card-head {
+  display: flex; gap: 12px; align-items: flex-start; flex: 1;
+  text-decoration: none; color: inherit; min-width: 0;
+}
+.warm .module-card-titles { min-width: 0; flex: 1; }
+.warm .module-card-desc {
+  font-size: 12px; color: var(--text-3); line-height: 1.4; margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.warm .data-card-pill.primary-action {
+  background: var(--text); color: var(--surface); font-weight: 500;
+  padding: 5px 11px; text-decoration: none;
+  font-family: var(--f-sans); font-size: 11.5px;
+  transition: background 120ms;
+}
+.warm .data-card-pill.primary-action:hover { background: #000; }
+
+.warm .module-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  padding: 14px 0 12px; margin-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.warm .module-stats:has(.module-stat:only-child) { grid-template-columns: 1fr; }
+.warm .module-stats:has(.module-stat:nth-child(2):last-child) { grid-template-columns: 1fr 1fr; }
+
+.warm .module-stat { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.warm .module-stat-val {
+  font-family: var(--f-display); font-size: 22px; font-weight: 500;
+  letter-spacing: -0.01em; color: var(--text); line-height: 1;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.warm .module-stat-val.ok { color: var(--success); }
+.warm .module-stat-val.warn { color: var(--warning); }
+.warm .module-stat-val.danger { color: var(--danger); }
+.warm .module-stat-key {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-3); font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.warm .module-alert {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 11px; border-radius: var(--r-sm);
+  font-size: 11.5px; font-weight: 500; margin-top: auto;
+  text-decoration: none; transition: filter 120ms;
+}
+.warm .module-alert.tone-warn  { background: var(--warning-soft); color: var(--warning); }
+.warm .module-alert.tone-danger{ background: var(--danger-soft);  color: var(--danger);  }
+.warm .module-alert.tone-info  { background: var(--surface-2);    color: var(--text-3);  }
+.warm .module-alert:hover { filter: brightness(0.96); }
+
+.warm .module-alert-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0;
+}
+.warm .module-alert-arrow { margin-left: auto; opacity: 0.6; }
+a.module-alert:hover .module-alert-arrow { opacity: 1; }
+
 /* EXCEL LOADER CARDS */
 .warm .loader-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px;

@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { saveUpcMapping, deleteUpcMapping, importUpcMapping, type UpcImportResult } from "./actions";
+import { saveUpcMapping, deleteUpcMapping, importUpcMapping, remapAllOrphans, type UpcImportResult } from "./actions";
 
 export interface UpcRow {
   id: string;
@@ -23,14 +23,16 @@ export function UpcMappingTable({
 }: {
   initial: UpcRow[];
   products: ProductOption[];
-  stats: { total: number; matched: number; unmatched: number };
+  stats: { total: number; matched: number; unmatched: number; orphanLines: number; orphanOcs: number; totalLines: number };
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "matched" | "unmatched">("all");
   const [editing, setEditing] = useState<UpcRow | "new" | null>(null);
   const [importing, startImport] = useTransition();
+  const [remapping, startRemap] = useTransition();
   const [importResult, setImportResult] = useState<UpcImportResult | null>(null);
+  const [remapResult, setRemapResult] = useState<{ remapped: number; remaining: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => initial.filter((r) => {
@@ -53,10 +55,20 @@ export function UpcMappingTable({
     const fd = new FormData();
     fd.set("file", file);
     setImportResult(null);
+    setRemapResult(null);
     startImport(async () => {
       const r = await importUpcMapping(fd);
       setImportResult(r);
       if (fileInputRef.current) fileInputRef.current.value = "";
+      router.refresh();
+    });
+  }
+
+  function onRemapClick() {
+    setRemapResult(null);
+    startRemap(async () => {
+      const r = await remapAllOrphans();
+      setRemapResult(r);
       router.refresh();
     });
   }
@@ -67,36 +79,46 @@ export function UpcMappingTable({
         <div className="doc-head-grid">
           <div>
             <div className="doc-eyebrow">Configuración Supermercados</div>
-            <h1 className="doc-title">Mapeo UPC ↔ SKU</h1>
+            <h1 className="doc-title">Mapeo Supermercados (DUN ↔ SKU)</h1>
             <p className="doc-sub">
-              Las OC de supermercados vienen con código de barras (DUN/EAN), no con SKU.
-              Este mapeo permite hacer match automático al cargar OC.
+              Las OC de supermercados vienen con DUN/EAN (código de barras), no con tu SKU interno.
+              Sin este mapeo las líneas quedan huérfanas y el dashboard no funciona.
+              Importa el Excel <span className="mono" style={{ fontSize: 11.5 }}>Mapeo_sku_oc_super.xlsx</span> con columnas <span className="mono" style={{ fontSize: 11.5 }}>Cod_UPC | sku | producto | categoria | marca</span>.
             </p>
           </div>
         </div>
 
         <div className="stats-strip">
           <div className="stat-cell">
-            <div className="stat-key">Total variantes</div>
+            <div className="stat-key">DUN en mapeo</div>
             <div className="stat-val">{stats.total}</div>
-            <div className="stat-sub">códigos en DB</div>
+            <div className="stat-sub">códigos cargados</div>
           </div>
           <div className="stat-cell">
-            <div className="stat-key">Mapeados a SKU</div>
-            <div className="stat-val">{stats.matched}</div>
-            <div className="stat-sub ok">vinculados a productos</div>
+            <div className="stat-key">Con SKU</div>
+            <div className="stat-val ok">{stats.matched}</div>
+            <div className="stat-sub ok">vinculados</div>
           </div>
           <div className="stat-cell">
             <div className="stat-key">Sin SKU</div>
-            <div className="stat-val">{stats.unmatched}</div>
+            <div className={`stat-val ${stats.unmatched > 0 ? "warn" : "ok"}`}>{stats.unmatched}</div>
             <div className={`stat-sub ${stats.unmatched > 0 ? "warn" : "ok"}`}>
-              {stats.unmatched > 0 ? "requieren mapeo" : "todo mapeado"}
+              {stats.unmatched > 0 ? "requieren asignar SKU" : "todo OK"}
             </div>
           </div>
           <div className="stat-cell">
-            <div className="stat-key">% cobertura</div>
-            <div className="stat-val">{stats.total > 0 ? Math.round((stats.matched / stats.total) * 100) : 0}%</div>
-            <div className="stat-sub">SKU/total variantes</div>
+            <div className="stat-key">Líneas OC huérfanas</div>
+            <div className={`stat-val ${stats.orphanLines > 0 ? "danger" : "ok"}`}>{stats.orphanLines}</div>
+            <div className="stat-sub">
+              de {stats.totalLines} líneas{stats.orphanOcs > 0 ? ` · ${stats.orphanOcs} OC afectadas` : ""}
+            </div>
+          </div>
+          <div className="stat-cell">
+            <div className="stat-key">% cobertura OC</div>
+            <div className="stat-val">
+              {stats.totalLines > 0 ? Math.round(((stats.totalLines - stats.orphanLines) / stats.totalLines) * 100) : 0}%
+            </div>
+            <div className="stat-sub">líneas vinculadas</div>
           </div>
         </div>
       </section>
@@ -121,6 +143,12 @@ export function UpcMappingTable({
           </div>
 
           <div className="toolbar-actions">
+            {stats.orphanLines > 0 && stats.matched > 0 && (
+              <button type="button" className="btn btn-ghost" onClick={onRemapClick} disabled={remapping}>
+                <svg className="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/></svg>
+                {remapping ? "Re-aplicando…" : "Re-aplicar mapeo a OC"}
+              </button>
+            )}
             <label className="btn btn-excel" style={{ cursor: importing ? "wait" : "pointer" }}>
               <svg className="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
               {importing ? "Importando…" : "Importar Excel"}
@@ -143,13 +171,23 @@ export function UpcMappingTable({
             border: `1px solid ${importResult.ok ? "rgba(45,95,63,0.18)" : "rgba(156,106,30,0.18)"}`,
             fontSize: 13,
           }}>
-            <div style={{ fontWeight: 500, marginBottom: 4 }}>{importResult.ok ? "Importación completada" : "Importación con observaciones"}</div>
-            <div style={{ fontSize: 12, fontFamily: "var(--f-mono)" }}>
-              {importResult.totalRows} filas · {importResult.variantsGenerated} variantes generadas · {importResult.inserted} guardadas · {importResult.productsMatched} con SKU
+            <div style={{ fontWeight: 500, marginBottom: 4 }}>
+              {importResult.ok ? "Importación completada" : "Importación con observaciones"}
+            </div>
+            <div style={{ fontSize: 12, fontFamily: "var(--f-mono)", lineHeight: 1.5 }}>
+              {importResult.duns} DUN cargados · {importResult.productsMatched} con SKU resuelto
+              {importResult.remapped > 0 && (
+                <> · <strong>{importResult.remapped} líneas de OC re-mapeadas automáticamente</strong></>
+              )}
+              {importResult.orphanLinesAfter > 0 && (
+                <> · quedan {importResult.orphanLinesAfter} líneas huérfanas</>
+              )}
             </div>
             {importResult.productsMissing.length > 0 && (
               <details style={{ marginTop: 8, fontSize: 12 }}>
-                <summary style={{ cursor: "pointer" }}>SKUs del Excel no encontrados en productos ({importResult.productsMissing.length})</summary>
+                <summary style={{ cursor: "pointer" }}>
+                  SKUs del Excel que no existen en tu tabla de productos ({importResult.productsMissing.length})
+                </summary>
                 <div style={{ marginTop: 6, fontFamily: "var(--f-mono)", fontSize: 11, maxHeight: 160, overflowY: "auto" }}>
                   {importResult.productsMissing.join(", ")}
                 </div>
@@ -166,11 +204,25 @@ export function UpcMappingTable({
           </div>
         )}
 
+        {remapResult && (
+          <div style={{
+            marginBottom: 16, padding: 12, borderRadius: "var(--r)",
+            background: "var(--success-soft)", color: "var(--success)",
+            border: "1px solid rgba(45,95,63,0.18)", fontSize: 13,
+          }}>
+            <span style={{ fontWeight: 500 }}>Re-mapeo manual completado.</span>{" "}
+            <span style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>
+              {remapResult.remapped} líneas vinculadas
+              {remapResult.remaining > 0 && ` · ${remapResult.remaining} aún sin SKU`}
+            </span>
+          </div>
+        )}
+
         <div className="table-wrap">
           <table className="t">
             <thead>
               <tr>
-                <th>UPC</th>
+                <th>DUN</th>
                 <th>SKU</th>
                 <th>Producto</th>
                 <th>Categoría</th>
@@ -274,8 +326,8 @@ function UpcDialog({
 
         <header className="dlg-head">
           <div className="dlg-head-text">
-            <div className="dlg-eyebrow">{row ? "Editar mapeo" : "Nuevo mapeo UPC"}</div>
-            <div className="dlg-title">{row?.upc ?? "Asignar UPC a SKU"}</div>
+            <div className="dlg-eyebrow">{row ? "Editar mapeo" : "Nuevo mapeo DUN"}</div>
+            <div className="dlg-title">{row?.upc ?? "Asignar DUN a SKU"}</div>
           </div>
           <button type="button" className="dlg-close" onClick={onClose}>
             <svg className="i-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -287,9 +339,9 @@ function UpcDialog({
             <div className="dlg-section-title">Código</div>
             <div className="grid-2">
               <div className="field">
-                <label className="field-label">UPC / EAN / DUN <span className="req">*</span></label>
+                <label className="field-label">DUN / EAN / UPC <span className="req">*</span></label>
                 <input className="field-input mono" name="upc" defaultValue={row?.upc ?? ""} required placeholder="Solo dígitos" />
-                <div className="field-hint">Para nuevos: si el código tiene 12 o 13 dígitos, las variantes se generan automáticamente al importar Excel. Aquí se guarda una sola.</div>
+                <div className="field-hint">El código tal como aparece en el Excel del proveedor. El match contra OC tolera variantes de longitud (12/13/14 dígitos) automáticamente.</div>
               </div>
             </div>
           </section>

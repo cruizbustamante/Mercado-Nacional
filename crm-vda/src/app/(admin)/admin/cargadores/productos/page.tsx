@@ -22,6 +22,10 @@ export default function ProductosCargadorPage() {
           <li>Categoría, Marca</li>
           <li>Un x Caja (default 12)</li>
           <li>Neto Base, Bruto Base, Neto Final (CLP)</li>
+          <li>
+            <b>Costo Neto</b> (opcional) — también acepta &quot;Costo&quot;, &quot;Costo Unitario&quot;, &quot;Precio Compra&quot;.
+            Usado para calcular margen en análisis comercial.
+          </li>
         </ul>
       </section>
 

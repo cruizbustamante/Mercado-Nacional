@@ -103,13 +103,15 @@ export default async function AdminPage() {
 
             <DataCard
               icon="suppliers"
-              title="Mapeo UPC ↔ SKU"
-              desc="Código de barras (DUN/EAN) que viene en las OC de supermercados, vinculado al SKU interno."
+              title="Mapeo Supermercados (DUN ↔ SKU)"
+              desc="Código DUN/EAN que viene en las OC de supermercados, vinculado a tu SKU interno. Sin esto las líneas quedan huérfanas."
               pill={(cUpcTotal ?? 0) > 0 && (cUpcMatched ?? 0) < (cUpcTotal ?? 0)
                 ? { tone: "warn", text: `${(cUpcTotal ?? 0) - (cUpcMatched ?? 0)} sin SKU` }
-                : { tone: "ok", text: "OK" }}
+                : (cUpcTotal ?? 0) === 0
+                  ? { tone: "warn", text: "vacío" }
+                  : { tone: "ok", text: "OK" }}
               stats={[
-                { val: cUpcTotal ?? 0, key: "Variantes" },
+                { val: cUpcTotal ?? 0, key: "DUN" },
                 { val: cUpcMatched ?? 0, key: "Con SKU" },
               ]}
               href="/admin/mapeo-upc"

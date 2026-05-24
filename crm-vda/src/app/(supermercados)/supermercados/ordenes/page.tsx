@@ -11,7 +11,7 @@ const STATUS_COLOR: Record<string, string> = {
   CANCELLED: "badge-warn",
 };
 
-export default async function SupermercadosPage({
+export default async function OrdenesPage({
   searchParams,
 }: {
   searchParams: Promise<{ chain?: string; mes?: string }>;
@@ -19,7 +19,6 @@ export default async function SupermercadosPage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  // Periodo: por defecto mes actual
   const now = new Date();
   const mesParam = params.mes ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const [yearStr, monthStr] = mesParam.split("-");
@@ -28,7 +27,6 @@ export default async function SupermercadosPage({
   const start = new Date(year, month - 1, 1).toISOString().split("T")[0];
   const end = new Date(year, month, 0).toISOString().split("T")[0];
 
-  // Cargar todas las cadenas para chips
   const [{ data: chains }, { data: ordersData }] = await Promise.all([
     supabase.from("supermarket_chains").select("id, name").eq("is_active", true).order("name"),
     supabase
@@ -59,12 +57,9 @@ export default async function SupermercadosPage({
   };
 
   const allOrders = (ordersData ?? []) as unknown as OcRow[];
-
-  // Si hay filtro de cadena
   const chainFilter = params.chain ?? null;
   const orders = chainFilter ? allOrders.filter((o) => o.chain?.id === chainFilter) : allOrders;
 
-  // KPIs
   const totalOc = orders.length;
   const totalMonto = orders.reduce((s, o) => s + (o.total_amount || 0), 0);
   const totalFacturado = orders.reduce((s, o) => {
@@ -73,7 +68,6 @@ export default async function SupermercadosPage({
   const cumplim = totalMonto > 0 ? Math.round((totalFacturado / totalMonto) * 100) : 0;
   const vencidas = orders.filter((o) => o.cancellation_date && new Date(o.cancellation_date) < now && o.status !== "COMPLETADA").length;
 
-  // Chips por cadena (count en allOrders, no filtrado)
   const chainCounts = new Map<string, number>();
   for (const o of allOrders) {
     if (o.chain) chainCounts.set(o.chain.id, (chainCounts.get(o.chain.id) ?? 0) + 1);
@@ -82,14 +76,14 @@ export default async function SupermercadosPage({
   const monthLabel = new Date(year, month - 1, 1).toLocaleDateString("es-CL", { month: "long", year: "numeric" });
 
   return (
-    <div className="warm">
+    <>
       <section className="doc-head">
         <div className="doc-head-grid">
           <div>
-            <div className="doc-eyebrow">Cumplimiento</div>
-            <h1 className="doc-title">Supermercados</h1>
+            <div className="doc-eyebrow">Listado</div>
+            <h1 className="doc-title">Órdenes de Compra</h1>
             <p className="doc-sub">
-              OC vs facturación por cadena · período: <b style={{ color: "var(--text)", textTransform: "capitalize" }}>{monthLabel}</b>
+              OC recibidas de cadenas · período: <b style={{ color: "var(--text)", textTransform: "capitalize" }}>{monthLabel}</b>
             </p>
           </div>
         </div>
@@ -126,11 +120,11 @@ export default async function SupermercadosPage({
       <div className="toolbar">
         <div className="toolbar-row">
           <div className="filter-chips">
-            <Link href={`/supermercados?mes=${mesParam}`} className={`chip ${!chainFilter ? "active" : ""}`}>
+            <Link href={`/supermercados/ordenes?mes=${mesParam}`} className={`chip ${!chainFilter ? "active" : ""}`}>
               Todas <span className="count">{allOrders.length}</span>
             </Link>
             {(chains ?? []).map((ch) => (
-              <Link key={ch.id} href={`/supermercados?mes=${mesParam}&chain=${ch.id}`} className={`chip ${chainFilter === ch.id ? "active" : ""}`}>
+              <Link key={ch.id} href={`/supermercados/ordenes?mes=${mesParam}&chain=${ch.id}`} className={`chip ${chainFilter === ch.id ? "active" : ""}`}>
                 {ch.name} <span className="count">{chainCounts.get(ch.id) ?? 0}</span>
               </Link>
             ))}
@@ -140,13 +134,22 @@ export default async function SupermercadosPage({
 
       <main className="content">
         {orders.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", background: "var(--surface)", border: "1px dashed var(--border-2)", borderRadius: "var(--r)" }}>
-            <p style={{ color: "var(--text-3)", fontSize: 14 }}>
-              {chainFilter ? "No hay OC para esta cadena en el período." : "No hay OC cargadas en este período."}
-            </p>
-            <Link href="/admin/cargadores/oc-supermercados" className="btn btn-primary" style={{ marginTop: 14, display: "inline-flex" }}>
-              + Cargar OC
-            </Link>
+          <div className="sm-empty">
+            <div className="sm-empty-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+            </div>
+            <div className="sm-empty-title">
+              {chainFilter ? "Sin OC para esta cadena en el período" : "Sin OC en este período"}
+            </div>
+            <p className="sm-empty-desc">Cargá las OC del mes y aparecerán acá con sus stats.</p>
+            <div className="sm-empty-actions">
+              <Link href="/admin/cargadores/oc-supermercados" className="btn btn-primary">
+                + Cargar OC
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="table-wrap">
@@ -172,12 +175,12 @@ export default async function SupermercadosPage({
                   return (
                     <tr key={o.id}>
                       <td>
-                        <Link href={`/supermercados/${o.id}`} style={{ color: "var(--text)", display: "block" }}>
+                        <Link href={`/supermercados/oc/${o.id}`} style={{ color: "var(--text)", display: "block" }}>
                           {o.chain?.name ?? "—"}
                         </Link>
                       </td>
                       <td>
-                        <Link href={`/supermercados/${o.id}`} className="sku-cell" style={{ color: "var(--text)" }}>
+                        <Link href={`/supermercados/oc/${o.id}`} className="sku-cell" style={{ color: "var(--text)" }}>
                           {o.order_number}
                         </Link>
                       </td>
@@ -204,6 +207,6 @@ export default async function SupermercadosPage({
           </div>
         )}
       </main>
-    </div>
+    </>
   );
 }

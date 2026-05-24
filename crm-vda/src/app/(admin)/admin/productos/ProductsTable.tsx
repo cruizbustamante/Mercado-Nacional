@@ -14,6 +14,7 @@ export interface ProductRow {
   base_price_net: number;
   base_price_gross: number;
   min_price_net: number;
+  unit_cost_net: number | null;
   is_active: boolean;
   category_name: string | null;
   brand_name: string | null;
@@ -303,6 +304,22 @@ function ProductDialog({
               <div className="field">
                 <label className="field-label">Mín neto</label>
                 <input className="field-input mono" type="number" name="min_price_net" defaultValue={product?.min_price_net ?? 0} />
+              </div>
+              <div className="field" style={{ gridColumn: "span 2" }}>
+                <label className="field-label">
+                  Costo neto unitario
+                  <span style={{ fontSize: 10, color: "var(--text-3)", marginLeft: 6, fontWeight: 400 }}>
+                    (para calcular margen en análisis)
+                  </span>
+                </label>
+                <input
+                  className="field-input mono"
+                  type="number"
+                  min={0}
+                  name="unit_cost_net"
+                  defaultValue={product?.unit_cost_net ?? ""}
+                  placeholder="0 (opcional)"
+                />
               </div>
             </div>
           </section>

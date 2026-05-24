@@ -46,7 +46,10 @@ export async function saveProduct(prev: FormState, fd: FormData): Promise<FormSt
     }
   }
 
-  const payload = {
+  const costRaw = (fd.get("unit_cost_net") as string | null)?.trim() ?? "";
+  const cost = costRaw === "" ? null : toInt(costRaw);
+
+  const payload: Record<string, unknown> = {
     sku, name, category_id, brand_id,
     units_per_box: Math.max(1, toInt(fd.get("units_per_box"), 12)),
     base_price_net: toInt(fd.get("base_price_net")),
@@ -54,6 +57,10 @@ export async function saveProduct(prev: FormState, fd: FormData): Promise<FormSt
     min_price_net: toInt(fd.get("min_price_net")),
     is_active: fd.get("is_active") === "on",
   };
+  if (cost !== null) {
+    payload.unit_cost_net = cost > 0 ? cost : null;
+    if (cost > 0) payload.unit_cost_updated_at = new Date().toISOString();
+  }
 
   if (id) {
     const { error } = await supabase.from("products").update(payload).eq("id", id);

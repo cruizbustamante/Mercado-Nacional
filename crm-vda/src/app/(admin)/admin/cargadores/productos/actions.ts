@@ -41,6 +41,7 @@ export async function uploadProducts(formData: FormData): Promise<UploadResult> 
   const cBaseNet = pickCol(sample, ["Neto Base", "Precio Neto", "Precio Neto Base"]);
   const cBaseGross = pickCol(sample, ["Bruto Base", "Precio Bruto", "Precio Bruto Base"]);
   const cMinNet = pickCol(sample, ["Neto Final", "Precio Mínimo", "Precio Minimo", "Min Neto"]);
+  const cCost = pickCol(sample, ["Costo Neto", "Costo", "Costo Unitario", "Unit Cost", "Costo Unit", "Precio Compra"]);
 
   if (!cSku || !cName) {
     return {
@@ -121,10 +122,11 @@ export async function uploadProducts(formData: FormData): Promise<UploadResult> 
     const baseNet = cBaseNet ? toClpInt(row[cBaseNet]) : 0;
     const baseGross = cBaseGross ? toClpInt(row[cBaseGross]) : 0;
     const minNet = cMinNet ? toClpInt(row[cMinNet]) : 0;
+    const cost = cCost ? toClpInt(row[cCost]) : null;
     const catName = cCat && row[cCat] ? String(row[cCat]).trim() : null;
     const brandName = cBrand && row[cBrand] ? String(row[cBrand]).trim() : null;
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       sku,
       name,
       category_id: catName ? catMap.get(catName) ?? null : null,
@@ -134,6 +136,10 @@ export async function uploadProducts(formData: FormData): Promise<UploadResult> 
       base_price_gross: baseGross,
       min_price_net: minNet,
     };
+    if (cost !== null && cost > 0) {
+      payload.unit_cost_net = cost;
+      payload.unit_cost_updated_at = new Date().toISOString();
+    }
 
     if (existingSkuSet.has(sku)) {
       const { error } = await supabase.from("products").update(payload).eq("sku", sku);

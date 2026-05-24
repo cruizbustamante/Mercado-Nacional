@@ -121,11 +121,11 @@ export function OcFilesUploader() {
           {result.noMapeados.length > 0 && (
             <details className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
               <summary className="cursor-pointer font-medium">
-                {result.noMapeados.length} UPC sin SKU vinculado · resolver para próximas importaciones
+                {result.noMapeados.length} DUN sin SKU vinculado · resolver para que aparezcan en el dashboard
               </summary>
               <div className="mt-2 max-h-64 overflow-auto rounded bg-white/60 p-2">
                 <table className="w-full">
-                  <thead><tr><th className="px-2 py-1 text-left">UPC</th><th className="px-2 py-1 text-left">Producto OC</th><th className="px-2 py-1 text-left">OC</th></tr></thead>
+                  <thead><tr><th className="px-2 py-1 text-left">DUN</th><th className="px-2 py-1 text-left">Producto OC</th><th className="px-2 py-1 text-left">OC</th></tr></thead>
                   <tbody>
                     {result.noMapeados.slice(0, 100).map((r, i) => (
                       <tr key={i} className="border-t border-zinc-200">
@@ -138,7 +138,7 @@ export function OcFilesUploader() {
                 </table>
               </div>
               <Link href="/admin/mapeo-upc" className="mt-2 inline-block font-medium underline">
-                → Ir a Mapeo UPC ↔ SKU para resolverlos
+                → Ir a Mapeo Supermercados (DUN ↔ SKU)
               </Link>
             </details>
           )}

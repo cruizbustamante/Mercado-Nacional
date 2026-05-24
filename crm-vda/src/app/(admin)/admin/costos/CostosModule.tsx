@@ -178,7 +178,7 @@ function Dropdown({
         <div className="ficha-dd-list">
           <div className={`ficha-dd-item dd-all ${!value ? "selected" : ""}`} onClick={() => { onSelect(""); setOpen(false); setDdQ(""); }}>Todas</div>
           {filteredOpts.map((o) => (
-            <div key={o.value} className={`ficha-dd-item ${value === o.value ? "selected" : ""}`} onClick={() => { onSelect(o.value); setOpen(false); setDdQ(""); }}>
+            <div key={o.value} className={`ficha-dd-item ${value === o.value ? "selected" : ""}`} onClick={() => { onSelect(value === o.value ? "" : o.value); setOpen(false); setDdQ(""); }}>
               {o.label}
               {o.count != null && <span className="dd-count">{o.count}</span>}
             </div>
@@ -281,15 +281,6 @@ export function CostosModule({
     });
   }, [products, quarters, currentQuarter, logisticCostPerUnit]);
 
-  const alertCount = useMemo(() => enrichedProducts.filter((p) => p.margin != null && p.margin < 20).length, [enrichedProducts]);
-  const costUpCount = useMemo(() => enrichedProducts.filter((p) => p.variation != null && p.variation > 0).length, [enrichedProducts]);
-
-  const avgMargin = useMemo(() => {
-    const withMargin = enrichedProducts.filter((p) => p.margin != null);
-    if (withMargin.length === 0) return null;
-    return withMargin.reduce((sum, p) => sum + (p.margin ?? 0), 0) / withMargin.length;
-  }, [enrichedProducts]);
-
   const filteredProducts = useMemo(() => {
     const q = query.trim().toLowerCase();
     return enrichedProducts.filter((p) => {
@@ -302,6 +293,20 @@ export function CostosModule({
       return true;
     });
   }, [enrichedProducts, query, catFilter, brandFilter, wineLineFilter, grapeFilter, alertsOnly]);
+
+  const activeList = useMemo(() => {
+    const hasFilter = !!(catFilter || brandFilter || wineLineFilter || grapeFilter || alertsOnly || query.trim());
+    return hasFilter ? filteredProducts : enrichedProducts;
+  }, [enrichedProducts, filteredProducts, catFilter, brandFilter, wineLineFilter, grapeFilter, alertsOnly, query]);
+
+  const alertCount = useMemo(() => activeList.filter((p) => p.margin != null && p.margin < 20).length, [activeList]);
+  const costUpCount = useMemo(() => activeList.filter((p) => p.variation != null && p.variation > 0).length, [activeList]);
+
+  const avgMargin = useMemo(() => {
+    const withMargin = activeList.filter((p) => p.margin != null);
+    if (withMargin.length === 0) return null;
+    return withMargin.reduce((sum, p) => sum + (p.margin ?? 0), 0) / withMargin.length;
+  }, [activeList]);
 
   const sortedProducts = useMemo(() => {
     return [...filteredProducts].sort((a, b) => {
@@ -321,8 +326,8 @@ export function CostosModule({
 
   useEffect(() => { setPage(1); }, [query, catFilter, brandFilter, wineLineFilter, grapeFilter, alertsOnly]);
 
-  const topMargin = useMemo(() => enrichedProducts.filter((p) => p.margin != null).sort((a, b) => (b.margin ?? 0) - (a.margin ?? 0)).slice(0, 3), [enrichedProducts]);
-  const lowMargin = useMemo(() => enrichedProducts.filter((p) => p.margin != null).sort((a, b) => (a.margin ?? 0) - (b.margin ?? 0)).slice(0, 3), [enrichedProducts]);
+  const topMargin = useMemo(() => activeList.filter((p) => p.margin != null).sort((a, b) => (b.margin ?? 0) - (a.margin ?? 0)).slice(0, 3), [activeList]);
+  const lowMargin = useMemo(() => activeList.filter((p) => p.margin != null).sort((a, b) => (a.margin ?? 0) - (b.margin ?? 0)).slice(0, 3), [activeList]);
 
   const hasFilters = !!(catFilter || brandFilter || wineLineFilter || grapeFilter || alertsOnly);
 
@@ -371,7 +376,7 @@ export function CostosModule({
           <div style={{ fontFamily: "var(--f-display)", fontSize: 38, fontWeight: 400, lineHeight: 1, marginTop: 14 }} className="num">
             {avgMargin != null ? avgMargin.toFixed(1) : "—"}<span style={{ fontSize: 18, color: "rgba(246,242,234,0.5)", fontWeight: 400, marginLeft: 4 }}>%</span>
           </div>
-          <div style={{ fontSize: "12.5px", color: "rgba(246,242,234,0.55)", marginTop: 10 }}>{stats.productsWithCost} productos con costo</div>
+          <div style={{ fontSize: "12.5px", color: "rgba(246,242,234,0.55)", marginTop: 10 }}>{activeList.filter((p) => p.currentCost != null).length} de {activeList.length} productos con costo</div>
         </div>
         <div style={{ background: "var(--surface)", padding: "22px 24px", minHeight: 128 }}>
           <div style={{ fontSize: "10.5px", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-3)", fontWeight: 500 }}>Productos en alerta</div>

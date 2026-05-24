@@ -1,14 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { parseRut } from "@/lib/rut";
 
-interface FormState {
-  ok: boolean;
-  error: string | null;
-}
+interface FormState { ok: boolean; error: string | null }
 
 function emptyToNull(v: FormDataEntryValue | null): string | null {
   const s = (v as string | null)?.toString().trim();
@@ -57,7 +53,7 @@ export async function saveClient(prev: FormState, fd: FormData): Promise<FormSta
   }
 
   revalidatePath("/admin/clientes");
-  redirect("/admin/clientes");
+  return { ok: true, error: null };
 }
 
 export async function deleteClient(fd: FormData): Promise<void> {
@@ -66,5 +62,4 @@ export async function deleteClient(fd: FormData): Promise<void> {
   const supabase = await createClient();
   await supabase.from("clients").update({ deleted_at: new Date().toISOString() }).eq("id", id);
   revalidatePath("/admin/clientes");
-  redirect("/admin/clientes");
 }

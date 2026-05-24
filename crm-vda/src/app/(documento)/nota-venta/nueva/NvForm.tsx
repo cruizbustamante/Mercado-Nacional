@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { formatRut } from "@/lib/rut";
 
@@ -73,8 +73,8 @@ export function NvForm({
   warehouses: NvWarehouse[];
   paymentTerms: NvPaymentTerm[];
 }) {
-  const [clientId, setClientId] = useState<string>(clients[0]?.id ?? "");
-  const client = useMemo(() => clients.find((c) => c.id === clientId) ?? clients[0], [clientId, clients]);
+  const [clientId, setClientId] = useState<string>("");
+  const client = useMemo(() => clients.find((c) => c.id === clientId), [clientId, clients]);
   const [paymentTermId, setPaymentTermId] = useState<string>(client?.payment_term?.id ?? "");
   const [warehouseId, setWarehouseId] = useState<string>(warehouses[0]?.id ?? "");
   const [deliveryAddr, setDeliveryAddr] = useState<string>(client?.address ?? "");
@@ -209,15 +209,19 @@ export function NvForm({
                 <div className="grid-3">
                   <div className="field col-2">
                     <label className="field-label">Cliente <span className="req">*</span></label>
-                    <select className="field-select" value={clientId} onChange={(e) => setClientId(e.target.value)}>
-                      {clients.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+                    <ClientSearch
+                      clients={clients}
+                      selected={client ?? null}
+                      onPick={(c) => {
+                        setClientId(c.id);
+                        if (c.payment_term?.id) setPaymentTermId(c.payment_term.id);
+                      }}
+                      onClear={() => { setClientId(""); setPaymentTermId(""); }}
+                    />
                   </div>
                   <div className="field">
                     <label className="field-label">RUT</label>
-                    <input className="field-input mono locked" value={client ? formatRut(client.rut_body, client.rut_dv) : ""} readOnly />
+                    <input className="field-input mono locked" value={client ? formatRut(client.rut_body, client.rut_dv) : ""} readOnly placeholder="—" />
                   </div>
 
                   <div className="field col-2">
@@ -528,41 +532,137 @@ function ProductSearch({
   const [focused, setFocused] = useState(false);
   const matches = useMemo(() => {
     const v = value.trim().toLowerCase();
-    if (v.length < 2) return [];
+    if (!v) return products.slice(0, 15);
     return products
       .filter((p) => p.sku.toLowerCase().includes(v) || p.name.toLowerCase().includes(v))
-      .slice(0, 10);
+      .slice(0, 15);
   }, [value, products]);
 
   return (
     <div style={{ position: "relative" }}>
       <input
         className="cell-input txt"
-        placeholder="Busca por nombre o SKU…"
+        placeholder={`Busca entre ${products.length} productos por SKU o nombre…`}
         value={value}
         onChange={(e) => onTextChange(e.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => setTimeout(() => setFocused(false), 200)}
+        autoFocus
       />
-      {focused && matches.length > 0 && (
+      {focused && (
         <ul style={{
           position: "absolute", top: "100%", left: 0, right: 0, zIndex: 30,
           background: "var(--surface)", border: "1px solid var(--border)",
           borderTop: "none", borderRadius: "0 0 var(--r-sm) var(--r-sm)",
-          maxHeight: 240, overflowY: "auto", listStyle: "none", padding: 0, margin: 0,
-          boxShadow: "var(--shadow-2)",
+          maxHeight: 280, overflowY: "auto", listStyle: "none", padding: 0, margin: 0,
+          boxShadow: "var(--shadow-2)", minWidth: 380,
         }}>
-          {matches.map((p) => (
+          {matches.length === 0 ? (
+            <li style={{ padding: "10px", fontSize: 12, color: "var(--text-3)" }}>Sin coincidencias</li>
+          ) : matches.map((p) => (
             <li
               key={p.id}
               onMouseDown={(e) => { e.preventDefault(); onPick(p); }}
-              style={{ padding: "6px 10px", cursor: "pointer", fontSize: 12, borderBottom: "1px solid var(--border)" }}
+              style={{ padding: "8px 12px", cursor: "pointer", fontSize: 12, borderBottom: "1px solid var(--border)" }}
               onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
-              <div style={{ fontWeight: 500 }}>{p.name}</div>
-              <div style={{ fontFamily: "var(--f-mono)", fontSize: 10, color: "var(--text-3)" }}>
-                {p.sku} · {fmtClp(p.base_price_net)}
+              <div style={{ fontWeight: 500, color: "var(--text)" }}>{p.name}</div>
+              <div style={{ fontFamily: "var(--f-mono)", fontSize: 10.5, color: "var(--text-3)", marginTop: 2, display: "flex", gap: 10 }}>
+                <span>{p.sku}</span>
+                <span>·</span>
+                <span>{fmtClp(p.base_price_net)} neto</span>
+                <span>·</span>
+                <span>{p.units_per_box} u/cj</span>
+                {p.category && <><span>·</span><span>{p.category.name}</span></>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ClientSearch({
+  clients, selected, onPick, onClear,
+}: {
+  clients: NvClient[];
+  selected: NvClient | null;
+  onPick: (c: NvClient) => void;
+  onClear: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!selected) setQuery("");
+  }, [selected]);
+
+  const matches = useMemo(() => {
+    const v = query.trim().toLowerCase();
+    if (!v) return clients.slice(0, 20);
+    return clients
+      .filter((c) =>
+        c.name.toLowerCase().includes(v) ||
+        String(c.rut_body).includes(v) ||
+        (c.commune ?? "").toLowerCase().includes(v)
+      )
+      .slice(0, 20);
+  }, [query, clients]);
+
+  if (selected) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <input className="field-input" value={selected.name} readOnly style={{ flex: 1 }} />
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={() => { onClear(); setTimeout(() => inputRef.current?.focus(), 50); }}
+        >
+          Cambiar
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: "relative" }}>
+      <div className="field-input-group">
+        <svg className="i prefix" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+        <input
+          ref={inputRef}
+          className="field-input"
+          placeholder={`Busca entre ${clients.length} clientes por nombre, RUT o comuna…`}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setTimeout(() => setFocused(false), 200)}
+        />
+      </div>
+      {focused && (
+        <ul style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 40,
+          background: "var(--surface)", border: "1px solid var(--border)",
+          borderRadius: "var(--r-sm)", maxHeight: 320, overflowY: "auto",
+          listStyle: "none", padding: 0, margin: 0, boxShadow: "var(--shadow-2)",
+        }}>
+          {matches.length === 0 ? (
+            <li style={{ padding: "12px", fontSize: 13, color: "var(--text-3)" }}>Sin coincidencias</li>
+          ) : matches.map((c) => (
+            <li
+              key={c.id}
+              onMouseDown={(e) => { e.preventDefault(); onPick(c); }}
+              style={{ padding: "10px 12px", cursor: "pointer", fontSize: 13, borderBottom: "1px solid var(--border)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <div style={{ fontWeight: 500, color: "var(--text)" }}>{c.name}</div>
+              <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--text-3)", marginTop: 2, display: "flex", gap: 10 }}>
+                <span>{formatRut(c.rut_body, c.rut_dv)}</span>
+                {c.commune && <><span>·</span><span>{c.commune}</span></>}
+                {c.payment_term && <><span>·</span><span>{c.payment_term.name}</span></>}
               </div>
             </li>
           ))}

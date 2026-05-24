@@ -1,106 +1,58 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { formatRut } from "@/lib/rut";
+import { ClientsTable, type ClientRow, type Option } from "./ClientsTable";
 
-const fmt = new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 });
-
-export default async function ClientesAdminPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string }>;
-}) {
-  const params = await searchParams;
-  const q = (params.q ?? "").trim();
-
+export default async function ClientesAdminPage() {
   const supabase = await createClient();
-  let query = supabase
-    .from("clients")
-    .select(
-      "id, rut_body, rut_dv, name, commune, city, credit_line_clp, insurer_credit_line_clp, salesperson:profiles(short_name), payment_term:payment_terms(name)"
-    )
-    .is("deleted_at", null)
-    .order("name");
 
-  if (q) {
-    if (/^\d+$/.test(q)) {
-      query = query.eq("rut_body", parseInt(q, 10));
-    } else {
-      query = query.ilike("name", `%${q}%`);
-    }
-  }
+  const [clientsRes, ptRes, profilesRes, channelsRes] = await Promise.all([
+    supabase
+      .from("clients")
+      .select("id, rut_body, rut_dv, name, address, commune, city, phone, email, payment_term_id, salesperson_id, channel_id, credit_line_clp, insurer_name, insurer_credit_line_clp, payment_term:payment_terms(name), salesperson:profiles(short_name, full_name)", { count: "exact" })
+      .is("deleted_at", null)
+      .order("name"),
+    supabase.from("payment_terms").select("id, name").eq("is_active", true).order("name"),
+    supabase
+      .from("profiles")
+      .select("id, full_name, short_name, role:roles(name), is_active")
+      .eq("is_active", true),
+    supabase.from("sales_channels").select("id, display_name").eq("is_active", true),
+  ]);
 
-  const { data } = await query.limit(500);
-  const rows = (data ?? []) as unknown as Array<{
-    id: string;
-    rut_body: number;
-    rut_dv: string;
-    name: string;
-    commune: string | null;
-    city: string | null;
-    credit_line_clp: number;
-    insurer_credit_line_clp: number;
-    salesperson: { short_name: string } | null;
+  const rows: ClientRow[] = ((clientsRes.data ?? []) as unknown as Array<{
+    id: string; rut_body: number; rut_dv: string; name: string;
+    address: string | null; commune: string | null; city: string | null;
+    phone: string | null; email: string | null;
+    payment_term_id: string | null; salesperson_id: string | null; channel_id: string | null;
+    credit_line_clp: number; insurer_name: string | null; insurer_credit_line_clp: number;
     payment_term: { name: string } | null;
-  }>;
+    salesperson: { short_name: string | null; full_name: string } | null;
+  }>).map((c) => ({
+    id: c.id, rut_body: c.rut_body, rut_dv: c.rut_dv, name: c.name,
+    address: c.address, commune: c.commune, city: c.city,
+    phone: c.phone, email: c.email,
+    payment_term_id: c.payment_term_id, salesperson_id: c.salesperson_id, channel_id: c.channel_id,
+    credit_line_clp: c.credit_line_clp, insurer_name: c.insurer_name,
+    insurer_credit_line_clp: c.insurer_credit_line_clp,
+    payment_term_name: c.payment_term?.name ?? null,
+    salesperson_name: c.salesperson?.short_name ?? c.salesperson?.full_name ?? null,
+  }));
+
+  const paymentTerms: Option[] = (ptRes.data ?? []).map((p) => ({ id: p.id, label: p.name }));
+  const channels: Option[] = (channelsRes.data ?? []).map((c) => ({ id: c.id, label: c.display_name }));
+
+  const salespeople: Option[] = ((profilesRes.data ?? []) as unknown as Array<{
+    id: string; full_name: string; short_name: string | null; role: { name: string } | null;
+  }>)
+    .filter((p) => p.role && ["vendedor", "jefe_ventas", "admin"].includes(p.role.name))
+    .map((p) => ({ id: p.id, label: p.short_name ?? p.full_name }));
 
   return (
-    <div>
-      <header className="mb-6 flex items-baseline justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Clientes</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            {rows.length} resultado{rows.length === 1 ? "" : "s"}{q ? ` para "${q}"` : ""}
-          </p>
-        </div>
-        <Link
-          href="/admin/clientes/nuevo"
-          className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-        >
-          + Nuevo cliente
-        </Link>
-      </header>
-
-      <form className="mb-4">
-        <input
-          name="q"
-          defaultValue={q}
-          placeholder="Buscar por nombre o RUT..."
-          className="w-full max-w-md rounded-md border border-zinc-300 px-3 py-1.5 text-sm"
-        />
-      </form>
-
-      <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
-            <tr>
-              <th className="px-3 py-2">RUT</th>
-              <th className="px-3 py-2">Razón Social</th>
-              <th className="px-3 py-2">Comuna / Ciudad</th>
-              <th className="px-3 py-2">Vendedor</th>
-              <th className="px-3 py-2">Cond. Pago</th>
-              <th className="px-3 py-2 text-right">L. Crédito</th>
-              <th className="px-3 py-2 text-right">L. Seguro</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((c) => (
-              <tr key={c.id} className="border-t border-zinc-100 hover:bg-zinc-50">
-                <td className="px-3 py-2 font-mono text-xs">{formatRut(c.rut_body, c.rut_dv)}</td>
-                <td className="px-3 py-2">
-                  <Link href={`/admin/clientes/${c.id}`} className="hover:underline">{c.name}</Link>
-                </td>
-                <td className="px-3 py-2 text-xs text-zinc-600">
-                  {c.commune ?? "—"}{c.city ? ` · ${c.city}` : ""}
-                </td>
-                <td className="px-3 py-2 text-xs text-zinc-600">{c.salesperson?.short_name ?? "—"}</td>
-                <td className="px-3 py-2 text-xs text-zinc-600">{c.payment_term?.name ?? "—"}</td>
-                <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">{fmt.format(c.credit_line_clp)}</td>
-                <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">{fmt.format(c.insurer_credit_line_clp)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <ClientsTable
+      initial={rows}
+      totalCount={clientsRes.count ?? rows.length}
+      paymentTerms={paymentTerms}
+      salespeople={salespeople}
+      channels={channels}
+    />
   );
 }

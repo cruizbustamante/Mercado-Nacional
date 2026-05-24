@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 interface FormState { ok: boolean; error: string | null }
@@ -24,8 +23,6 @@ export async function saveProduct(prev: FormState, fd: FormData): Promise<FormSt
   if (!name) return { ok: false, error: "Nombre es obligatorio." };
 
   const supabase = await createClient();
-
-  // Auto-crear categoría / marca si vienen por nombre nuevo
   const catName = emptyToNull(fd.get("category_name"));
   const brandName = emptyToNull(fd.get("brand_name"));
 
@@ -50,10 +47,7 @@ export async function saveProduct(prev: FormState, fd: FormData): Promise<FormSt
   }
 
   const payload = {
-    sku,
-    name,
-    category_id,
-    brand_id,
+    sku, name, category_id, brand_id,
     units_per_box: Math.max(1, toInt(fd.get("units_per_box"), 12)),
     base_price_net: toInt(fd.get("base_price_net")),
     base_price_gross: toInt(fd.get("base_price_gross")),
@@ -70,7 +64,7 @@ export async function saveProduct(prev: FormState, fd: FormData): Promise<FormSt
   }
 
   revalidatePath("/admin/productos");
-  redirect("/admin/productos");
+  return { ok: true, error: null };
 }
 
 export async function deleteProduct(fd: FormData): Promise<void> {
@@ -79,5 +73,4 @@ export async function deleteProduct(fd: FormData): Promise<void> {
   const supabase = await createClient();
   await supabase.from("products").update({ deleted_at: new Date().toISOString() }).eq("id", id);
   revalidatePath("/admin/productos");
-  redirect("/admin/productos");
 }

@@ -11,6 +11,8 @@ export default async function AdminPage() {
     { count: cInsurance },
     { count: cProfiles },
     { count: cChannels },
+    { count: cUpcTotal },
+    { count: cUpcMatched },
   ] = await Promise.all([
     supabase.from("clients").select("*", { count: "exact", head: true }).is("deleted_at", null),
     supabase.from("products").select("*", { count: "exact", head: true }).is("deleted_at", null),
@@ -19,6 +21,8 @@ export default async function AdminPage() {
     supabase.from("insurance_uploads").select("*", { count: "exact", head: true }),
     supabase.from("profiles").select("*", { count: "exact", head: true }).eq("is_active", true),
     supabase.from("sales_channels").select("*", { count: "exact", head: true }).eq("is_active", true),
+    supabase.from("sku_upc_mapping").select("*", { count: "exact", head: true }),
+    supabase.from("sku_upc_mapping").select("*", { count: "exact", head: true }).not("product_id", "is", null),
   ]);
 
   const total = (cClients ?? 0) + (cProducts ?? 0);
@@ -99,23 +103,30 @@ export default async function AdminPage() {
 
             <DataCard
               icon="suppliers"
-              title="Ejecutivos comerciales"
-              desc="Vendedores activos, aprobadores, facturadores. Asignación a canales y bodegas."
-              pill={{ tone: "default", text: "Próximamente" }}
-              stats={[{ val: cProfiles ?? 0, key: "Activos" }]}
-              href="/admin"
-              iconSvg={<><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></>}
-              disabled
+              title="Mapeo UPC ↔ SKU"
+              desc="Código de barras (DUN/EAN) que viene en las OC de supermercados, vinculado al SKU interno."
+              pill={(cUpcTotal ?? 0) > 0 && (cUpcMatched ?? 0) < (cUpcTotal ?? 0)
+                ? { tone: "warn", text: `${(cUpcTotal ?? 0) - (cUpcMatched ?? 0)} sin SKU` }
+                : { tone: "ok", text: "OK" }}
+              stats={[
+                { val: cUpcTotal ?? 0, key: "Variantes" },
+                { val: cUpcMatched ?? 0, key: "Con SKU" },
+              ]}
+              href="/admin/mapeo-upc"
+              iconSvg={<><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></>}
             />
 
             <DataCard
               icon="zones"
-              title="Canales de venta"
-              desc="Mayorista, supermercado y futuros canales. Configuración de zonas y restricciones."
+              title="Ejecutivos / Canales"
+              desc="Vendedores activos, canales (mayorista, supermercado). Próximamente."
               pill={{ tone: "default", text: "Próximamente" }}
-              stats={[{ val: cChannels ?? 0, key: "Activos" }]}
+              stats={[
+                { val: cProfiles ?? 0, key: "Ejecutivos" },
+                { val: cChannels ?? 0, key: "Canales" },
+              ]}
               href="/admin"
-              iconSvg={<><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></>}
+              iconSvg={<><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></>}
               disabled
             />
           </div>

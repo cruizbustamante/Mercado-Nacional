@@ -348,13 +348,13 @@ export function CostosModule({
     <>
       {/* HEAD */}
       <section className="doc-head">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 24, flexWrap: "wrap" }}>
+        <div className="costos-head-flex">
           <div>
             <div className="doc-eyebrow">Módulo administrativo</div>
             <h1 className="doc-title">Costos <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--accent)" }}>&amp;</em> Rappel</h1>
             <p className="doc-sub">Control de costo unitario por producto y trimestre, con visibilidad inmediata sobre margen y tendencia.</p>
           </div>
-          <div style={{ display: "flex", gap: 32, alignItems: "center", paddingBottom: 6 }}>
+          <div className="costos-head-meta">
             <div>
               <div style={{ fontSize: "10.5px", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-3)", fontWeight: 500 }}>Trimestre vigente</div>
               <div style={{ fontFamily: "var(--f-display)", fontSize: 22, fontWeight: 500, marginTop: 2 }}>{fmtQuarter(currentQuarter)}</div>
@@ -370,29 +370,29 @@ export function CostosModule({
       </section>
 
       {/* KPI CARDS */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr", gap: 1, background: "var(--border)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", margin: "0 24px 28px" }}>
-        <div style={{ background: "linear-gradient(135deg, #1B1612 0%, #2A201A 100%)", color: "#F6F2EA", padding: "22px 24px", minHeight: 128 }}>
+      <div className="costos-kpi-grid">
+        <div className="costos-kpi-hero" style={{ background: "linear-gradient(135deg, #1B1612 0%, #2A201A 100%)", color: "#F6F2EA" }}>
           <div style={{ fontSize: "10.5px", letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(246,242,234,0.6)", fontWeight: 500 }}>Margen promedio del catálogo</div>
           <div style={{ fontFamily: "var(--f-display)", fontSize: 38, fontWeight: 400, lineHeight: 1, marginTop: 14 }} className="num">
             {avgMargin != null ? avgMargin.toFixed(1) : "—"}<span style={{ fontSize: 18, color: "rgba(246,242,234,0.5)", fontWeight: 400, marginLeft: 4 }}>%</span>
           </div>
           <div style={{ fontSize: "12.5px", color: "rgba(246,242,234,0.55)", marginTop: 10 }}>{activeList.filter((p) => p.currentCost != null).length} de {activeList.length} productos con costo</div>
         </div>
-        <div style={{ background: "var(--surface)", padding: "22px 24px", minHeight: 128 }}>
+        <div className="costos-kpi-cell">
           <div style={{ fontSize: "10.5px", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-3)", fontWeight: 500 }}>Productos en alerta</div>
           <div style={{ fontFamily: "var(--f-display)", fontSize: 38, fontWeight: 400, lineHeight: 1, marginTop: 14 }}>{alertCount}</div>
           <div style={{ fontSize: "12.5px", color: "var(--text-2)", marginTop: 10 }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 7px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: "var(--danger-soft, #fde8e8)", color: "var(--danger)" }}>margen &lt; 20%</span>
           </div>
         </div>
-        <div style={{ background: "var(--surface)", padding: "22px 24px", minHeight: 128 }}>
+        <div className="costos-kpi-cell">
           <div style={{ fontSize: "10.5px", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-3)", fontWeight: 500 }}>Costo al alza</div>
           <div style={{ fontFamily: "var(--f-display)", fontSize: 38, fontWeight: 400, lineHeight: 1, marginTop: 14 }}>{costUpCount}</div>
           <div style={{ fontSize: "12.5px", color: "var(--text-2)", marginTop: 10 }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 7px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: "var(--danger-soft, #fde8e8)", color: "var(--danger)" }}>↑ vs trimestre anterior</span>
           </div>
         </div>
-        <div style={{ background: "var(--surface)", padding: "22px 24px", minHeight: 128 }}>
+        <div className="costos-kpi-cell">
           <div style={{ fontSize: "10.5px", letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--text-3)", fontWeight: 500 }}>Acuerdos Rappel</div>
           <div style={{ fontFamily: "var(--f-display)", fontSize: 38, fontWeight: 400, lineHeight: 1, marginTop: 14 }}>{stats.activeRappel}</div>
           <div style={{ fontSize: "12.5px", color: "var(--text-2)", marginTop: 10 }}>
@@ -403,7 +403,7 @@ export function CostosModule({
 
       {/* INSIGHTS STRIP */}
       {tab === "costos" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, margin: "0 24px 28px" }}>
+        <div className="costos-insights">
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: "18px 20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <div style={{ fontFamily: "var(--f-display)", fontSize: 16, fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}>
@@ -446,7 +446,7 @@ export function CostosModule({
       {/* CONTROLS */}
       <div className="toolbar">
         <div className="toolbar-row">
-          <div style={{ display: "flex", gap: 4, background: "var(--surface)", border: "1px solid var(--border)", padding: 4, borderRadius: 12 }}>
+          <div className="costos-tab-pills">
             <button type="button" className={`chip ${tab === "costos" ? "active" : ""}`} onClick={() => { setTab("costos"); setQuery(""); }} style={{ fontWeight: 500, fontSize: 13, padding: "8px 16px", borderRadius: 8, background: tab === "costos" ? "var(--text)" : "transparent", color: tab === "costos" ? "var(--surface)" : "var(--text-2)", border: "none", cursor: "pointer" }}>
               Costos Producto <span style={{ fontSize: 11, padding: "1px 7px", borderRadius: 999, background: tab === "costos" ? "rgba(255,255,255,0.15)" : "var(--border)", marginLeft: 4 }}>{stats.totalProducts}</span>
             </button>
@@ -462,7 +462,7 @@ export function CostosModule({
 
           {tab === "costos" && (
             <>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <div className="costos-filters-row">
                 <Dropdown label="Categoría" value={catFilter} options={catOptions} onSelect={setCatFilter} />
                 <Dropdown label="Marca" value={brandFilter} options={brandOptions} onSelect={setBrandFilter} />
                 {wineLineOptions.length > 0 && <Dropdown label="Línea vino" value={wineLineFilter} options={wineLineOptions} onSelect={setWineLineFilter} />}
@@ -476,7 +476,7 @@ export function CostosModule({
 
           <div className="toolbar-actions">
             {tab === "costos" ? (
-              <div style={{ display: "flex", gap: 6 }}>
+              <div className="costos-action-btns">
                 <button type="button" className="btn btn-ghost" onClick={() => setShowLogistic(true)}>
                   <SettingsIcon /> Costo logístico
                 </button>
@@ -518,7 +518,7 @@ export function CostosModule({
               <div style={{ fontSize: 12, color: "var(--text-3)" }}>{sortedProducts.length} productos</div>
             </div>
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 900 }}>
+              <table className="costos-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
                 <thead style={{ background: "var(--bg)" }}>
                   <tr style={{ borderBottom: "1px solid var(--border)" }}>
                     <th style={thStyle(72)} onClick={() => handleSort("sku")}>SKU{sortIndicator("sku")}</th>
@@ -736,7 +736,7 @@ function ProductModal({
       </div>
 
       {/* Summary strip */}
-      <div style={{ padding: "22px 28px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 24, borderBottom: "1px solid var(--border)", background: "var(--bg)" }}>
+      <div className="costos-modal-summary">
         <div>
           <div style={{ fontSize: "10.5px", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-3)", fontWeight: 500 }}>Precio neto</div>
           <div style={{ fontFamily: "var(--f-display)", fontSize: 24, fontWeight: 500, marginTop: 6 }}>{fmtCLP(neto)}</div>
@@ -767,7 +767,7 @@ function ProductModal({
 
       {/* Chart */}
       {sortedQ.length >= 2 && (
-        <div style={{ padding: "24px 28px", borderBottom: "1px solid var(--border)" }}>
+        <div className="costos-modal-section" style={{ borderBottom: "1px solid var(--border)" }}>
           <div style={{ fontFamily: "var(--f-display)", fontSize: 15, fontWeight: 500, marginBottom: 16 }}>Evolución histórica</div>
           <div style={{ height: 240, position: "relative" }}>
             <Line data={chartData} options={chartOptions} />
@@ -776,12 +776,12 @@ function ProductModal({
       )}
 
       {/* Edit section */}
-      <div style={{ padding: "22px 28px", borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
+      <div className="costos-modal-section" style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
           <EditIcon />
           <span style={{ fontFamily: "var(--f-display)", fontSize: 15, fontWeight: 500 }}>Agregar o modificar costo</span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 14, alignItems: "end" }}>
+        <div className="costos-modal-edit">
           <div className="ficha-field">
             <label className="ficha-label">Periodo</label>
             <select className="ficha-input mono" value={editQuarter} onChange={(e) => setEditQuarter(e.target.value)} style={{ fontFamily: "var(--f-display)", fontSize: 16, fontWeight: 500 }}>
@@ -810,7 +810,7 @@ function ProductModal({
       </div>
 
       {/* History table */}
-      <div style={{ padding: "18px 28px 26px" }}>
+      <div className="costos-modal-section" style={{ paddingBottom: 26 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
           <ClockIcon />
           <span style={{ fontFamily: "var(--f-display)", fontSize: 15, fontWeight: 500 }}>Historial trimestral</span>
@@ -880,7 +880,7 @@ function RappelTable({ rappel, query, onEdit }: { rappel: RappelRow[]; query: st
         <div className="table-card-title">Acuerdos Rappel por cadena</div>
       </div>
       <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 860 }}>
+        <table className="costos-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead style={{ background: "var(--bg)" }}>
             <tr style={{ borderBottom: "1px solid var(--border)" }}>
               <th style={thStyle(130)}>Cadena</th>

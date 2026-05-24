@@ -769,6 +769,125 @@ a.module-alert:hover .module-alert-arrow { opacity: 1; }
   }
 }
 
+/* ===== COSTOS MODULE ===== */
+.warm .costos-head-flex {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  gap: 24px; flex-wrap: wrap;
+}
+.warm .costos-head-meta {
+  display: flex; gap: 32px; align-items: center; padding-bottom: 6px;
+}
+.warm .costos-kpi-grid {
+  display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr;
+  gap: 1px; background: var(--border); border: 1px solid var(--border);
+  border-radius: 16px; overflow: hidden; margin: 0 24px 28px;
+}
+.warm .costos-kpi-hero {
+  padding: 22px 24px; min-height: 128px;
+}
+.warm .costos-kpi-cell {
+  background: var(--surface); padding: 22px 24px; min-height: 128px;
+}
+.warm .costos-insights {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 16px; margin: 0 24px 28px;
+}
+.warm .costos-tab-pills {
+  display: flex; gap: 4px; background: var(--surface);
+  border: 1px solid var(--border); padding: 4px; border-radius: 12px;
+}
+.warm .costos-filters-row {
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+}
+.warm .costos-action-btns {
+  display: flex; gap: 6px;
+}
+.warm .costos-table {
+  min-width: 900px;
+}
+.warm .costos-modal-summary {
+  padding: 22px 28px; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 24px; border-bottom: 1px solid var(--border); background: var(--bg);
+}
+.warm .costos-modal-edit {
+  display: grid; grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 14px; align-items: end;
+}
+.warm .costos-modal-section {
+  padding: 22px 28px;
+}
+
+/* ── Costos ≤900px (tablet) ── */
+@media (max-width: 900px) {
+  .warm .costos-kpi-grid {
+    grid-template-columns: 1fr 1fr;
+    margin: 0 14px 20px; border-radius: 12px;
+  }
+  .warm .costos-kpi-hero,
+  .warm .costos-kpi-cell { padding: 16px 18px; min-height: 100px; }
+  .warm .costos-insights {
+    grid-template-columns: 1fr;
+    margin: 0 14px 20px;
+  }
+  .warm .costos-head-meta { gap: 20px; }
+  .warm .costos-modal-summary {
+    grid-template-columns: 1fr 1fr; padding: 16px 20px; gap: 16px;
+  }
+  .warm .costos-modal-edit {
+    grid-template-columns: 1fr 1fr;
+  }
+  .warm .costos-modal-section { padding: 16px 20px; }
+  .warm .costos-table { min-width: 700px; }
+  .warm .costos-action-btns { flex-wrap: wrap; }
+}
+
+/* ── Costos ≤720px (mobile) ── */
+@media (max-width: 720px) {
+  .warm .costos-head-flex { flex-direction: column; align-items: stretch; gap: 16px; }
+  .warm .costos-head-meta {
+    flex-direction: row; gap: 16px; padding-bottom: 0;
+    flex-wrap: wrap;
+  }
+  .warm .costos-kpi-grid {
+    grid-template-columns: 1fr; border-radius: 10px;
+    margin: 0 14px 16px;
+  }
+  .warm .costos-kpi-hero,
+  .warm .costos-kpi-cell { padding: 14px 16px; min-height: auto; }
+  .warm .costos-kpi-hero > div:nth-child(2),
+  .warm .costos-kpi-cell > div:nth-child(2) { font-size: 28px !important; }
+  .warm .costos-insights { margin: 0 14px 16px; }
+  .warm .costos-tab-pills { width: 100%; }
+  .warm .costos-tab-pills .chip { flex: 1; justify-content: center; }
+  .warm .costos-filters-row {
+    flex-direction: column; align-items: stretch; gap: 8px; width: 100%;
+  }
+  .warm .costos-filters-row .ficha-dropdown { width: 100%; }
+  .warm .costos-filters-row .ficha-dd-trigger { width: 100%; min-width: 0; }
+  .warm .costos-filters-row .btn { width: 100%; justify-content: center; }
+  .warm .costos-action-btns { flex-direction: column; width: 100%; }
+  .warm .costos-action-btns .btn { width: 100%; justify-content: center; }
+  .warm .costos-modal-summary {
+    grid-template-columns: 1fr 1fr; padding: 14px 16px; gap: 14px;
+  }
+  .warm .costos-modal-edit {
+    grid-template-columns: 1fr;
+  }
+  .warm .costos-modal-section { padding: 14px 16px; }
+  .warm .costos-table { min-width: 600px; }
+  .warm .ficha-active-filters { padding: 0 14px !important; }
+}
+
+/* ── Costos ≤480px (extra small) ── */
+@media (max-width: 480px) {
+  .warm .costos-modal-summary { grid-template-columns: 1fr; gap: 10px; }
+  .warm .costos-modal-summary > div > div:nth-child(2) { font-size: 20px !important; }
+  .warm .costos-head-meta { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .warm .costos-kpi-hero > div:nth-child(2),
+  .warm .costos-kpi-cell > div:nth-child(2) { font-size: 24px !important; }
+  .warm .costos-table { min-width: 500px; }
+}
+
 @media (max-width: 1100px) {
   .warm .stats-strip, .warm .health-strip { grid-template-columns: repeat(2, 1fr); }
   .warm .hero-grid { grid-template-columns: 1fr; }

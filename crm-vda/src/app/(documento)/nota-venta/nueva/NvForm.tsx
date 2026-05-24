@@ -71,14 +71,22 @@ function calcLine(l: NvLine, cfg: NvConfig): LineCalc | null {
   const precio_bruto = parseInt(l.precio_bruto || "0", 10) || 0;
   const upb = l.product.units_per_box;
   const unidades = cajas * upb;
+  // Réplica EXACTA del cálculo del Apps Script (code.js _prepararDatosNV):
+  // El precio bruto unitario incluye TODO: neto + logístico + IVA(neto+log) + ILA(neto)
+  // bruto = neto·(1+iva+ila) + log·(1+iva)  →  neto = (bruto − log·(1+iva)) / (1+iva+ila)
   const factor = 1 + l.product.iva_rate + l.product.ila_rate;
-  const precio_neto = factor > 0 ? Math.round(precio_bruto / factor) : 0;
+  const log_unit_with_iva = cfg.logisticsNetPerUnit * (1 + cfg.logisticsIvaRate);
+  const precio_neto = factor > 0
+    ? Math.max(0, Math.round((precio_bruto - log_unit_with_iva) / factor))
+    : 0;
   const neto_producto = unidades * precio_neto;
-  const iva_producto = Math.round(neto_producto * l.product.iva_rate);
-  const ila_producto = Math.round(neto_producto * l.product.ila_rate);
   const log_neto = Math.round(unidades * cfg.logisticsNetPerUnit);
   const log_iva = Math.round(log_neto * cfg.logisticsIvaRate);
-  const total = neto_producto + iva_producto + ila_producto + log_neto + log_iva;
+  // IVA = 19% sobre (neto producto + logístico neto) — como el AS suma logIVA al iva del producto
+  const iva_producto = Math.round((neto_producto + log_neto) * l.product.iva_rate);
+  // ILA se aplica SOLO sobre el neto del producto (no sobre logístico)
+  const ila_producto = Math.round(neto_producto * l.product.ila_rate);
+  const total = neto_producto + log_neto + iva_producto + ila_producto;
   const requires_vb = precio_neto < (l.product.min_price_net - cfg.vbToleranceClp);
   const descuento_pesos = unidades * Math.max(0, l.product.base_price_gross - precio_bruto);
   return {
@@ -150,7 +158,7 @@ export function NvForm({
       const c = calculated[i];
       if (!c) continue;
       neto_productos += c.neto_producto;
-      iva += c.iva_producto + c.log_iva; // IVA del producto + del logístico
+      iva += c.iva_producto; // ya incluye IVA de (neto + logístico) según calcLine
       ila += c.ila_producto;
       log_neto += c.log_neto;
       log_iva += c.log_iva;
@@ -159,7 +167,7 @@ export function NvForm({
       descuento += c.descuento_pesos;
       if (c.requires_vb) requires_vb = true;
     }
-    const total = neto_productos + iva + ila + log_neto;
+    const total = neto_productos + log_neto + iva + ila;
     return { neto_productos, iva, ila, log_neto, log_iva, cajas, unidades, descuento, total, requires_vb };
   }, [calculated, lines]);
 

@@ -71,28 +71,34 @@ function calcLine(l: NvLine, cfg: NvConfig): LineCalc | null {
   const precio_bruto = parseInt(l.precio_bruto || "0", 10) || 0;
   const upb = l.product.units_per_box;
   const unidades = cajas * upb;
-  // Réplica EXACTA del cálculo del Apps Script (code.js _prepararDatosNV):
-  // El precio bruto unitario incluye TODO: neto + logístico + IVA(neto+log) + ILA(neto)
-  // bruto = neto·(1+iva+ila) + log·(1+iva)  →  neto = (bruto − log·(1+iva)) / (1+iva+ila)
+  // Total exacto = unidades × precio_bruto (no permite drift por redondeos)
+  const total = unidades * precio_bruto;
+  // Logístico es entero exacto
+  const log_neto = unidades * cfg.logisticsNetPerUnit;
+  const log_iva = log_neto * cfg.logisticsIvaRate;
+  // El precio bruto incluye TODO: neto + log + IVA(neto+log) + ILA(neto)
+  // Despejar neto_producto exacto SIN redondear hasta el final:
+  // bruto_total = neto·(1+iva+ila) + log·(1+iva)
+  // → neto = (bruto_total − log·(1+iva)) / (1+iva+ila)
   const factor = 1 + l.product.iva_rate + l.product.ila_rate;
-  const log_unit_with_iva = cfg.logisticsNetPerUnit * (1 + cfg.logisticsIvaRate);
-  const precio_neto = factor > 0
-    ? Math.max(0, Math.round((precio_bruto - log_unit_with_iva) / factor))
+  const neto_producto_exacto = factor > 0
+    ? Math.max(0, (total - log_neto - log_iva) / factor)
     : 0;
-  const neto_producto = unidades * precio_neto;
-  const log_neto = Math.round(unidades * cfg.logisticsNetPerUnit);
-  const log_iva = Math.round(log_neto * cfg.logisticsIvaRate);
-  // IVA = 19% sobre (neto producto + logístico neto) — como el AS suma logIVA al iva del producto
-  const iva_producto = Math.round((neto_producto + log_neto) * l.product.iva_rate);
-  // ILA se aplica SOLO sobre el neto del producto (no sobre logístico)
-  const ila_producto = Math.round(neto_producto * l.product.ila_rate);
-  const total = neto_producto + log_neto + iva_producto + ila_producto;
+  const iva_producto_exacto = (neto_producto_exacto + log_neto) * l.product.iva_rate;
+  const ila_producto_exacto = neto_producto_exacto * l.product.ila_rate;
+  // Round componentes; el total se mantiene exacto (no es la suma de redondeos)
+  const neto_producto = Math.round(neto_producto_exacto);
+  const iva_producto = Math.round(iva_producto_exacto);
+  const ila_producto = Math.round(ila_producto_exacto);
+  // precio_neto unitario solo informativo
+  const precio_neto = unidades > 0 ? Math.round(neto_producto_exacto / unidades) : 0;
   const requires_vb = precio_neto < (l.product.min_price_net - cfg.vbToleranceClp);
   const descuento_pesos = unidades * Math.max(0, l.product.base_price_gross - precio_bruto);
   return {
     unidades, precio_bruto, precio_neto, total_factor: factor,
     neto_producto, iva_producto, ila_producto,
-    log_neto, log_iva, total, requires_vb, descuento_pesos,
+    log_neto: Math.round(log_neto), log_iva: Math.round(log_iva),
+    total, requires_vb, descuento_pesos,
   };
 }
 
@@ -153,21 +159,22 @@ export function NvForm({
   const totals = useMemo(() => {
     let neto_productos = 0, iva = 0, ila = 0, log_neto = 0, log_iva = 0;
     let cajas = 0, unidades = 0, descuento = 0;
+    let total = 0;
     let requires_vb = false;
     for (let i = 0; i < lines.length; i++) {
       const c = calculated[i];
       if (!c) continue;
       neto_productos += c.neto_producto;
-      iva += c.iva_producto; // ya incluye IVA de (neto + logístico) según calcLine
+      iva += c.iva_producto;
       ila += c.ila_producto;
       log_neto += c.log_neto;
       log_iva += c.log_iva;
       cajas += parseInt(lines[i].cajas || "0", 10) || 0;
       unidades += c.unidades;
       descuento += c.descuento_pesos;
+      total += c.total; // total exacto = unidades × precio_bruto por línea
       if (c.requires_vb) requires_vb = true;
     }
-    const total = neto_productos + log_neto + iva + ila;
     return { neto_productos, iva, ila, log_neto, log_iva, cajas, unidades, descuento, total, requires_vb };
   }, [calculated, lines]);
 

@@ -170,8 +170,12 @@ export default async function SupermercadosPage({
                   const ocCumplim = o.total_amount > 0 ? Math.round((facturado / o.total_amount) * 100) : 0;
                   const vencida = o.cancellation_date && new Date(o.cancellation_date) < now && o.status !== "COMPLETADA";
                   return (
-                    <tr key={o.id} onClick={() => (window.location.href = `/supermercados/${o.id}`)} style={{ cursor: "pointer" }}>
-                      <td>{o.chain?.name ?? "—"}</td>
+                    <tr key={o.id}>
+                      <td>
+                        <Link href={`/supermercados/${o.id}`} style={{ color: "var(--text)", display: "block" }}>
+                          {o.chain?.name ?? "—"}
+                        </Link>
+                      </td>
                       <td>
                         <Link href={`/supermercados/${o.id}`} className="sku-cell" style={{ color: "var(--text)" }}>
                           {o.order_number}

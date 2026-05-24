@@ -155,6 +155,13 @@ export default async function AdminPage() {
               href="/admin/cargadores/productos"
             />
             <LoaderCard
+              title="OC Supermercados"
+              desc="Sube los PDF / Word de las OC. Detecta cadena, parsea líneas y vincula a SKU vía mapeo UPC. No duplica."
+              meta="Cencosud, Tottus, Rendic, Alvi, SCPD, Walmart"
+              href="/admin/cargadores/oc-supermercados"
+            />
+
+            <LoaderCard
               title="Seguros (línea de crédito)"
               desc="Carga mensual. Sube Nominados + Innominados, valoriza en UF y actualiza línea aseguradora por cliente."
               meta={cInsurance ? `${cInsurance} cargas` : "sin cargas"}

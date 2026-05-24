@@ -13,8 +13,25 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mercado Nacional",
-  description: "Sistema de gestión comercial",
+  title: {
+    default: "VDA · Mercado Nacional",
+    template: "%s · VDA",
+  },
+  description: "Sistema de gestión comercial — Mercado Nacional · Viña de Aguirre",
+  applicationName: "VDA",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "VDA",
+  },
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
@@ -22,6 +39,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: "cover",
+  themeColor: "#1A1612",
 };
 
 export default function RootLayout({

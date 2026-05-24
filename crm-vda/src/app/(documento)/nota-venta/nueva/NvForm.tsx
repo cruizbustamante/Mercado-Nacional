@@ -575,6 +575,18 @@ export function NvForm({
           </div>
         </aside>
       </div>
+
+      {/* Sticky mobile emit bar — only visible ≤720px via CSS */}
+      <div className="mobile-emit-bar" role="region" aria-label="Total y emisión">
+        <div className="mobile-total">
+          <span className="mobile-total-label">Total a facturar</span>
+          <span className="mobile-total-value">{fmtClp(totals.total)}</span>
+          <span className="mobile-total-sub">{totals.cajas} cj · {totals.unidades} u</span>
+        </div>
+        <button type="button" className="btn btn-emit" disabled={!canEmit}>
+          {totals.requires_vb ? "V°B° + Emitir" : "Emitir NV"}
+        </button>
+      </div>
     </>
   );
 }

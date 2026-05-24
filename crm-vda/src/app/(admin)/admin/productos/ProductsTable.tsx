@@ -147,29 +147,29 @@ export function ProductsTable({
             <tbody>
               {filtered.map((p) => (
                 <tr key={p.id} onClick={() => setEditing(p)}>
-                  <td>
+                  <td data-label="SKU">
                     <span className="sku-cell">
                       <span className="sku-letter">{p.sku[0]}</span>
                       <span>{p.sku}</span>
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Producto">
                     <div className="prod-name">{p.name}</div>
                   </td>
-                  <td>
+                  <td data-label="Categoría">
                     {p.category_name ? (
                       <span className={`cat-chip ${/vino/i.test(p.category_name) ? "wine" : ""}`}>{p.category_name}</span>
                     ) : <span className="cat-chip empty">sin categoría</span>}
                   </td>
-                  <td>
+                  <td data-label="Marca">
                     <span className={`brand-cell ${p.brand_name ? "" : "empty"}`}>{p.brand_name ?? "—"}</span>
                   </td>
-                  <td className="num">{p.units_per_box}</td>
-                  <td className="num"><span className="price price-neto">{fmt.format(p.base_price_net)}</span></td>
-                  <td className="num"><span className="price">{fmt.format(p.base_price_gross)}</span></td>
-                  <td className="num"><span className="price price-min">{fmt.format(p.min_price_net)}</span></td>
-                  <td>
-                    {!p.is_active && <span className="badge badge-warn">Inactivo</span>}
+                  <td className="num" data-label="U/Cj">{p.units_per_box}</td>
+                  <td className="num" data-label="Neto"><span className="price price-neto">{fmt.format(p.base_price_net)}</span></td>
+                  <td className="num" data-label="Bruto"><span className="price">{fmt.format(p.base_price_gross)}</span></td>
+                  <td className="num" data-label="Mín neto"><span className="price price-min">{fmt.format(p.min_price_net)}</span></td>
+                  <td data-label="Estado">
+                    {!p.is_active ? <span className="badge badge-warn">Inactivo</span> : <span className="badge badge-ok">Activo</span>}
                   </td>
                 </tr>
               ))}

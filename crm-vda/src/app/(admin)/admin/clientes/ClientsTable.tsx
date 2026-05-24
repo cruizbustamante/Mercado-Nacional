@@ -157,19 +157,19 @@ export function ClientsTable({
             <tbody>
               {filtered.map((c) => (
                 <tr key={c.id} onClick={() => setEditing(c)}>
-                  <td><span className="sku-cell">{formatRut(c.rut_body, c.rut_dv)}</span></td>
-                  <td><div className="prod-name">{c.name}</div></td>
-                  <td>
+                  <td data-label="RUT"><span className="sku-cell">{formatRut(c.rut_body, c.rut_dv)}</span></td>
+                  <td data-label="Razón Social"><div className="prod-name">{c.name}</div></td>
+                  <td data-label="Comuna · Ciudad">
                     <span className="cat-chip">{c.commune ?? "—"}{c.city ? ` · ${c.city}` : ""}</span>
                   </td>
-                  <td>
+                  <td data-label="Vendedor">
                     {c.salesperson_name ? (
                       <span className="brand-cell">{c.salesperson_name}</span>
                     ) : <span className="badge badge-warn">sin asignar</span>}
                   </td>
-                  <td><span className="brand-cell">{c.payment_term_name ?? "—"}</span></td>
-                  <td className="num"><span className="price">{fmt.format(c.credit_line_clp)}</span></td>
-                  <td className="num"><span className={`price ${c.insurer_credit_line_clp > 0 ? "price-neto" : ""}`}>{fmt.format(c.insurer_credit_line_clp)}</span></td>
+                  <td data-label="Cond. Pago"><span className="brand-cell">{c.payment_term_name ?? "—"}</span></td>
+                  <td className="num" data-label="L. Crédito"><span className="price">{fmt.format(c.credit_line_clp)}</span></td>
+                  <td className="num" data-label="L. Seguro"><span className={`price ${c.insurer_credit_line_clp > 0 ? "price-neto" : ""}`}>{fmt.format(c.insurer_credit_line_clp)}</span></td>
                 </tr>
               ))}
             </tbody>

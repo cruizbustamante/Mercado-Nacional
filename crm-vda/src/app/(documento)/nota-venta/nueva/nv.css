@@ -675,11 +675,227 @@
     border-left: none; border-top: 1px solid var(--border);
   }
 }
+
+/* ===== TABLET ≤1024px ===== */
+@media (max-width: 1024px) {
+  .nv-root .doc-head { padding: 20px 20px 0; }
+  .nv-root .main { padding: 22px 20px 60px; }
+  .nv-root .workflow { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 14px; }
+  .nv-root .wf-step { padding-right: 14px; }
+}
+
+/* ===== MOBILE ≤720px ===== */
 @media (max-width: 720px) {
+  /* General form collapses */
   .nv-root .grid-3, .nv-root .grid-2, .nv-root .grid-4, .nv-root .split-2 { grid-template-columns: 1fr; }
-  .nv-root .doc-head-grid { grid-template-columns: 1fr; }
-  .nv-root .nv-stamp { align-items: flex-start; }
-  .nv-root .main { padding: 20px; }
+  .nv-root .col-2, .nv-root .col-3, .nv-root .col-4 { grid-column: span 1; }
+  .nv-root .doc-head-grid { grid-template-columns: 1fr; gap: 12px; }
+  .nv-root .nv-stamp { align-items: flex-start; text-align: left; }
+  .nv-root .nv-number { font-size: 28px; }
+  .nv-root .nv-number .pref { font-size: 18px; }
+
+  /* Header */
+  .nv-root .app-header { padding: 0 14px; gap: 10px; overflow-x: hidden; }
+  .nv-root .brand-sub { display: none; }
+  .nv-root .crumbs { display: none; }
+  .nv-root .kbd-hint { display: none; }
+  .nv-root .divider-v { display: none; }
+
+  /* Doc header */
+  .nv-root .doc-head { padding: 16px 14px 0; }
+  .nv-root .doc-title { font-size: 22px; }
+  .nv-root .doc-meta-row { flex-wrap: wrap; gap: 8px; }
+  .nv-root .doc-meta-item {
+    padding-right: 10px; margin-right: 0;
+    border-right: none;
+    flex: 0 1 calc(50% - 6px); min-width: 0;
+  }
+  .nv-root .workflow {
+    margin-top: 14px; padding-top: 10px; padding-bottom: 12px;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .nv-root .wf-step { padding-right: 12px; white-space: nowrap; }
+  .nv-root .wf-label { font-size: 9.5px; }
+
+  /* Main padding */
+  .nv-root .main { padding: 16px 14px 24px; }
+  .nv-root .section { margin-bottom: 24px; }
+  .nv-root .section-head { flex-wrap: wrap; gap: 6px; }
+
+  /* Load strip 2x2 */
+  .nv-root .load-strip { grid-template-columns: repeat(2, 1fr); }
+  .nv-root .load-cell { padding: 8px 10px; }
+
+  /* Products bar wrap */
+  .nv-root .products-bar { flex-wrap: wrap; gap: 10px; }
+  .nv-root .products-bar-actions { width: 100%; }
+  .nv-root .products-bar-actions .btn { width: 100%; height: 40px; font-size: 13px; }
+
+  /* ----- PRODUCTS TABLE → CARD LIST ----- */
+  .nv-root .products-table {
+    border: none; box-shadow: none; background: transparent; overflow: visible;
+    border-radius: 0;
+  }
+  .nv-root .products-table table { display: block; width: 100%; }
+  .nv-root .products-table thead { display: none; }
+  .nv-root .products-table tbody { display: block; }
+  .nv-root .products-table tbody tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 10px;
+    padding: 12px 12px 10px;
+    margin-bottom: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    box-shadow: var(--shadow-1);
+    position: relative;
+  }
+  .nv-root .products-table tbody tr.editing {
+    border-color: var(--warning);
+    box-shadow: 0 0 0 2px rgba(156,106,30,0.15);
+  }
+  .nv-root .products-table tbody tr.editing td:first-child::before { display: none; }
+  .nv-root .products-table tbody tr td {
+    display: block; padding: 0; border: none;
+    font-size: 12px; min-width: 0;
+  }
+  /* Mobile data labels via ::before */
+  .nv-root .products-table tbody tr td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-3);
+    font-weight: 600;
+    margin-bottom: 2px;
+    font-family: var(--f-sans);
+  }
+  /* Hide the # column header label */
+  .nv-root .products-table tbody tr td.line-num {
+    grid-column: 1 / 2;
+    font-size: 10px;
+    color: var(--text-3);
+    text-align: left;
+  }
+  .nv-root .products-table tbody tr td.line-num::before { content: "Línea"; }
+  /* Delete button spans the right of line-num row */
+  .nv-root .products-table tbody tr td:last-child {
+    position: absolute; top: 8px; right: 8px;
+    padding: 0;
+  }
+  .nv-root .products-table tbody tr td:last-child::before { display: none; }
+  .nv-root .btn-icon { width: 36px; height: 36px; }
+
+  /* Product cell spans full width */
+  .nv-root .products-table tbody tr td:nth-child(2) {
+    grid-column: 1 / -1;
+    margin-top: 4px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--border);
+    margin-bottom: 4px;
+  }
+  .nv-root .products-table tbody tr td:nth-child(2)::before { content: "Producto"; }
+
+  /* Cajas (3) */
+  .nv-root .products-table tbody tr td:nth-child(3)::before { content: "Cajas"; }
+  .nv-root .products-table tbody tr td:nth-child(3) { text-align: left; }
+  /* U/Cj (4) - hide on phone */
+  .nv-root .products-table tbody tr td:nth-child(4) { display: none; }
+  /* Unidades (5) */
+  .nv-root .products-table tbody tr td:nth-child(5)::before { content: "Unidades"; }
+  .nv-root .products-table tbody tr td:nth-child(5) { text-align: left; }
+  /* Precio bruto (6) */
+  .nv-root .products-table tbody tr td:nth-child(6)::before { content: "P. Bruto"; }
+  .nv-root .products-table tbody tr td:nth-child(6) { text-align: left; }
+  /* Precio neto (7) */
+  .nv-root .products-table tbody tr td:nth-child(7)::before { content: "P. Neto"; }
+  .nv-root .products-table tbody tr td:nth-child(7) { text-align: left; }
+  /* IVA (8) - hide on phone */
+  .nv-root .products-table tbody tr td:nth-child(8) { display: none; }
+  /* ILA (9) - hide on phone */
+  .nv-root .products-table tbody tr td:nth-child(9) { display: none; }
+  /* Logíst (10) - hide on phone */
+  .nv-root .products-table tbody tr td:nth-child(10) { display: none; }
+  /* Total (11) - full width, prominent */
+  .nv-root .products-table tbody tr td:nth-child(11) {
+    grid-column: 1 / -1;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
+    margin-top: 4px;
+    text-align: right;
+  }
+  .nv-root .products-table tbody tr td:nth-child(11)::before { content: "Total línea"; }
+  .nv-root .products-table tbody tr td:nth-child(11) .cell-value { font-size: 16px; font-weight: 600; }
+  /* V°B° (12) */
+  .nv-root .products-table tbody tr td:nth-child(12)::before { content: "V°B°"; }
+  .nv-root .products-table tbody tr td:nth-child(12) { text-align: left; }
+
+  /* Bigger touch targets on inputs inside cards */
+  .nv-root .cell-input { height: 38px; font-size: 14px; padding: 0 10px; text-align: left; }
+  .nv-root .field-input, .nv-root .field-select { height: 42px; font-size: 14px; }
+  .nv-root .field-textarea { font-size: 14px; }
+  .nv-root .btn { height: 40px; font-size: 13px; }
+  .nv-root .btn-sm { height: 34px; }
+  .nv-root .btn-lg { height: 46px; }
+
+  /* ----- SIDEBAR → static below main with sticky bottom emit bar ----- */
+  .nv-root .sidebar {
+    padding: 16px 14px 100px;
+  }
+  .nv-root .summary-title { font-size: 18px; }
+  .nv-root .total-stamp { padding: 14px 16px; }
+  .nv-root .total-value { font-size: 26px; }
+  .nv-root .summary-actions .btn { height: 46px; font-size: 14px; }
+
+  /* Sticky emit bar at bottom */
+  .nv-root .shell {
+    padding-bottom: 76px; /* reserve space for sticky bar */
+  }
+}
+
+/* ===== STICKY MOBILE EMIT BAR (always present, only visible ≤720px) ===== */
+.nv-root .mobile-emit-bar { display: none; }
+@media (max-width: 720px) {
+  .nv-root .mobile-emit-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 60;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 10px 12px;
+    gap: 10px;
+    align-items: center;
+    box-shadow: 0 -4px 16px -4px rgba(26,22,18,0.12);
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .nv-root .mobile-emit-bar .mobile-total {
+    flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0;
+  }
+  .nv-root .mobile-emit-bar .mobile-total-label {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--text-3); font-weight: 600;
+  }
+  .nv-root .mobile-emit-bar .mobile-total-value {
+    font-family: var(--f-display); font-size: 18px; font-weight: 600;
+    color: var(--text); line-height: 1.1; font-variant-numeric: tabular-nums;
+  }
+  .nv-root .mobile-emit-bar .mobile-total-sub {
+    font-size: 10px; color: var(--text-3); font-family: var(--f-mono);
+  }
+  .nv-root .mobile-emit-bar .btn {
+    flex-shrink: 0; height: 46px; padding: 0 16px; font-size: 13px; font-weight: 600;
+  }
+}
+
+/* ===== EXTRA SMALL ≤480px ===== */
+@media (max-width: 480px) {
+  .nv-root .load-strip { grid-template-columns: 1fr 1fr; }
+  .nv-root .doc-meta-item { flex: 1 1 100%; }
+  .nv-root .brand-name { font-size: 13px; }
 }
 
 .nv-root .row { display: flex; align-items: center; gap: 8px; }

@@ -6,26 +6,20 @@ export default async function AdminPage() {
   const [
     { count: cClients },
     { count: cProducts },
-    { count: cCategories },
-    { count: cBrands },
     { count: cInsurance },
-    { count: cProfiles },
-    { count: cChannels },
     { count: cUpcTotal },
     { count: cUpcMatched },
+    { count: cProductCosts },
+    { count: cRappel },
   ] = await Promise.all([
     supabase.from("clients").select("*", { count: "exact", head: true }).is("deleted_at", null),
     supabase.from("products").select("*", { count: "exact", head: true }).is("deleted_at", null),
-    supabase.from("product_categories").select("*", { count: "exact", head: true }),
-    supabase.from("brands").select("*", { count: "exact", head: true }),
     supabase.from("insurance_uploads").select("*", { count: "exact", head: true }),
-    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("is_active", true),
-    supabase.from("sales_channels").select("*", { count: "exact", head: true }).eq("is_active", true),
     supabase.from("sku_upc_mapping").select("*", { count: "exact", head: true }),
     supabase.from("sku_upc_mapping").select("*", { count: "exact", head: true }).not("product_id", "is", null),
+    supabase.from("product_costs").select("*", { count: "exact", head: true }),
+    supabase.from("rappel_agreements").select("*", { count: "exact", head: true }).eq("is_active", true),
   ]);
-
-  const total = (cClients ?? 0) + (cProducts ?? 0);
 
   return (
     <>
@@ -35,34 +29,9 @@ export default async function AdminPage() {
             <div className="hero-eyebrow">Centro de administración</div>
             <h1 className="hero-title">Administración</h1>
             <p className="hero-sub">
-              Mantención de los datos maestros del sistema. Edita registros uno por uno o usa los
-              cargadores Excel para subir información en bloque.
+              Cargadores Excel y herramientas de soporte. La gestión de fichas maestras
+              (productos, clientes, ejecutivos, canales) está en el módulo Configuración del sidebar.
             </p>
-          </div>
-        </div>
-
-        <div className="health-strip">
-          <div className="health-cell">
-            <div className="health-key"><span className="health-dot"></span> Total registros</div>
-            <div className="health-val">{total}</div>
-            <div className="health-sub">{cClients ?? 0} clientes · {cProducts ?? 0} productos</div>
-          </div>
-          <div className="health-cell">
-            <div className="health-key"><span className="health-dot"></span> Catálogo</div>
-            <div className="health-val">{cCategories ?? 0}</div>
-            <div className="health-sub">categorías · {cBrands ?? 0} marcas</div>
-          </div>
-          <div className="health-cell">
-            <div className="health-key"><span className="health-dot"></span> Equipo activo</div>
-            <div className="health-val">{cProfiles ?? 0}</div>
-            <div className="health-sub">perfiles · {cChannels ?? 0} canales</div>
-          </div>
-          <div className="health-cell">
-            <div className={`health-key`}><span className={`health-dot ${cInsurance ? "" : "warn"}`}></span> Cargas seguros</div>
-            <div className="health-val">{cInsurance ?? 0}</div>
-            <div className={`health-sub ${cInsurance ? "ok" : "warn"}`}>
-              {cInsurance ? "histórico disponible" : "sin carga · pendiente"}
-            </div>
           </div>
         </div>
       </section>
@@ -72,39 +41,15 @@ export default async function AdminPage() {
           <div className="block-head">
             <div className="block-title">
               <span className="block-title-num">1</span>
-              <span className="block-title-text">Datos maestros<span className="block-sub">Listar, editar o crear registros uno por uno</span></span>
+              <span className="block-title-text">Herramientas<span className="block-sub">Mapeos y costos</span></span>
             </div>
-            <span className="block-hint">Mantención individual</span>
           </div>
 
           <div className="cards-grid">
             <DataCard
-              icon="clients"
-              title="Clientes"
-              desc="Base B2B con datos comerciales, dirección, condiciones de pago y vendedor asignado."
-              pill={{ tone: "ok", text: "Al día" }}
-              stats={[{ val: cClients ?? 0, key: "Registros" }]}
-              href="/admin/clientes"
-              iconSvg={<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />}
-            />
-
-            <DataCard
-              icon="products"
-              title="Productos"
-              desc="Catálogo de SKUs con precios netos, brutos, mínimos, categorías y marcas."
-              pill={cProducts && cProducts > 0 ? { tone: "ok", text: `${cCategories ?? 0} categorías` } : undefined}
-              stats={[
-                { val: cProducts ?? 0, key: "SKUs" },
-                { val: cBrands ?? 0, key: "Marcas" },
-              ]}
-              href="/admin/productos"
-              iconSvg={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><path d="m3.27 6.96 8.73 5.05 8.73-5.05M12 22.08V12" /></>}
-            />
-
-            <DataCard
               icon="suppliers"
               title="Mapeo Supermercados (DUN ↔ SKU)"
-              desc="Código DUN/EAN que viene en las OC de supermercados, vinculado a tu SKU interno. Sin esto las líneas quedan huérfanas."
+              desc="Código DUN/EAN de OC supermercados vinculado a SKU interno."
               pill={(cUpcTotal ?? 0) > 0 && (cUpcMatched ?? 0) < (cUpcTotal ?? 0)
                 ? { tone: "warn", text: `${(cUpcTotal ?? 0) - (cUpcMatched ?? 0)} sin SKU` }
                 : (cUpcTotal ?? 0) === 0
@@ -119,17 +64,16 @@ export default async function AdminPage() {
             />
 
             <DataCard
-              icon="zones"
-              title="Ejecutivos / Canales"
-              desc="Vendedores activos, canales (mayorista, supermercado). Próximamente."
-              pill={{ tone: "default", text: "Próximamente" }}
+              icon="costs"
+              title="Costos y Rappel"
+              desc="Importar costos trimestrales y gestionar acuerdos rappel con cadenas."
+              pill={(cProductCosts ?? 0) > 0 ? { tone: "ok", text: `${cRappel ?? 0} rappel` } : { tone: "warn", text: "sin costos" }}
               stats={[
-                { val: cProfiles ?? 0, key: "Ejecutivos" },
-                { val: cChannels ?? 0, key: "Canales" },
+                { val: cProductCosts ?? 0, key: "Costos" },
+                { val: cRappel ?? 0, key: "Rappel" },
               ]}
-              href="/admin"
-              iconSvg={<><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></>}
-              disabled
+              href="/admin/costos"
+              iconSvg={<><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></>}
             />
           </div>
         </div>
@@ -158,14 +102,13 @@ export default async function AdminPage() {
             />
             <LoaderCard
               title="OC Supermercados"
-              desc="Sube los PDF / Word de las OC. Detecta cadena, parsea líneas y vincula a SKU vía mapeo UPC. No duplica."
+              desc="Sube los PDF / Word de las OC. Detecta cadena, parsea líneas y vincula a SKU vía mapeo UPC."
               meta="Cencosud, Tottus, Rendic, Alvi, SCPD, Walmart"
               href="/admin/cargadores/oc-supermercados"
             />
-
             <LoaderCard
               title="Seguros (línea de crédito)"
-              desc="Carga mensual. Sube Nominados + Innominados, valoriza en UF y actualiza línea aseguradora por cliente."
+              desc="Carga mensual. Sube Nominados + Innominados, valoriza en UF y actualiza línea aseguradora."
               meta={cInsurance ? `${cInsurance} cargas` : "sin cargas"}
               href="/admin/cargadores/seguros"
               special
@@ -178,19 +121,18 @@ export default async function AdminPage() {
 }
 
 function DataCard({
-  icon, title, desc, pill, stats, href, iconSvg, disabled,
+  icon, title, desc, pill, stats, href, iconSvg,
 }: {
-  icon: "clients" | "products" | "suppliers" | "zones";
+  icon: "suppliers" | "costs";
   title: string;
   desc: string;
   pill?: { tone: "ok" | "warn" | "default"; text: string };
   stats: Array<{ val: number | string; key: string }>;
   href: string;
   iconSvg: React.ReactNode;
-  disabled?: boolean;
 }) {
   return (
-    <div className="data-card" style={disabled ? { opacity: 0.55 } : undefined}>
+    <div className="data-card">
       <div className="data-card-body">
         <div className="data-card-icon-row">
           <div className={`data-card-icon ${icon}`}>
@@ -216,7 +158,7 @@ function DataCard({
       <div className="data-card-foot">
         <Link href={href} className="primary">
           <svg className="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-          {disabled ? "Ver más adelante" : "Listar y editar"}
+          Abrir
         </Link>
       </div>
     </div>

@@ -11,14 +11,13 @@ export function DashboardShell({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
 
-  // Close drawer on route change
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
-  // Lock body scroll when drawer is open
   useEffect(() => {
     if (open) {
       const prev = document.body.style.overflow;
@@ -28,7 +27,7 @@ export function DashboardShell({
   }, [open]);
 
   return (
-    <div className={`dash-shell ${open ? "drawer-open" : ""}`}>
+    <div className={`dash-shell ${open ? "drawer-open" : ""} ${collapsed ? "sidebar-collapsed" : ""}`}>
       {/* Mobile top bar */}
       <div className="dash-mobile-bar">
         <button
@@ -54,11 +53,22 @@ export function DashboardShell({
         </div>
       </div>
 
+      {/* Desktop collapse toggle */}
+      <button
+        type="button"
+        className="dash-collapse-btn"
+        title={collapsed ? "Mostrar menú" : "Ocultar menú"}
+        onClick={() => setCollapsed((v) => !v)}
+      >
+        <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+      </button>
+
       <aside className="dash-sidebar">
         {sidebar}
       </aside>
 
-      {/* Backdrop only visible when open on mobile */}
       <button
         type="button"
         className="dash-backdrop"

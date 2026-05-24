@@ -36,6 +36,8 @@ export interface SalesChannel {
   id: string;
   name: string;
   display_name: string;
+  nv_prefix: string;
+  nv_last_correlative: number;
   is_active: boolean;
 }
 
@@ -83,6 +85,12 @@ export interface Product {
   ila_rate: number;
   is_active: boolean;
   deleted_at: string | null;
+  unit_cost_net: number | null;
+  unit_cost_updated_at: string | null;
+  supplier: string | null;
+  cc_vinos: string | null;
+  wine_line: string | null;
+  grape: string | null;
   category?: ProductCategory;
   brand?: Brand;
 }
@@ -124,6 +132,7 @@ export interface SalesNote {
   nv_number: string;
   client_id: string;
   salesperson_id: string | null;
+  channel_id: string | null;
   nv_date: string;
   payment_term_id: string | null;
   warehouse_id: string;
@@ -210,4 +219,29 @@ export interface StockAvailable {
   committed_units: number;
   available_stock: number;
   last_sync_at: string | null;
+}
+
+export interface ProductCost {
+  id: string;
+  product_id: string;
+  quarter: string;
+  quarter_start: string;
+  unit_cost_net: number;
+}
+
+export interface RappelAgreement {
+  id: string;
+  chain_id: string;
+  label: string | null;
+  rappel_pct: number;
+  centralizacion_pct: number;
+  merma_pct: number;
+  extra_net_pct: number | null;
+  extra_net_fixed: string | null;
+  reposicion_pct: number;
+  total_pct: number;
+  fecha_acuerdo: string | null;
+  fecha_actualizacion: string | null;
+  is_active: boolean;
+  chain?: { id: string; name: string };
 }

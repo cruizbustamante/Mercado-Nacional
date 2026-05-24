@@ -140,21 +140,42 @@ export async function saveSalesNote(input: SaveNvInput): Promise<SaveNvResult> {
 
   const totalAmount = totalNeto + totalLog + totalIva + totalIla;
 
-  // Generar NV number desde la secuencia
-  const { data: seqRow, error: seqErr } = await supabase.rpc("nextval_nv");
+  // Resolver canal del cliente para correlativo por canal
+  const { data: clientData } = await supabase
+    .from("clients")
+    .select("channel_id")
+    .eq("id", input.client_id)
+    .single();
+  const channelId: string | null = clientData?.channel_id ?? null;
+
   let nvNumber: string;
-  if (seqErr) {
-    // fallback: usar timestamp si la función no existe
-    const { data: maxRow } = await supabase
-      .from("sales_notes")
-      .select("nv_number")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const lastNum = maxRow?.nv_number ? parseInt(String(maxRow.nv_number).replace(/\D/g, ""), 10) : 10000;
-    nvNumber = `${nvPrefix}${String(lastNum + 1).padStart(nvPadding, "0")}`;
+  if (channelId) {
+    const { data: newCorr, error: corrErr } = await supabase
+      .rpc("increment_channel_correlative", { p_channel_id: channelId });
+    if (corrErr || newCorr == null) {
+      return { ok: false, error: `Error generando correlativo: ${corrErr?.message ?? "desconocido"}` };
+    }
+    const { data: ch } = await supabase
+      .from("sales_channels")
+      .select("nv_prefix")
+      .eq("id", channelId)
+      .single();
+    const prefix = ch?.nv_prefix ?? "";
+    nvNumber = `${prefix}-${String(newCorr as number).padStart(nvPadding, "0")}`;
   } else {
-    nvNumber = `${nvPrefix}${String(seqRow as number).padStart(nvPadding, "0")}`;
+    const { data: seqRow, error: seqErr } = await supabase.rpc("nextval_nv");
+    if (seqErr) {
+      const { data: maxRow } = await supabase
+        .from("sales_notes")
+        .select("nv_number")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const lastNum = maxRow?.nv_number ? parseInt(String(maxRow.nv_number).replace(/\D/g, ""), 10) : 10000;
+      nvNumber = `${nvPrefix}${String(lastNum + 1).padStart(nvPadding, "0")}`;
+    } else {
+      nvNumber = `${nvPrefix}${String(seqRow as number).padStart(nvPadding, "0")}`;
+    }
   }
 
   // Insertar sales_note
@@ -163,6 +184,7 @@ export async function saveSalesNote(input: SaveNvInput): Promise<SaveNvResult> {
     .insert({
       nv_number: nvNumber,
       client_id: input.client_id,
+      channel_id: channelId,
       salesperson_id: profile.id,
       nv_date: new Date().toISOString().split("T")[0],
       payment_term_id: input.payment_term_id,

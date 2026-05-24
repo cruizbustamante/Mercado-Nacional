@@ -21,7 +21,6 @@ export async function saveClient(prev: FormState, fd: FormData): Promise<FormSta
   const rutRaw = fd.get("rut") as string;
   const r = parseRut(rutRaw);
   if (!r) return { ok: false, error: "RUT inválido." };
-
   const name = (fd.get("name") as string)?.trim();
   if (!name) return { ok: false, error: "Razón social es obligatoria." };
 
@@ -53,6 +52,7 @@ export async function saveClient(prev: FormState, fd: FormData): Promise<FormSta
   }
 
   revalidatePath("/admin/clientes");
+  revalidatePath("/admin");
   return { ok: true, error: null };
 }
 
@@ -62,4 +62,5 @@ export async function deleteClient(fd: FormData): Promise<void> {
   const supabase = await createClient();
   await supabase.from("clients").update({ deleted_at: new Date().toISOString() }).eq("id", id);
   revalidatePath("/admin/clientes");
+  revalidatePath("/admin");
 }

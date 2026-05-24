@@ -7,7 +7,7 @@ export default async function ClientesAdminPage() {
   const [clientsRes, ptRes, profilesRes, channelsRes] = await Promise.all([
     supabase
       .from("clients")
-      .select("id, rut_body, rut_dv, name, address, commune, city, phone, email, payment_term_id, salesperson_id, channel_id, credit_line_clp, insurer_name, insurer_credit_line_clp, payment_term:payment_terms(name), salesperson:profiles(short_name, full_name)", { count: "exact" })
+      .select("id, rut_body, rut_dv, name, address, commune, city, phone, email, payment_term_id, salesperson_id, channel_id, credit_line_clp, insurer_name, insurer_credit_line_clp, payment_term:payment_terms(name), salesperson:profiles(short_name, full_name)")
       .is("deleted_at", null)
       .order("name"),
     supabase.from("payment_terms").select("id, name").eq("is_active", true).order("name"),
@@ -39,20 +39,26 @@ export default async function ClientesAdminPage() {
 
   const paymentTerms: Option[] = (ptRes.data ?? []).map((p) => ({ id: p.id, label: p.name }));
   const channels: Option[] = (channelsRes.data ?? []).map((c) => ({ id: c.id, label: c.display_name }));
-
   const salespeople: Option[] = ((profilesRes.data ?? []) as unknown as Array<{
     id: string; full_name: string; short_name: string | null; role: { name: string } | null;
   }>)
     .filter((p) => p.role && ["vendedor", "jefe_ventas", "admin"].includes(p.role.name))
     .map((p) => ({ id: p.id, label: p.short_name ?? p.full_name }));
 
+  const cities = new Set(rows.map((r) => r.city).filter(Boolean));
+
   return (
     <ClientsTable
       initial={rows}
-      totalCount={clientsRes.count ?? rows.length}
       paymentTerms={paymentTerms}
       salespeople={salespeople}
       channels={channels}
+      stats={{
+        total: rows.length,
+        with_insurer: rows.filter((r) => r.insurer_credit_line_clp > 0).length,
+        without_salesperson: rows.filter((r) => !r.salesperson_id).length,
+        cities: cities.size,
+      }}
     />
   );
 }

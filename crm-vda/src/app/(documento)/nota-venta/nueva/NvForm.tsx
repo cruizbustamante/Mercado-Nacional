@@ -529,7 +529,10 @@ function ProductSearch({
   onPick: (p: NvProduct) => void;
   onTextChange: (v: string) => void;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
   const matches = useMemo(() => {
     const v = value.trim().toLowerCase();
     if (!v) return products.slice(0, 15);
@@ -538,9 +541,26 @@ function ProductSearch({
       .slice(0, 15);
   }, [value, products]);
 
+  useEffect(() => {
+    if (!focused || !inputRef.current) { setPos(null); return; }
+    const updatePos = () => {
+      if (!inputRef.current) return;
+      const r = inputRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 420) });
+    };
+    updatePos();
+    window.addEventListener("scroll", updatePos, true);
+    window.addEventListener("resize", updatePos);
+    return () => {
+      window.removeEventListener("scroll", updatePos, true);
+      window.removeEventListener("resize", updatePos);
+    };
+  }, [focused]);
+
   return (
-    <div style={{ position: "relative" }}>
+    <>
       <input
+        ref={inputRef}
         className="cell-input txt"
         placeholder={`Busca entre ${products.length} productos por SKU o nombre…`}
         value={value}
@@ -549,13 +569,15 @@ function ProductSearch({
         onBlur={() => setTimeout(() => setFocused(false), 200)}
         autoFocus
       />
-      {focused && (
+      {focused && pos && (
         <ul style={{
-          position: "absolute", top: "100%", left: 0, right: 0, zIndex: 30,
+          position: "fixed",
+          top: pos.top, left: pos.left, width: pos.width,
+          zIndex: 1000,
           background: "var(--surface)", border: "1px solid var(--border)",
-          borderTop: "none", borderRadius: "0 0 var(--r-sm) var(--r-sm)",
-          maxHeight: 280, overflowY: "auto", listStyle: "none", padding: 0, margin: 0,
-          boxShadow: "var(--shadow-2)", minWidth: 380,
+          borderRadius: "var(--r-sm)",
+          maxHeight: 320, overflowY: "auto", listStyle: "none", padding: 0, margin: 0,
+          boxShadow: "var(--shadow-2)",
         }}>
           {matches.length === 0 ? (
             <li style={{ padding: "10px", fontSize: 12, color: "var(--text-3)" }}>Sin coincidencias</li>
@@ -580,7 +602,7 @@ function ProductSearch({
           ))}
         </ul>
       )}
-    </div>
+    </>
   );
 }
 

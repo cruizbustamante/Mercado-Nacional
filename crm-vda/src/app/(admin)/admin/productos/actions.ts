@@ -64,6 +64,7 @@ export async function saveProduct(prev: FormState, fd: FormData): Promise<FormSt
   }
 
   revalidatePath("/admin/productos");
+  revalidatePath("/admin");
   return { ok: true, error: null };
 }
 
@@ -73,4 +74,5 @@ export async function deleteProduct(fd: FormData): Promise<void> {
   const supabase = await createClient();
   await supabase.from("products").update({ deleted_at: new Date().toISOString() }).eq("id", id);
   revalidatePath("/admin/productos");
+  revalidatePath("/admin");
 }

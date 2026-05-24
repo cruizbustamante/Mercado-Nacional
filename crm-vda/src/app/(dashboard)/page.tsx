@@ -10,46 +10,52 @@ export default async function HomePage() {
   const modules = await getUserModules(profile.id, profile.role_id);
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Hola, {profile.short_name ?? profile.full_name}
-        </h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          {profile.role?.display_name} · {modules.length} módulos disponibles
-        </p>
-      </div>
+    <>
+      <section className="hero">
+        <div className="hero-grid">
+          <div>
+            <div className="hero-eyebrow">Sistema de gestión comercial</div>
+            <h1 className="hero-title">Hola, {profile.short_name ?? profile.full_name}</h1>
+            <p className="hero-sub">
+              {profile.role?.display_name} · {modules.length} módulos disponibles según tu rol.
+              Selecciona uno abajo para empezar.
+            </p>
+          </div>
+        </div>
+      </section>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {modules.map((m) => (
-          <Link
-            key={m.id}
-            href={MODULE_ROUTES[m.name] ?? "/"}
-            className="group relative overflow-hidden rounded-lg border border-zinc-200 bg-white p-5 transition hover:shadow-md"
-          >
-            <div
-              className="absolute left-0 top-0 h-full w-1"
-              style={{ backgroundColor: m.color ?? "#666" }}
-            />
-            <div className="flex items-start gap-3">
-              <span
-                className="flex h-10 w-10 items-center justify-center rounded-md text-2xl"
-                style={{ backgroundColor: (m.color ?? "#666") + "15" }}
-              >
-                {MODULE_ICONS[m.icon ?? ""] ?? "•"}
-              </span>
-              <div className="min-w-0 flex-1">
-                <h2 className="font-medium text-zinc-900 group-hover:text-zinc-700">
-                  {m.display_name}
-                </h2>
-                {m.description && (
-                  <p className="mt-1 text-xs text-zinc-500">{m.description}</p>
-                )}
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
-    </div>
+      <main className="content">
+        <div className="cards-grid">
+          {modules.map((m) => {
+            const href = MODULE_ROUTES[m.name] ?? "/";
+            return (
+              <Link key={m.id} href={href} className="data-card">
+                <div className="data-card-body">
+                  <div className="data-card-icon-row">
+                    <div className="data-card-icon module" style={{
+                      background: (m.color ?? "#666") + "1A",
+                      color: m.color ?? "var(--text)",
+                    }}>
+                      <span style={{ fontSize: 22, lineHeight: 1 }}>
+                        {MODULE_ICONS[m.icon ?? ""] ?? "•"}
+                      </span>
+                    </div>
+                    {m.can_edit && <span className="data-card-pill ok">edición</span>}
+                  </div>
+                  <div className="data-card-name">{m.display_name}</div>
+                  {m.description && <div className="data-card-desc">{m.description}</div>}
+                </div>
+                <div className="data-card-foot">
+                  <span className="primary">
+                    Abrir módulo
+                    <svg className="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </main>
+    </>
   );
 }

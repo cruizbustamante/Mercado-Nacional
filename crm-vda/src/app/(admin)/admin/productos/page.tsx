@@ -3,10 +3,10 @@ import { ProductsTable, type ProductRow } from "./ProductsTable";
 
 export default async function ProductosAdminPage() {
   const supabase = await createClient();
-  const [{ data: rows, count }, { data: cats }, { data: brs }] = await Promise.all([
+  const [{ data: rows }, { data: cats }, { data: brs }] = await Promise.all([
     supabase
       .from("products")
-      .select("id, sku, name, units_per_box, base_price_net, base_price_gross, min_price_net, is_active, category:product_categories(name), brand:brands(name)", { count: "exact" })
+      .select("id, sku, name, units_per_box, base_price_net, base_price_gross, min_price_net, is_active, category:product_categories(name), brand:brands(name)")
       .is("deleted_at", null)
       .order("name"),
     supabase.from("product_categories").select("name").order("name"),
@@ -27,12 +27,19 @@ export default async function ProductosAdminPage() {
     brand_name: p.brand?.name ?? null,
   }));
 
+  const unclassified = products.filter((p) => !p.category_name || !p.brand_name).length;
+
   return (
     <ProductsTable
       initial={products}
-      totalCount={count ?? products.length}
       categories={(cats ?? []).map((c) => c.name)}
       brands={(brs ?? []).map((b) => b.name)}
+      stats={{
+        total: products.length,
+        cats: (cats ?? []).length,
+        brands: (brs ?? []).length,
+        unclassified,
+      }}
     />
   );
 }

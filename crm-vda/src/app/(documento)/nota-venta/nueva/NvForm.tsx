@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState, useRef, useEffect, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatRut } from "@/lib/rut";
+import { saveSalesNote } from "./actions";
 
 export interface NvClient {
   id: string;
@@ -186,6 +188,42 @@ export function NvForm({
   const available = Math.max(0, effectiveLine - usedCredit);
 
   const canEmit = !!client && lines.some((l) => l.product && (parseInt(l.cajas || "0", 10) || 0) > 0);
+
+  const router = useRouter();
+  const [emitting, startEmit] = useTransition();
+  const [emitError, setEmitError] = useState<string | null>(null);
+
+  function handleEmit() {
+    if (!client) return;
+    setEmitError(null);
+    const validLines = lines.filter(
+      (l) => l.product && (parseInt(l.cajas || "0", 10) || 0) > 0
+    );
+    if (validLines.length === 0) {
+      setEmitError("Debes ingresar al menos una línea con cajas > 0.");
+      return;
+    }
+    startEmit(async () => {
+      const r = await saveSalesNote({
+        client_id: client.id,
+        payment_term_id: paymentTermId || null,
+        warehouse_id: warehouseId,
+        delivery_address: deliveryAddr,
+        delivery_schedule: "",
+        observations: observations,
+        lines: validLines.map((l) => ({
+          product_id: l.product!.id,
+          cajas: parseInt(l.cajas || "0", 10) || 0,
+          precio_bruto: parseInt(l.precio_bruto || "0", 10) || 0,
+        })),
+      });
+      if (!r.ok) {
+        setEmitError(r.error ?? "Error desconocido al emitir.");
+        return;
+      }
+      router.push(`/nota-venta/${r.nv_id}`);
+    });
+  }
 
   return (
     <>
@@ -577,16 +615,34 @@ export function NvForm({
           </div>
 
           <div className="summary-actions">
-            <button type="button" className="btn btn-emit btn-lg" disabled={!canEmit}>
-              {totals.requires_vb ? "Solicitar V°B° y emitir" : "Emitir NV"}
+            <button
+              type="button"
+              className="btn btn-emit btn-lg"
+              disabled={!canEmit || emitting}
+              onClick={handleEmit}
+            >
+              {emitting
+                ? "Emitiendo..."
+                : totals.requires_vb
+                ? "Solicitar V°B° y emitir"
+                : "Emitir NV"}
             </button>
-            <button type="button" className="btn btn-ghost">Guardar borrador</button>
             <Link href="/nota-venta" className="btn btn-ghost" style={{ textDecoration: "none" }}>Cancelar</Link>
           </div>
 
+          {emitError && (
+            <div style={{
+              marginTop: 10, padding: 10, fontSize: 12,
+              background: "var(--danger-soft)", color: "var(--danger)",
+              borderRadius: "var(--r-sm)", border: "1px solid rgba(139,45,31,0.18)",
+            }}>
+              ⚠ {emitError}
+            </div>
+          )}
+
           <div className="smeta">
-            <span>Borrador no persistido</span>
-            <span>v 0.2</span>
+            <span>{emitting ? "Guardando..." : "Listo para emitir"}</span>
+            <span>v 0.3</span>
           </div>
         </aside>
       </div>

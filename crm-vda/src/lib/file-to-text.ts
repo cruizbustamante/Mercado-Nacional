@@ -1,4 +1,24 @@
 /**
+ * Decodifica entities HTML comunes (numéricas + named).
+ */
+function decodeHtmlEntities(html: string): string {
+  const named: Record<string, string> = {
+    "nbsp": " ", "amp": "&", "lt": "<", "gt": ">", "quot": '"', "apos": "'",
+    "aacute": "á", "eacute": "é", "iacute": "í", "oacute": "ó", "uacute": "ú",
+    "Aacute": "Á", "Eacute": "É", "Iacute": "Í", "Oacute": "Ó", "Uacute": "Ú",
+    "ntilde": "ñ", "Ntilde": "Ñ",
+    "uuml": "ü", "Uuml": "Ü", "iuml": "ï", "auml": "ä", "ouml": "ö",
+    "ordf": "ª", "ordm": "º", "iexcl": "¡", "iquest": "¿",
+    "deg": "°", "middot": "·", "hellip": "…", "ndash": "–", "mdash": "—",
+    "trade": "™", "copy": "©", "reg": "®", "euro": "€",
+  };
+  return html
+    .replace(/&#x([\da-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&([a-zA-Z][a-zA-Z0-9]+);/g, (m, name) => named[name] ?? m);
+}
+
+/**
  * Convierte un archivo (PDF, DOC, DOCX, MD, TXT) a texto plano para parsing.
  *
  * .docx → mammoth (formato OOXML / zip)
@@ -66,21 +86,36 @@ export async function fileToText(file: File): Promise<string> {
 
     // 3) HTML / RTF / XML / texto plano → leer como UTF-8 y limpiar
     try {
-      const text = buf.toString("utf8");
-      // Si es HTML, strip tags básico
+      // Probar UTF-8 primero, si tiene caracteres �, probar latin1
+      let text = buf.toString("utf8");
+      if (text.includes("�")) {
+        text = buf.toString("latin1");
+      }
+
+      // HTML (común para .doc exportados por Comercionet, EDI Chile, etc.)
       if (/<html|<body|<table|<\?xml/i.test(text)) {
-        return text
+        // PRESERVAR estructura de tabla: insertar pipes y newlines antes de stripear
+        text = text
           .replace(/<style[\s\S]*?<\/style>/gi, "")
           .replace(/<script[\s\S]*?<\/script>/gi, "")
-          .replace(/<[^>]+>/g, " ")
-          .replace(/&nbsp;/g, " ")
-          .replace(/&amp;/g, "&")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/\s+/g, " ")
-          .trim();
+          .replace(/<\/td>/gi, " | ")
+          .replace(/<\/tr>/gi, "\n")
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<\/p>/gi, "\n")
+          .replace(/<[^>]+>/g, " ");
+
+        // Decodificar entities HTML comunes
+        text = decodeHtmlEntities(text);
+
+        // Normalizar espacios pero preservar saltos de línea
+        return text
+          .split("\n")
+          .map((l) => l.replace(/\s+/g, " ").trim())
+          .filter((l) => l.length > 0)
+          .join("\n");
       }
-      // Si es RTF (comienza con {\rtf), strip códigos básicos
+
+      // RTF
       if (text.startsWith("{\\rtf")) {
         return text
           .replace(/\\[a-z]+\d*\s?/gi, " ")
@@ -88,7 +123,7 @@ export async function fileToText(file: File): Promise<string> {
           .replace(/\s+/g, " ")
           .trim();
       }
-      // Sin sentido → falla
+
       throw new Error("Formato no reconocido");
     } catch (e) {
       errors.push(`texto: ${(e as Error).message}`);

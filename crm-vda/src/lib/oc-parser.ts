@@ -65,7 +65,12 @@ export function detectChain(text: string): SuperChain {
 
 // ---------- Parser genérico para MarkItDown ----------
 // Funciona para Cencosud, Tottus, Rendic, Alvi, SCPD (todas exportan a mismo formato)
-function parseMarkitdownOC(text: string, chain: SuperChain): ParsedOc {
+function parseMarkitdownOC(textRaw: string, chain: SuperChain): ParsedOc {
+  // Normalizar: colapsar todos los newlines a espacios (para que regex funcione
+  // tanto sobre el .md original como sobre el .doc HTML convertido).
+  // Mantener doble espacio entre celdas para que `|` los separe.
+  const text = textRaw.replace(/\r?\n+/g, " ").replace(/\s{2,}/g, " ");
+
   const find = (re: RegExp): string => {
     const m = text.match(re);
     return m ? m[1].trim() : "";
@@ -85,43 +90,39 @@ function parseMarkitdownOC(text: string, chain: SuperChain): ParsedOc {
   const total_str = find(/TOTAL\s*\|\s*\$([\d.,]+)/i);
   const total_amount = clpToInt(total_str);
 
-  // Líneas: patrón "| N | UPC | descripción | X,XX Cajas | X,XX Unid. | $precio (...) | ..."
-  // El campo "Cajas" puede tener variantes: "Cajas", "Cajas de carton", etc.
+  // Líneas: el formato es "N | UPC | descripción | X,XX Cajas | X,XX Unid. | $precio (Precio lista) | ..."
+  // El número puede estar al inicio o precedido por texto (Monto, etc.). El UPC tiene 10-14 dígitos.
+  // Cajas puede tener variantes: "Cajas", "Cajas de carton".
+  // Después del precio puede venir "(Precio lista)" + cargos/descuentos + monto total al final.
   const lines: ParsedOcLine[] = [];
-  const lineRe = /\|\s*(\d+)\s*\|\s*(\d{10,14})\s*\|\s*([^|]+?)\s*\|\s*([\d.,]+)\s*Cajas[^|]*\|\s*([\d.,]+)\s*Unid\.?\s*\|\s*\$([\d.,]+)(?:\s*\([^)]*\))?\s*\|[^|]*\|[^|]*\|\s*\$?([\d.,]*)\s*\|\s*\$([\d.,]+)\s*\|/gi;
+  // Captura: número, UPC, descripción, cantidad cajas, unid/pack, precio unitario
+  const lineRe = /(?:^|\||\s)(\d{1,3})\s*\|\s*(\d{10,14})\s*\|\s*([^|]+?)\s*\|\s*([\d.,]+)\s*Cajas[^|]*\|\s*([\d.,]+)\s*Unid\.?\s*\|\s*\$([\d.,]+)/gi;
   let m: RegExpExecArray | null;
   while ((m = lineRe.exec(text)) !== null) {
-    const [, lineNum, upc, name, cajasStr, unidStr, precioStr, , totalStr] = m;
+    const [, lineNum, upc, name, cajasStr, unidStr, precioStr] = m;
+    const cajas = Math.round(clNumber(cajasStr));
+    const unidPack = Math.round(clNumber(unidStr));
+    const precio = clpToInt(precioStr);
+
+    // Buscar el monto total de la línea: el último $XXX antes del siguiente número de línea o "TOTAL"
+    // Empezamos desde donde terminó el match y buscamos $XXX
+    const afterIdx = m.index + m[0].length;
+    const restToScan = text.slice(afterIdx, afterIdx + 400);
+    // Tomar el último $monto antes del próximo "| N |" o "TOTAL"
+    const cutMatch = restToScan.match(/\|\s*(?:\d{1,3}\s*\||TOTAL)/);
+    const segment = cutMatch ? restToScan.slice(0, cutMatch.index) : restToScan;
+    const amounts = [...segment.matchAll(/\$\s*([\d.,]+)/g)].map((a) => clpToInt(a[1]));
+    const lineAmount = amounts.length > 0 ? amounts[amounts.length - 1] : cajas * unidPack * precio;
+
     lines.push({
       line_number: parseInt(lineNum, 10),
       upc_code: canonUpc(upc),
       product_name_oc: name.trim(),
-      quantity_boxes: Math.round(clNumber(cajasStr)),
-      units_per_pack: Math.round(clNumber(unidStr)),
-      unit_price: clpToInt(precioStr),
-      line_amount: clpToInt(totalStr),
+      quantity_boxes: cajas,
+      units_per_pack: unidPack,
+      unit_price: precio,
+      line_amount: lineAmount,
     });
-  }
-
-  // Fallback más simple si el regex anterior no matcheó nada
-  if (lines.length === 0) {
-    const simpleRe = /\|\s*(\d+)\s*\|\s*(\d{10,14})\s*\|\s*([^|]+?)\s*\|\s*([\d.,]+)\s*Cajas[^|]*\|\s*([\d.,]+)\s*Unid\.?\s*\|\s*\$([\d.,]+)/gi;
-    let m2: RegExpExecArray | null;
-    while ((m2 = simpleRe.exec(text)) !== null) {
-      const [, lineNum, upc, name, cajasStr, unidStr, precioStr] = m2;
-      const cajas = Math.round(clNumber(cajasStr));
-      const unidPack = Math.round(clNumber(unidStr));
-      const precio = clpToInt(precioStr);
-      lines.push({
-        line_number: parseInt(lineNum, 10),
-        upc_code: canonUpc(upc),
-        product_name_oc: name.trim(),
-        quantity_boxes: cajas,
-        units_per_pack: unidPack,
-        unit_price: precio,
-        line_amount: cajas * unidPack * precio,
-      });
-    }
   }
 
   return {

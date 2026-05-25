@@ -109,10 +109,11 @@ function newLine(): NvLine {
 }
 
 export function NvForm({
-  emisor, today, clients, products, warehouses, paymentTerms, config,
+  emisor, today, nextNvNumber, clients, products, warehouses, paymentTerms, config,
 }: {
   emisor: { id: string; full_name: string; short_name: string };
   today: string;
+  nextNvNumber: string;
   clients: NvClient[];
   products: NvProduct[];
   warehouses: NvWarehouse[];
@@ -274,7 +275,7 @@ export function NvForm({
           </div>
           <div className="nv-stamp">
             <div className="doc-eyebrow">Folio</div>
-            <div className="nv-number"><span className="pref">NV-</span>—</div>
+            <div className="nv-number"><span className="pref">NV-</span>{nextNvNumber}</div>
           </div>
         </div>
 

@@ -40,6 +40,17 @@ export default async function NuevaNVPage() {
     vbToleranceClp: parseFloat(cfg.get("vb_tolerance_clp") ?? "5"),
   };
 
+  const { data: lastNvRow } = await supabase
+    .from("sales_notes")
+    .select("nv_number")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const lastNvNum = lastNvRow?.nv_number
+    ? parseInt(String(lastNvRow.nv_number).replace(/\D/g, ""), 10)
+    : 0;
+  const nextNvNumber = String(lastNvNum + 1).padStart(6, "0");
+
   const today = new Date().toISOString().split("T")[0];
 
   return (
@@ -51,6 +62,7 @@ export default async function NuevaNVPage() {
           short_name: profile.short_name ?? profile.full_name,
         }}
         today={today}
+        nextNvNumber={nextNvNumber}
         clients={clients}
         products={products}
         warehouses={warehouses}

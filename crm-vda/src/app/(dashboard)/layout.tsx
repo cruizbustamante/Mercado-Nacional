@@ -7,7 +7,7 @@ import { DashboardShell } from "./DashboardShell";
 import { SidebarNav } from "./SidebarNav";
 import "../warm.css";
 
-const IMPLEMENTED_MODULES = new Set(["emisor_nv", "oc_supermercados", "configuracion"]);
+const IMPLEMENTED_MODULES = new Set(["emisor_nv", "oc_supermercados", "configuracion", "finanzas"]);
 
 const fraunces = Fraunces({ subsets: ["latin"], variable: "--f-display", display: "swap" });
 const instrument = Instrument_Sans({ subsets: ["latin"], variable: "--f-sans", display: "swap" });

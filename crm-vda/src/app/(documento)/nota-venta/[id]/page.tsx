@@ -31,7 +31,7 @@ export default async function NvDetailPage({
     .from("sales_notes")
     .select(`
       *,
-      client:clients(rut_body, rut_dv, name, address, commune, city, phone, email),
+      client:clients(rut_body, rut_dv, name, address, commune, city, phone, email, insurer_status, insurer_credit_line_clp),
       salesperson:profiles!sales_notes_salesperson_id_fkey(full_name, short_name, email),
       warehouse:warehouses(name, code, address, commune, city),
       payment_term:payment_terms(name, days),
@@ -45,7 +45,7 @@ export default async function NvDetailPage({
   const items = (nv.items ?? []) as Array<Record<string, number | string | null>>;
   items.sort((a, b) => (a.line_number as number) - (b.line_number as number));
 
-  const client = nv.client as { rut_body: number; rut_dv: string; name: string; address: string | null; commune: string | null; city: string | null; phone: string | null; email: string | null } | null;
+  const client = nv.client as { rut_body: number; rut_dv: string; name: string; address: string | null; commune: string | null; city: string | null; phone: string | null; email: string | null; insurer_status: string | null; insurer_credit_line_clp: number } | null;
   const salesperson = nv.salesperson as { full_name: string; short_name: string | null; email: string } | null;
   const warehouse = nv.warehouse as { name: string; code: string; address: string | null; commune: string | null; city: string | null } | null;
   const paymentTerm = nv.payment_term as { name: string; days: number } | null;
@@ -118,6 +118,20 @@ export default async function NvDetailPage({
             <div>
               <div className="nv-key">Comuna · Ciudad</div>
               <div className="nv-val">{[client?.commune, client?.city].filter(Boolean).join(" · ") || "—"}</div>
+            </div>
+            <div>
+              <div className="nv-key">Seguro de crédito</div>
+              <div className="nv-val">
+                {client?.insurer_status === "ACTIVA" ? (
+                  <span className="badge badge-ok">VIGENTE — {fmtClp(client.insurer_credit_line_clp)}</span>
+                ) : client?.insurer_status === "CANCEL" ? (
+                  <span className="badge badge-warn">CANCELADO</span>
+                ) : client?.insurer_status === "RECHAZ" ? (
+                  <span className="badge badge-danger">RECHAZADO</span>
+                ) : (
+                  <span style={{ color: "var(--text-3)" }}>Sin seguro</span>
+                )}
+              </div>
             </div>
           </div>
         </section>

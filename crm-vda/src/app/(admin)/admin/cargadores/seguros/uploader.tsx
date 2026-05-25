@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useRef } from "react";
-import { previewInsurance, applyInsurance, type InsurancePreview } from "./actions";
+import { previewInsurance, applyInsurance, type InsurancePreview, type ApplyInput } from "./actions";
 
 const fmtClp = new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 });
 const fmtUf = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 });
@@ -9,23 +9,64 @@ const fmtUf = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 });
 export function InsuranceUploader() {
   const [preview, setPreview] = useState<InsurancePreview | null>(null);
   const [applyResult, setApplyResult] = useState<{ ok: boolean; errors: string[]; uploadId: string | null; recordsInserted: number; clientsUpdated: number } | null>(null);
+  const [fatalError, setFatalError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
 
   async function onPreview(formData: FormData) {
+    setFatalError(null);
     startTransition(async () => {
-      const r = await previewInsurance(formData);
-      setPreview(r);
-      setApplyResult(null);
+      try {
+        const r = await previewInsurance(formData);
+        setPreview(r);
+        setApplyResult(null);
+      } catch (err) {
+        setFatalError(`Error en preview: ${err instanceof Error ? err.message : String(err)}`);
+      }
     });
   }
 
   async function onApply() {
-    if (!formRef.current) return;
-    const fd = new FormData(formRef.current);
+    if (!preview) return;
+    setFatalError(null);
+
+    function toDateStr(v: unknown): string | null {
+      if (!v) return null;
+      if (v instanceof Date) return v.toISOString().split("T")[0];
+      const s = String(v);
+      if (s.includes("T")) return s.split("T")[0];
+      return s || null;
+    }
+
+    const input: ApplyInput = {
+      fileDate: preview.fileDate ?? new Date().toISOString().split("T")[0],
+      ufValue: preview.ufValue,
+      totals: preview.totals,
+      records: preview.records.map((r) => ({
+        rut_body: r.rut_body,
+        client_name: r.client_name,
+        origin: r.origin,
+        estado: r.estado,
+        monto_uf: r.monto_uf,
+        monto_clp: r.monto_clp,
+        vigencia_desde: toDateStr(r.vigencia_desde),
+        vigencia_hasta: toDateStr(r.vigencia_hasta),
+        matched: r.matched,
+        client_id: r.client_id,
+      })),
+    };
+
+    console.log("[InsuranceUploader] Enviando apply:", input.records.length, "registros");
+
     startTransition(async () => {
-      const r = await applyInsurance(fd);
-      setApplyResult(r);
+      try {
+        const r = await applyInsurance(input);
+        console.log("[InsuranceUploader] Resultado:", r);
+        setApplyResult(r);
+      } catch (err) {
+        console.error("[InsuranceUploader] Error en apply:", err);
+        setFatalError(`Error al aplicar: ${err instanceof Error ? err.message : String(err)}`);
+      }
     });
   }
 
@@ -59,6 +100,13 @@ export function InsuranceUploader() {
           {pending ? "Procesando..." : "1. Procesar y previsualizar"}
         </button>
       </form>
+
+      {fatalError && (
+        <div className="mt-4 rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-900">
+          <div className="font-semibold">Error</div>
+          <p className="mt-1 font-mono text-xs">{fatalError}</p>
+        </div>
+      )}
 
       {preview && (
         <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-5">

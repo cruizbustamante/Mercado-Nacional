@@ -16,6 +16,7 @@ export interface NvClient {
   city: string | null;
   credit_line_clp: number;
   insurer_credit_line_clp: number;
+  insurer_status: string | null;
   payment_term: { id: string; name: string } | null;
 }
 
@@ -346,12 +347,26 @@ export function NvForm({
                 </div>
                 <div className="intel-body">
                   <div className="intel-row">
+                    <span className="key">Seguro de crédito</span>
+                    <span className="val">
+                      {client?.insurer_status === "ACTIVA" ? (
+                        <span className="badge badge-ok">VIGENTE</span>
+                      ) : client?.insurer_status === "CANCEL" ? (
+                        <span className="badge badge-warn">CANCELADO</span>
+                      ) : client?.insurer_status === "RECHAZ" ? (
+                        <span className="badge badge-danger">RECHAZADO</span>
+                      ) : (
+                        <span className="badge" style={{ background: "var(--surface-2)", color: "var(--text-3)", border: "1px solid var(--border)" }}>SIN SEGURO</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="intel-row">
                     <span className="key">Línea crédito interna</span>
                     <span className="val">{fmtClp(creditLine)}</span>
                   </div>
                   <div className="intel-row">
                     <span className="key">Línea crédito aseguradora</span>
-                    <span className="val">{fmtClp(insurerLine)}</span>
+                    <span className="val">{insurerLine > 0 ? fmtClp(insurerLine) : "—"}</span>
                   </div>
                   <div className="intel-row">
                     <span className="key">Forma de pago</span>

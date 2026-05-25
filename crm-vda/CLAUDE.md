@@ -107,8 +107,10 @@ Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05
   - Mapeo DUN→SKU (1 fila = 1 DUN, auto-remap)
   - Alertas accionables auto-calculadas
   - Mobile responsive (tablas → cards verticales en <900px)
-- ⏳ Cargador de **seguros** tiene bug abierto: preview OK, apply guarda 0 con 2 errores no logueados. Pendiente debug.
-- ⏳ Resto de módulos (Despacho, Stock, Finanzas) — solo placeholder, todavía sin implementación
+- ✅ Cargador de **seguros** corregido: `applyInsurance` recibe `ApplyInput` directo en vez de re-procesar FormData
+- ✅ **Módulo Finanzas** (fase 1): línea de crédito por cliente, historial de cargas, cargador de seguros integrado
+- ⏳ Resto de módulos (Despacho, Stock) — solo placeholder, todavía sin implementación
+- ⏳ Finanzas fase 2: cartolas bancarias + conciliación de pagos
 
 ## Convenciones críticas
 

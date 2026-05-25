@@ -12,7 +12,7 @@ export default async function NuevaNVPage() {
   const [clientsRes, productsRes, warehousesRes, paymentTermsRes, configRes] = await Promise.all([
     supabase
       .from("clients")
-      .select("id, rut_body, rut_dv, name, address, commune, city, credit_line_clp, insurer_credit_line_clp, payment_term:payment_terms(id, name)")
+      .select("id, rut_body, rut_dv, name, address, commune, city, credit_line_clp, insurer_credit_line_clp, insurer_status, payment_term:payment_terms(id, name)")
       .is("deleted_at", null)
       .order("name")
       .limit(500),

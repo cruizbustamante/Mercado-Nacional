@@ -204,88 +204,131 @@ export async function previewInsurance(formData: FormData): Promise<InsurancePre
   };
 }
 
-export async function applyInsurance(formData: FormData): Promise<{
+export interface ApplyInput {
+  fileDate: string;
+  ufValue: number;
+  totals: InsurancePreview["totals"];
+  records: Array<{
+    rut_body: number;
+    client_name: string;
+    origin: string;
+    estado: string;
+    monto_uf: number;
+    monto_clp: number;
+    vigencia_desde: string | null;
+    vigencia_hasta: string | null;
+    matched: boolean;
+    client_id: string | null;
+  }>;
+}
+
+export async function applyInsurance(input: ApplyInput): Promise<{
   ok: boolean;
   errors: string[];
   uploadId: string | null;
   recordsInserted: number;
   clientsUpdated: number;
 }> {
-  const preview = await previewInsurance(formData);
-  if (!preview.ok || preview.records.length === 0) {
-    return { ok: false, errors: preview.errors.length ? preview.errors : ["No hay registros para procesar."], uploadId: null, recordsInserted: 0, clientsUpdated: 0 };
-  }
+  const fail = (msg: string) => ({ ok: false, errors: [msg], uploadId: null, recordsInserted: 0, clientsUpdated: 0 });
 
-  const profile = await getCurrentProfile();
-  const supabase = await createClient();
+  try {
+    if (!input || !input.records || input.records.length === 0) {
+      return fail("No hay registros para procesar.");
+    }
 
-  const totalActive = preview.records.filter((r) => r.estado === "ACTIVA").length;
-  const matched = preview.records.filter((r) => r.matched).length;
+    console.log(`[applyInsurance] Iniciando: ${input.records.length} registros, fileDate=${input.fileDate}, uf=${input.ufValue}`);
 
-  const { data: upload, error: upErr } = await supabase
-    .from("insurance_uploads")
-    .insert({
-      file_date: preview.fileDate,
-      uf_value: preview.ufValue,
-      total_records: preview.totals.rows,
+    const profile = await getCurrentProfile();
+    const supabase = await createClient();
+
+    const totalActive = input.records.filter((r) => r.estado === "ACTIVA").length;
+    const matched = input.records.filter((r) => r.matched).length;
+
+    const uploadPayload = {
+      file_date: input.fileDate,
+      uf_value: input.ufValue,
+      total_records: input.totals.rows,
       total_active: totalActive,
-      total_uf: preview.totals.totalUf,
-      total_clp: preview.totals.totalClp,
+      total_uf: input.totals.totalUf,
+      total_clp: input.totals.totalClp,
       matched_clients: matched,
       uploaded_by: profile?.id ?? null,
-    })
-    .select("id")
-    .single();
+    };
+    console.log("[applyInsurance] Insert upload:", JSON.stringify(uploadPayload));
 
-  if (upErr || !upload) {
-    return { ok: false, errors: [`Error creando registro de carga: ${upErr?.message}`], uploadId: null, recordsInserted: 0, clientsUpdated: 0 };
+    const { data: upload, error: upErr } = await supabase
+      .from("insurance_uploads")
+      .insert(uploadPayload)
+      .select("id")
+      .single();
+
+    if (upErr || !upload) {
+      console.error("[applyInsurance] Error insert upload:", upErr);
+      return fail(`Error creando registro de carga: ${upErr?.message ?? "sin respuesta"}`);
+    }
+
+    console.log("[applyInsurance] Upload creado:", upload.id);
+
+    const dbRecords = input.records.map((r) => ({
+      upload_id: upload.id,
+      client_id: r.client_id,
+      rut_body: r.rut_body,
+      client_name: r.client_name,
+      origin: r.origin,
+      estado: r.estado,
+      monto_uf: r.monto_uf,
+      monto_clp: r.monto_clp,
+      vigencia_desde: r.vigencia_desde || null,
+      vigencia_hasta: r.vigencia_hasta || null,
+      matched: r.matched,
+    }));
+
+    const errors: string[] = [];
+    let recordsInserted = 0;
+    const batchSize = 500;
+    for (let i = 0; i < dbRecords.length; i += batchSize) {
+      const batch = dbRecords.slice(i, i + batchSize);
+      const { error } = await supabase.from("insurance_records").insert(batch);
+      if (error) {
+        console.error(`[applyInsurance] Error batch ${i}:`, error);
+        errors.push(`Batch ${i}: ${error.message}`);
+      } else {
+        recordsInserted += batch.length;
+      }
+    }
+
+    console.log(`[applyInsurance] Records insertados: ${recordsInserted}`);
+
+    let clientsUpdated = 0;
+    const now = new Date().toISOString();
+    for (const r of input.records) {
+      if (!r.client_id) continue;
+      const { error } = await supabase
+        .from("clients")
+        .update({
+          insurer_name: "Aseguradora Nacional",
+          insurer_credit_line_clp: r.monto_clp,
+          insurer_credit_updated_at: now,
+          insurer_status: r.estado,
+        })
+        .eq("id", r.client_id);
+      if (error) {
+        console.error(`[applyInsurance] Error cliente ${r.rut_body}:`, error);
+        errors.push(`Cliente ${r.rut_body}: ${error.message}`);
+      } else {
+        clientsUpdated++;
+      }
+    }
+
+    console.log(`[applyInsurance] Clientes actualizados: ${clientsUpdated}, errores: ${errors.length}`);
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/cargadores/seguros");
+    revalidatePath("/finanzas");
+
+    return { ok: errors.length === 0, errors, uploadId: upload.id, recordsInserted, clientsUpdated };
+  } catch (err) {
+    console.error("[applyInsurance] Error inesperado:", err);
+    return fail(`Error inesperado: ${err instanceof Error ? err.message : String(err)}`);
   }
-
-  // Insert records (en batches)
-  const records = preview.records.map((r) => ({
-    upload_id: upload.id,
-    client_id: r.client_id,
-    rut_body: r.rut_body,
-    client_name: r.client_name,
-    origin: r.origin,
-    estado: r.estado,
-    monto_uf: r.monto_uf,
-    monto_clp: r.monto_clp,
-    vigencia_desde: r.vigencia_desde?.toISOString().split("T")[0] ?? null,
-    vigencia_hasta: r.vigencia_hasta?.toISOString().split("T")[0] ?? null,
-    matched: r.matched,
-  }));
-
-  const errors: string[] = [];
-  let recordsInserted = 0;
-  const batchSize = 500;
-  for (let i = 0; i < records.length; i += batchSize) {
-    const batch = records.slice(i, i + batchSize);
-    const { error } = await supabase.from("insurance_records").insert(batch);
-    if (error) errors.push(`Batch ${i}: ${error.message}`);
-    else recordsInserted += batch.length;
-  }
-
-  // Update clients matched: actualizar línea de crédito + estado + fecha
-  let clientsUpdated = 0;
-  const now = new Date().toISOString();
-  for (const r of preview.records) {
-    if (!r.client_id) continue;
-    const { error } = await supabase
-      .from("clients")
-      .update({
-        insurer_name: "Aseguradora Nacional",
-        insurer_credit_line_clp: r.monto_clp,
-        insurer_credit_updated_at: now,
-        insurer_status: r.estado,
-      })
-      .eq("id", r.client_id);
-    if (error) errors.push(`Cliente ${r.rut_body}: ${error.message}`);
-    else clientsUpdated++;
-  }
-
-  revalidatePath("/admin");
-  revalidatePath("/admin/cargadores/seguros");
-
-  return { ok: errors.length === 0, errors, uploadId: upload.id, recordsInserted, clientsUpdated };
 }

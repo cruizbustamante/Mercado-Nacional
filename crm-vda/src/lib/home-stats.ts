@@ -185,7 +185,7 @@ async function statsForFinanzas(): Promise<ModuleStats> {
       { val: fmtMoney(totalCredito), key: "Crédito total" },
     ],
     actions: [
-      { label: "Cargar seguros", href: "/admin/cargadores/seguros", primary: true },
+      { label: "Control financiero", href: "/finanzas", primary: true },
       { label: "Ver clientes", href: "/admin/clientes" },
     ],
   };

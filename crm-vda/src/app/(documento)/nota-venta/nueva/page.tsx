@@ -40,16 +40,30 @@ export default async function NuevaNVPage() {
     vbToleranceClp: parseFloat(cfg.get("vb_tolerance_clp") ?? "5"),
   };
 
-  const { data: lastNvRow } = await supabase
-    .from("sales_notes")
-    .select("nv_number")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const [{ data: lastNvRow }, { data: outstandingRows }] = await Promise.all([
+    supabase
+      .from("sales_notes")
+      .select("nv_number")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("sales_notes")
+      .select("client_id, total_amount")
+      .neq("status", "RECHAZADO"),
+  ]);
+
   const lastNvNum = lastNvRow?.nv_number
     ? parseInt(String(lastNvRow.nv_number).replace(/\D/g, ""), 10)
     : 0;
   const nextNvNumber = String(lastNvNum + 1).padStart(6, "0");
+
+  const outstandingByClient: Record<string, number> = {};
+  for (const r of outstandingRows ?? []) {
+    if (r.client_id) {
+      outstandingByClient[r.client_id] = (outstandingByClient[r.client_id] ?? 0) + (r.total_amount ?? 0);
+    }
+  }
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -68,6 +82,7 @@ export default async function NuevaNVPage() {
         warehouses={warehouses}
         paymentTerms={paymentTerms}
         config={config}
+        outstandingByClient={outstandingByClient}
       />
     </div>
   );

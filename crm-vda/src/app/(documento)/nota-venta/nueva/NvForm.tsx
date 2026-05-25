@@ -110,7 +110,7 @@ function newLine(): NvLine {
 }
 
 export function NvForm({
-  emisor, today, nextNvNumber, clients, products, warehouses, paymentTerms, config,
+  emisor, today, nextNvNumber, clients, products, warehouses, paymentTerms, config, outstandingByClient,
 }: {
   emisor: { id: string; full_name: string; short_name: string };
   today: string;
@@ -120,6 +120,7 @@ export function NvForm({
   warehouses: NvWarehouse[];
   paymentTerms: NvPaymentTerm[];
   config: NvConfig;
+  outstandingByClient: Record<string, number>;
 }) {
   const [clientId, setClientId] = useState<string>("");
   const client = useMemo(() => clients.find((c) => c.id === clientId), [clientId, clients]);
@@ -182,7 +183,8 @@ export function NvForm({
     return { neto_productos, iva, ila, log_neto, log_iva, cajas, unidades, descuento, total, requires_vb };
   }, [calculated, lines]);
 
-  const usedCredit = totals.total;
+  const existingDebt = client ? (outstandingByClient[client.id] ?? 0) : 0;
+  const usedCredit = existingDebt + totals.total;
   const creditLine = client?.credit_line_clp ?? 0;
   const insurerLine = client?.insurer_credit_line_clp ?? 0;
   const effectiveLine = Math.max(creditLine, insurerLine);
@@ -373,15 +375,30 @@ export function NvForm({
                     <span className="val">{client?.payment_term?.name ?? "—"}</span>
                   </div>
 
+                  {existingDebt > 0 && (
+                    <div className="intel-row">
+                      <span className="key">Deuda vigente (NV previas)</span>
+                      <span className="val" style={{ color: "var(--warning)" }}>{fmtClp(existingDebt)}</span>
+                    </div>
+                  )}
+                  {totals.total > 0 && (
+                    <div className="intel-row">
+                      <span className="key">Esta NV</span>
+                      <span className="val">{fmtClp(totals.total)}</span>
+                    </div>
+                  )}
+
                   {effectiveLine > 0 && (
                     <div className="credit-bar">
                       <div className="credit-bar-head">
                         <span className="key">Uso de crédito</span>
                         <span className="val">{fmtClp(usedCredit)} / {fmtClp(effectiveLine)}</span>
                       </div>
-                      <div className="credit-track"><div className="credit-fill" style={{ width: `${creditPct}%` }}></div></div>
+                      <div className="credit-track">
+                        <div className="credit-fill" style={{ width: `${creditPct}%`, background: creditPct > 90 ? "var(--danger)" : creditPct > 70 ? "var(--warning)" : undefined }}></div>
+                      </div>
                       <div className="credit-bar-foot">
-                        <span>Disponible: <strong style={{ color: "var(--success)" }}>{fmtClp(available)}</strong></span>
+                        <span>Disponible: <strong style={{ color: available > 0 ? "var(--success)" : "var(--danger)" }}>{fmtClp(available)}</strong></span>
                         <span>{creditPct}% utilizado</span>
                       </div>
                     </div>

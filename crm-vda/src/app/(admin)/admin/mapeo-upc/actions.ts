@@ -67,8 +67,9 @@ export async function importUpcMapping(formData: FormData): Promise<UpcImportRes
   // 1 DUN canónico por fila — sin expandir variantes
   const seen = new Set<string>();
   const payloads: Array<{
-    upc: string; product_id: string | null; product_name_oc: string | null;
-    category_name: string | null; brand_name: string | null; created_by: string | null;
+    upc: string; product_id: string | null; original_sku: string | null;
+    product_name_oc: string | null; category_name: string | null;
+    brand_name: string | null; created_by: string | null;
   }> = [];
 
   for (const row of rows) {
@@ -80,6 +81,7 @@ export async function importUpcMapping(formData: FormData): Promise<UpcImportRes
     payloads.push({
       upc,
       product_id: productMap.get(sku) ?? null,
+      original_sku: sku || null,
       product_name_oc: cProd && row[cProd] ? String(row[cProd]).trim() : null,
       category_name: cCat && row[cCat] ? String(row[cCat]).trim() : null,
       brand_name: cBrand && row[cBrand] ? String(row[cBrand]).trim() : null,

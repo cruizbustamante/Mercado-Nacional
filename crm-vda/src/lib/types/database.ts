@@ -85,6 +85,7 @@ export interface Product {
   ila_rate: number;
   is_active: boolean;
   deleted_at: string | null;
+  max_discount_pct: number;
   unit_cost_net: number | null;
   unit_cost_updated_at: string | null;
   supplier: string | null;

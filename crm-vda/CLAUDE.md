@@ -93,12 +93,16 @@ npm run lint     # eslint
 
 ## Estado de la migración
 
-Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05-24:
+Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05-25:
 
 - ✅ Auth + dashboard layout + home rediseñado (cards-dashboard con stats live)
 - ✅ Login rediseñado split editorial 40/60
 - ✅ Data maestra: cargadores Excel (clientes, productos, seguros) + CRUDs modal
+  - Export/Import productos incluye columna "Activo" (is_active)
 - ✅ **Emisión NV** completa con cálculo replicado de Apps Script + PDF + persistencia
+  - Badge seguro de crédito (VIGENTE/CANCELADO/RECHAZADO/SIN SEGURO)
+  - Uso de crédito real: deuda vigente de NV previas + NV actual
+  - Barra de crédito con color dinámico (>70% warning, >90% danger)
 - ✅ **Módulo Supermercados** completo:
   - Route group propio sin sidebar
   - 4 tabs: Cumplimiento (dashboard) · Análisis comercial · Órdenes · Alertas
@@ -107,7 +111,8 @@ Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05
   - Mapeo DUN→SKU (1 fila = 1 DUN, auto-remap)
   - Alertas accionables auto-calculadas
   - Mobile responsive (tablas → cards verticales en <900px)
-- ✅ Cargador de **seguros** corregido: `applyInsurance` recibe `ApplyInput` directo en vez de re-procesar FormData
+- ✅ **Módulo Costos y Rappel**: costos por trimestre, acuerdos rappel por cadena
+- ✅ Cargador de **seguros** corregido: `applyInsurance` recibe `ApplyInput` directo + try-catch + logging
 - ✅ **Módulo Finanzas** (fase 1): línea de crédito por cliente, historial de cargas, cargador de seguros integrado
 - ⏳ Resto de módulos (Despacho, Stock) — solo placeholder, todavía sin implementación
 - ⏳ Finanzas fase 2: cartolas bancarias + conciliación de pagos

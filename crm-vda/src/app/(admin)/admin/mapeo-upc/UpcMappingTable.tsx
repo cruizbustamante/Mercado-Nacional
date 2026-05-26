@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useTransition, useRef, useEffect, useMemo } from "react";
+import { useState, useTransition, useRef, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import * as XLSX from "xlsx";
 import { saveUpcMapping, deleteUpcMapping, importUpcMapping, remapAllOrphans, type UpcImportResult } from "./actions";
 
 export interface UpcRow {
   id: string;
   upc: string;
   product_id: string | null;
+  original_sku: string | null;
   product_name_oc: string | null;
   category_name: string | null;
   brand_name: string | null;
@@ -34,6 +36,23 @@ export function UpcMappingTable({
   const [importResult, setImportResult] = useState<UpcImportResult | null>(null);
   const [remapResult, setRemapResult] = useState<{ remapped: number; remaining: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const exportUnmatched = useCallback(() => {
+    const unmatched = initial.filter((r) => !r.product_id);
+    if (unmatched.length === 0) return;
+    const data = unmatched.map((r) => ({
+      DUN: r.upc,
+      "SKU Excel": r.original_sku ?? "",
+      "Producto OC": r.product_name_oc ?? "",
+      "Categoría": r.category_name ?? "",
+      Marca: r.brand_name ?? "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws["!cols"] = [{ wch: 18 }, { wch: 10 }, { wch: 50 }, { wch: 16 }, { wch: 20 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sin Match");
+    XLSX.writeFile(wb, "mapeo_sin_match.xlsx");
+  }, [initial]);
 
   const filtered = useMemo(() => initial.filter((r) => {
     if (filter === "matched" && !r.product_id) return false;
@@ -143,6 +162,12 @@ export function UpcMappingTable({
           </div>
 
           <div className="toolbar-actions">
+            {stats.unmatched > 0 && (
+              <button type="button" className="btn btn-ghost" onClick={exportUnmatched}>
+                <svg className="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Exportar sin match ({stats.unmatched})
+              </button>
+            )}
             {stats.orphanLines > 0 && stats.matched > 0 && (
               <button type="button" className="btn btn-ghost" onClick={onRemapClick} disabled={remapping}>
                 <svg className="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/></svg>
@@ -191,6 +216,10 @@ export function UpcMappingTable({
                 <div style={{ marginTop: 6, fontFamily: "var(--f-mono)", fontSize: 11, maxHeight: 160, overflowY: "auto" }}>
                   {importResult.productsMissing.join(", ")}
                 </div>
+                <button type="button" onClick={exportUnmatched}
+                  style={{ marginTop: 8, fontSize: 11, padding: "4px 10px", borderRadius: 4, border: "1px solid currentColor", background: "transparent", color: "inherit", cursor: "pointer" }}>
+                  Descargar Excel sin match
+                </button>
               </details>
             )}
             {importResult.errors.length > 0 && (

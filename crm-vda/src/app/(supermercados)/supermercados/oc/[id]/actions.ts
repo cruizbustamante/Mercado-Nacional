@@ -32,6 +32,7 @@ export async function saveOcLineUpdates(
   ocId: string,
   updates: LineUpdate[]
 ): Promise<SaveResult> {
+  console.log("[saveOcLineUpdates] ocId:", ocId, "updates:", updates.length);
   const supabase = await createClient();
   const errors: string[] = [];
   const affectedInvoices = new Set<string>();
@@ -112,7 +113,8 @@ export async function saveOcLineUpdates(
     if (prevAssignments && prevAssignments.length > 0) {
       const prevIds = prevAssignments.map((a) => a.id);
       const prevInvoiceIds = prevAssignments.map((a) => a.oc_invoice_id);
-      await supabase.from("oc_invoice_items").delete().in("id", prevIds);
+      const { error: delError } = await supabase.from("oc_invoice_items").delete().in("id", prevIds);
+      if (delError) console.error("[saveOcLineUpdates] delete prev:", delError.message);
       prevInvoiceIds.forEach((id) => affectedInvoices.add(id));
     }
 
@@ -123,6 +125,7 @@ export async function saveOcLineUpdates(
       if (invoiceId) {
         const unitsPerPack = line.units_per_pack ?? 1;
         const amount = boxes * unitsPerPack * line.unit_price;
+        console.log("[saveOcLineUpdates] insert item:", { invoiceId, lineId: u.lineId, boxes, amount });
         const { error } = await supabase.from("oc_invoice_items").insert({
           oc_invoice_id: invoiceId,
           purchase_order_item_id: u.lineId,

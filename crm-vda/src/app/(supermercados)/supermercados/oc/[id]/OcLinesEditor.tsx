@@ -271,12 +271,8 @@ export function OcLinesEditor({ oc, logisticsCosts = {} }: { oc: OcDetail; logis
                 productId: ocLine.product!.id,
                 productSku: ocLine.product!.sku,
                 productName: ocLine.product!.name,
-                brandName: (ocLine.product as Record<string, unknown>)?.brand
-                  ? ((ocLine.product as Record<string, unknown>).brand as { name: string })?.name ?? null
-                  : null,
-                categoryName: (ocLine.product as Record<string, unknown>)?.category
-                  ? ((ocLine.product as Record<string, unknown>).category as { name: string })?.name ?? null
-                  : null,
+                brandName: null,
+                categoryName: null,
                 boxes: l.boxes,
                 unitsPerBox: l.unitsPerPack,
                 unitPrice: l.unitPrice,

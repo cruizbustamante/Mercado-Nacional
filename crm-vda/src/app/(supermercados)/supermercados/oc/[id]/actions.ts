@@ -322,7 +322,20 @@ export async function createSupermarketNv(input: SupermarketNvInput): Promise<Nv
     return { ok: false, nvNumber, error: `Error creando NV: ${nvErr?.message ?? "desconocido"}` };
   }
 
-  // 7) Insert sales_note_items
+  // 7) Resolve brand/category names for denormalization
+  const productIds = input.lines.map((l) => l.productId);
+  const { data: prodDetails } = await supabase
+    .from("products")
+    .select("id, brand:brands(name), category:product_categories(name)")
+    .in("id", productIds);
+
+  type ProdDetail = { id: string; brand: { name: string } | null; category: { name: string } | null };
+  const prodMap = new Map<string, ProdDetail>();
+  for (const p of ((prodDetails ?? []) as unknown as ProdDetail[])) {
+    prodMap.set(p.id, p);
+  }
+
+  // 8) Insert sales_note_items
   const items = input.lines.map((l, i) => {
     const lineNet = l.netProduct;
     const lineIla = Math.round(lineNet * 0.205);
@@ -351,8 +364,8 @@ export async function createSupermarketNv(input: SupermarketNvInput): Promise<Nv
       line_total: lineTotal,
       product_sku: l.productSku,
       product_name: l.productName,
-      category_name: l.categoryName,
-      brand_name: l.brandName,
+      category_name: prodMap.get(l.productId)?.category?.name ?? l.categoryName,
+      brand_name: prodMap.get(l.productId)?.brand?.name ?? l.brandName,
     };
   });
 

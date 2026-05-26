@@ -280,13 +280,13 @@ export async function createSupermarketNv(input: SupermarketNvInput): Promise<Nv
     salespersonId = profile?.id ?? null;
   }
 
-  // 5) Get default warehouse
+  // 5) Get warehouse (default first, then any)
   const { data: wh } = await supabase
     .from("warehouses")
     .select("id")
-    .eq("is_default", true)
+    .order("is_default", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   const totalBoxes = input.lines.reduce((s, l) => s + l.boxes, 0);
   const totalUnits = input.lines.reduce((s, l) => s + l.boxes * l.unitsPerBox, 0);

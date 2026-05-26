@@ -556,15 +556,47 @@ export function OcLinesEditor({ oc, logisticsCosts = {} }: { oc: OcDetail; logis
         <div className="invoice-preview-backdrop" onClick={() => setPreviewData(null)}>
           <div className="invoice-preview-modal" onClick={(e) => e.stopPropagation()}>
             <div className="invoice-preview-header">
-              <h2>Previsualización de factura</h2>
+              <div className="preview-header-left">
+                <div className="preview-doc-badge">NV</div>
+                <div>
+                  <h2>Previsualización Nota de Venta</h2>
+                  <p className="preview-subtitle">
+                    {oc.chain?.name ?? "Supermercado"} · OC <span className="mono">{oc.order_number}</span>
+                  </p>
+                </div>
+              </div>
               <button type="button" className="modal-close" onClick={() => setPreviewData(null)}>×</button>
             </div>
+
+            <div className="preview-context-strip">
+              <div className="preview-ctx-cell">
+                <span className="preview-ctx-key">Cadena</span>
+                <span className="preview-ctx-val">{oc.chain?.name ?? "—"}</span>
+              </div>
+              <div className="preview-ctx-cell">
+                <span className="preview-ctx-key">Orden de Compra</span>
+                <span className="preview-ctx-val mono">{oc.order_number}</span>
+              </div>
+              <div className="preview-ctx-cell">
+                <span className="preview-ctx-key">NV a generar</span>
+                <span className="preview-ctx-val mono">SM-XXXXXX</span>
+              </div>
+              <div className="preview-ctx-cell">
+                <span className="preview-ctx-key">Facturas</span>
+                <span className="preview-ctx-val">{previewData.length}</span>
+              </div>
+            </div>
+
             <div className="invoice-preview-body">
-              {previewData.map((inv) => (
+              {previewData.map((inv, idx) => (
                 <div key={inv.invoiceNumber} className="invoice-preview-block">
                   <div className="invoice-preview-title">
-                    <span className="mono" style={{ fontWeight: 600 }}>{inv.invoiceNumber}</span>
-                    {inv.invoiceDate && <span style={{ color: "var(--text-3)" }}> · {inv.invoiceDate}</span>}
+                    <div className="preview-inv-badge">{idx + 1}</div>
+                    <div>
+                      <span className="preview-inv-label">Factura</span>
+                      <span className="mono" style={{ fontWeight: 600, fontSize: 15 }}>{inv.invoiceNumber}</span>
+                    </div>
+                    {inv.invoiceDate && <span className="preview-inv-date">{inv.invoiceDate}</span>}
                   </div>
 
                   <table className="invoice-preview-table">
@@ -604,12 +636,12 @@ export function OcLinesEditor({ oc, logisticsCosts = {} }: { oc: OcDetail; logis
                       <span>Logística</span>
                       <span className="mono">{fmtClp(inv.totalLogistics)}</span>
                     </div>
-                    <div className="preview-total-row" style={{ color: "var(--text-3)" }}>
-                      <span>ILA 20,5% <span style={{ fontSize: 11 }}>(s/neto prod.)</span></span>
+                    <div className="preview-total-row sub">
+                      <span>ILA 20,5% <span className="tax-note">(s/neto prod.)</span></span>
                       <span className="mono">{fmtClp(inv.totalIla)}</span>
                     </div>
-                    <div className="preview-total-row" style={{ color: "var(--text-3)" }}>
-                      <span>IVA 19% <span style={{ fontSize: 11 }}>(s/neto+log.)</span></span>
+                    <div className="preview-total-row sub">
+                      <span>IVA 19% <span className="tax-note">(s/neto + logística)</span></span>
                       <span className="mono">{fmtClp(inv.totalIva)}</span>
                     </div>
                     <div className="preview-total-row preview-grand-total">
@@ -620,13 +652,38 @@ export function OcLinesEditor({ oc, logisticsCosts = {} }: { oc: OcDetail; logis
                 </div>
               ))}
             </div>
+
+            <div className="preview-summary-strip">
+              <div className="preview-summary-cell">
+                <span className="preview-summary-key">Total neto</span>
+                <span className="preview-summary-val mono">{fmtClp(previewData.reduce((s, i) => s + i.totalNetProduct, 0))}</span>
+              </div>
+              <div className="preview-summary-cell">
+                <span className="preview-summary-key">Logística</span>
+                <span className="preview-summary-val mono">{fmtClp(previewData.reduce((s, i) => s + i.totalLogistics, 0))}</span>
+              </div>
+              <div className="preview-summary-cell">
+                <span className="preview-summary-key">Impuestos</span>
+                <span className="preview-summary-val mono">{fmtClp(previewData.reduce((s, i) => s + i.totalIla + i.totalIva, 0))}</span>
+              </div>
+              <div className="preview-summary-cell highlight">
+                <span className="preview-summary-key">Gran total</span>
+                <span className="preview-summary-val mono">{fmtClp(previewData.reduce((s, i) => s + i.grandTotal, 0))}</span>
+              </div>
+            </div>
+
             <div className="invoice-preview-footer">
-              <button type="button" className="btn-sm btn-link" onClick={() => setPreviewData(null)} disabled={pending}>
-                Volver a editar
-              </button>
-              <button type="button" className="btn-sm btn-primary-sm" onClick={handleConfirmSave} disabled={pending}>
-                {pending ? "Guardando…" : "Confirmar y guardar"}
-              </button>
+              <div className="preview-footer-note">
+                Al confirmar se registrará una Nota de Venta (SM-) en el maestro y se asignarán las facturas a esta OC.
+              </div>
+              <div className="preview-footer-actions">
+                <button type="button" className="btn-sm btn-ghost-sm" onClick={() => setPreviewData(null)} disabled={pending}>
+                  Volver a editar
+                </button>
+                <button type="button" className="btn-sm btn-primary-sm" onClick={handleConfirmSave} disabled={pending}>
+                  {pending ? "Guardando…" : "Confirmar y crear NV"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

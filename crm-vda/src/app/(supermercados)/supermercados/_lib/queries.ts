@@ -307,7 +307,7 @@ export interface OcDetail {
 export async function loadOcDetail(id: string): Promise<OcDetail | null> {
   const supabase = await createClient();
 
-  const [{ data: oc }, { data: invoices }] = await Promise.all([
+  const [{ data: oc, error: ocErr }, { data: invoices }] = await Promise.all([
     supabase
       .from("purchase_orders")
       .select(`
@@ -333,6 +333,7 @@ export async function loadOcDetail(id: string): Promise<OcDetail | null> {
       .eq("purchase_order_id", id),
   ]);
 
+  if (ocErr) console.error("[loadOcDetail] query error:", ocErr.message, ocErr.details, ocErr.hint);
   if (!oc) return null;
 
   // Mapear assignment por línea (1 OC line → 1 assignment según la regla legacy)

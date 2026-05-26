@@ -258,7 +258,6 @@ export interface OcDetailLine {
     base_price_net: number;
     unit_cost_net: number | null;
     brand_id: string | null;
-    units_per_pack: number | null;
     category_id: string | null;
   } | null;
   // Asignación actual (al menos 1 si está asignada)
@@ -317,7 +316,7 @@ export async function loadOcDetail(id: string): Promise<OcDetail | null> {
           id, line_number, upc_code, product_name_oc, quantity_boxes,
           units_per_pack, unit_price, line_amount,
           lost_sale_reason, lost_sale_marked_at,
-          product:products(id, sku, name, base_price_net, unit_cost_net, brand_id, units_per_pack, category_id)
+          product:products(id, sku, name, base_price_net, unit_cost_net, brand_id, category_id)
         )
       `)
       .eq("id", id)

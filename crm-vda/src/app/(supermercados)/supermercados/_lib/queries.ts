@@ -319,7 +319,7 @@ export async function loadOcDetail(id: string): Promise<OcDetail | null> {
           units_per_pack, unit_price, line_amount,
           lost_sale_reason, lost_sale_marked_at,
           product:products(id, sku, name, base_price_net, unit_cost_net, brand_id, units_per_pack,
-            brand:brands(name), category:categories(name))
+            brand:brands(name), category:product_categories(name))
         )
       `)
       .eq("id", id)

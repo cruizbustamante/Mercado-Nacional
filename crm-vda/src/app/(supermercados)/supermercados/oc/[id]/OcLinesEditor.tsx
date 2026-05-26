@@ -178,12 +178,12 @@ export function OcLinesEditor({ oc }: { oc: OcDetail }) {
       const d = drafts[line.id];
       const boxes = parseInt(d.boxes || "0", 10) || 0;
       if (boxes > 0 && d.invoice.trim()) {
-        const amount = boxes * (line.units_per_pack ?? 1) * line.unit_price;
+        const amount = boxes * line.unit_price;
         facturado += amount;
         cajasFacturadas += boxes;
       }
       if (d.lostReason) {
-        lostAmount += Math.max(0, line.line_amount - (boxes * (line.units_per_pack ?? 1) * line.unit_price));
+        lostAmount += Math.max(0, line.line_amount - (boxes * line.unit_price));
       }
     }
     return {

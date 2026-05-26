@@ -123,8 +123,7 @@ export async function saveOcLineUpdates(
     if (boxes > 0 && u.invoiceNumber?.trim()) {
       const invoiceId = await getOrCreateInvoice(u.invoiceNumber.trim(), u.invoiceDate);
       if (invoiceId) {
-        const unitsPerPack = line.units_per_pack ?? 1;
-        const amount = boxes * unitsPerPack * line.unit_price;
+        const amount = boxes * line.unit_price;
         console.log("[saveOcLineUpdates] insert item:", { invoiceId, lineId: u.lineId, boxes, amount });
         const { error } = await supabase.from("oc_invoice_items").insert({
           oc_invoice_id: invoiceId,

@@ -3,7 +3,7 @@
 import { useState, useMemo, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { OcDetail, OcDetailLine } from "../../_lib/queries";
-import { saveOcLineUpdates, type LineUpdate } from "./actions";
+import { saveOcLineUpdates, createSupermarketNv, type LineUpdate, type SupermarketNvInput } from "./actions";
 
 const fmtClp = (n: number) => `$${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(n)}`;
 const fmtClpCompact = (n: number) => {
@@ -38,7 +38,32 @@ function lineToDraft(line: OcDetailLine): DraftLine {
   };
 }
 
-export function OcLinesEditor({ oc }: { oc: OcDetail }) {
+const ILA_RATE = 0.205;
+const IVA_RATE = 0.19;
+const DEFAULT_LOGISTICS = 360;
+
+export interface InvoicePreview {
+  invoiceNumber: string;
+  invoiceDate: string;
+  lines: Array<{
+    lineId: string;
+    productName: string;
+    sku: string | null;
+    boxes: number;
+    unitsPerPack: number;
+    unitPrice: number;
+    netProduct: number;
+    logisticsCostPerUnit: number;
+    logisticsTotal: number;
+  }>;
+  totalNetProduct: number;
+  totalLogistics: number;
+  totalIla: number;
+  totalIva: number;
+  grandTotal: number;
+}
+
+export function OcLinesEditor({ oc, logisticsCosts = {} }: { oc: OcDetail; logisticsCosts?: Record<string, number> }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -51,6 +76,7 @@ export function OcLinesEditor({ oc }: { oc: OcDetail }) {
   const [bulkInvoice, setBulkInvoice] = useState("");
   const [bulkDate, setBulkDate] = useState("");
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [previewData, setPreviewData] = useState<InvoicePreview[] | null>(null);
 
   const dirtyLineIds = useMemo(
     () => Object.entries(drafts).filter(([, d]) => d.dirty).map(([id]) => id),
@@ -126,9 +152,9 @@ export function OcLinesEditor({ oc }: { oc: OcDetail }) {
     });
   };
 
-  /* ============ SAVE ============ */
-  const handleSave = () => {
-    const updates: LineUpdate[] = dirtyLineIds.map((id) => {
+  /* ============ BUILD UPDATES ============ */
+  const buildUpdates = useCallback((): LineUpdate[] => {
+    return dirtyLineIds.map((id) => {
       const d = drafts[id];
       const boxes = d.boxes ? parseInt(d.boxes, 10) || 0 : 0;
       return {
@@ -139,28 +165,157 @@ export function OcLinesEditor({ oc }: { oc: OcDetail }) {
         lostSaleReason: d.lostReason || null,
       };
     });
+  }, [dirtyLineIds, drafts]);
+
+  /* ============ PREVIEW ============ */
+  const handleSave = () => {
+    const updates = buildUpdates();
     if (updates.length === 0) return;
+
+    const invoiceGroups = new Map<string, { date: string; lineIds: string[] }>();
+    let hasOnlyLost = true;
+
+    for (const u of updates) {
+      if (u.invoiceNumber && (u.boxesInvoiced ?? 0) > 0) {
+        hasOnlyLost = false;
+        const key = u.invoiceNumber;
+        const group = invoiceGroups.get(key) ?? { date: u.invoiceDate ?? "", lineIds: [] };
+        if (u.invoiceDate && !group.date) group.date = u.invoiceDate;
+        group.lineIds.push(u.lineId);
+        invoiceGroups.set(key, group);
+      }
+    }
+
+    if (hasOnlyLost) {
+      doSave(updates);
+      return;
+    }
+
+    const previews: InvoicePreview[] = [];
+    for (const [invoiceNumber, group] of invoiceGroups) {
+      const lines = group.lineIds.map((lid) => {
+        const line = oc.items.find((l) => l.id === lid)!;
+        const d = drafts[lid];
+        const boxes = parseInt(d.boxes || "0", 10) || 0;
+        const unitsPerPack = line.units_per_pack ?? 1;
+        const totalUnits = boxes * unitsPerPack;
+        const netProduct = boxes * line.unit_price;
+        const brandId = line.product?.brand_id ?? null;
+        const logCost = brandId && logisticsCosts[brandId] != null
+          ? logisticsCosts[brandId]
+          : DEFAULT_LOGISTICS;
+        const logisticsTotal = totalUnits * logCost;
+        return {
+          lineId: lid,
+          productName: line.product?.name ?? line.product_name_oc ?? "—",
+          sku: line.product?.sku ?? null,
+          boxes,
+          unitsPerPack,
+          unitPrice: line.unit_price,
+          netProduct,
+          logisticsCostPerUnit: logCost,
+          logisticsTotal,
+        };
+      });
+
+      const totalNetProduct = lines.reduce((s, l) => s + l.netProduct, 0);
+      const totalLogistics = lines.reduce((s, l) => s + l.logisticsTotal, 0);
+      const totalIla = Math.round(totalNetProduct * ILA_RATE);
+      const totalIva = Math.round((totalNetProduct + totalLogistics) * IVA_RATE);
+      const grandTotal = totalNetProduct + totalLogistics + totalIla + totalIva;
+
+      previews.push({
+        invoiceNumber,
+        invoiceDate: group.date,
+        lines,
+        totalNetProduct,
+        totalLogistics,
+        totalIla,
+        totalIva,
+        grandTotal,
+      });
+    }
+
+    setPreviewData(previews);
+  };
+
+  /* ============ CONFIRM SAVE ============ */
+  const doSave = useCallback((updates: LineUpdate[], previews?: InvoicePreview[] | null) => {
     setSavedMsg(null);
+    setPreviewData(null);
     startTransition(async () => {
       const result = await saveOcLineUpdates(oc.id, updates);
-      if (result.ok) {
-        setSavedMsg(`Guardado: ${result.updatedLines} líneas · ${result.invoicesAffected} factura(s) afectadas`);
-        setSelected(new Set());
-        setBulkInvoice("");
-        setBulkDate("");
-        // El revalidatePath del action recarga los datos
-        router.refresh();
-        // Marcar drafts como no-dirty (se rehidratará con la nueva data del refresh)
-        setDrafts((prev) => {
-          const next = { ...prev };
-          for (const id of dirtyLineIds) next[id] = { ...next[id], dirty: false };
-          return next;
-        });
-      } else {
+      if (!result.ok) {
         setSavedMsg(`Error: ${result.errors.join(" · ")}`);
+        return;
       }
+
+      // Create NVs for each invoice group (only new invoices with mapped products)
+      const nvResults: string[] = [];
+      if (previews && oc.chain) {
+        for (const inv of previews) {
+          const mappedLines = inv.lines.filter((l) => {
+            const ocLine = oc.items.find((it) => it.id === l.lineId);
+            return ocLine?.product?.id;
+          });
+          if (mappedLines.length === 0) continue;
+
+          const nvInput: SupermarketNvInput = {
+            ocId: oc.id,
+            invoiceNumber: inv.invoiceNumber,
+            invoiceDate: inv.invoiceDate,
+            chainId: oc.chain.id,
+            lines: mappedLines.map((l) => {
+              const ocLine = oc.items.find((it) => it.id === l.lineId)!;
+              return {
+                productId: ocLine.product!.id,
+                productSku: ocLine.product!.sku,
+                productName: ocLine.product!.name,
+                brandName: (ocLine.product as Record<string, unknown>)?.brand
+                  ? ((ocLine.product as Record<string, unknown>).brand as { name: string })?.name ?? null
+                  : null,
+                categoryName: (ocLine.product as Record<string, unknown>)?.category
+                  ? ((ocLine.product as Record<string, unknown>).category as { name: string })?.name ?? null
+                  : null,
+                boxes: l.boxes,
+                unitsPerBox: l.unitsPerPack,
+                unitPrice: l.unitPrice,
+                netProduct: l.netProduct,
+                logisticsCostPerUnit: l.logisticsCostPerUnit,
+                logisticsTotal: l.logisticsTotal,
+              };
+            }),
+            totalNetProduct: inv.totalNetProduct,
+            totalLogistics: inv.totalLogistics,
+            totalIla: inv.totalIla,
+            totalIva: inv.totalIva,
+            grandTotal: inv.grandTotal,
+          };
+
+          const nvResult = await createSupermarketNv(nvInput);
+          if (nvResult.ok && nvResult.nvNumber) {
+            nvResults.push(nvResult.nvNumber);
+          } else if (nvResult.error) {
+            nvResults.push(`Error NV: ${nvResult.error}`);
+          }
+        }
+      }
+
+      const nvMsg = nvResults.length > 0 ? ` · NV: ${nvResults.join(", ")}` : "";
+      setSavedMsg(`Guardado: ${result.updatedLines} líneas · ${result.invoicesAffected} factura(s)${nvMsg}`);
+      setSelected(new Set());
+      setBulkInvoice("");
+      setBulkDate("");
+      router.refresh();
+      setDrafts((prev) => {
+        const next = { ...prev };
+        for (const id of dirtyLineIds) next[id] = { ...next[id], dirty: false };
+        return next;
+      });
     });
-  };
+  }, [oc.id, oc.chain, oc.items, dirtyLineIds, router]);
+
+  const handleConfirmSave = () => doSave(buildUpdates(), previewData);
 
   const discardChanges = () => {
     const fresh: Record<string, DraftLine> = {};
@@ -399,6 +554,87 @@ export function OcLinesEditor({ oc }: { oc: OcDetail }) {
           </div>
         )}
       </div>
+
+      {/* === PREVIEW MODAL === */}
+      {previewData && (
+        <div className="invoice-preview-backdrop" onClick={() => setPreviewData(null)}>
+          <div className="invoice-preview-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="invoice-preview-header">
+              <h2>Previsualización de factura</h2>
+              <button type="button" className="modal-close" onClick={() => setPreviewData(null)}>×</button>
+            </div>
+            <div className="invoice-preview-body">
+              {previewData.map((inv) => (
+                <div key={inv.invoiceNumber} className="invoice-preview-block">
+                  <div className="invoice-preview-title">
+                    <span className="mono" style={{ fontWeight: 600 }}>{inv.invoiceNumber}</span>
+                    {inv.invoiceDate && <span style={{ color: "var(--text-3)" }}> · {inv.invoiceDate}</span>}
+                  </div>
+
+                  <table className="invoice-preview-table">
+                    <thead>
+                      <tr>
+                        <th>Producto</th>
+                        <th className="num">Cajas</th>
+                        <th className="num">Uds</th>
+                        <th className="num">Neto prod.</th>
+                        <th className="num">Log. /ud</th>
+                        <th className="num">Logística</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {inv.lines.map((l) => (
+                        <tr key={l.lineId}>
+                          <td>
+                            <span>{l.productName}</span>
+                            {l.sku && <span className="pill" style={{ marginLeft: 6, fontSize: 10 }}>{l.sku}</span>}
+                          </td>
+                          <td className="num mono">{l.boxes}</td>
+                          <td className="num mono">{l.boxes * l.unitsPerPack}</td>
+                          <td className="num mono">{fmtClp(l.netProduct)}</td>
+                          <td className="num mono" style={{ color: "var(--text-3)" }}>{fmtClp(l.logisticsCostPerUnit)}</td>
+                          <td className="num mono">{fmtClp(l.logisticsTotal)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  <div className="invoice-preview-totals">
+                    <div className="preview-total-row">
+                      <span>Neto productos</span>
+                      <span className="mono">{fmtClp(inv.totalNetProduct)}</span>
+                    </div>
+                    <div className="preview-total-row">
+                      <span>Logística</span>
+                      <span className="mono">{fmtClp(inv.totalLogistics)}</span>
+                    </div>
+                    <div className="preview-total-row" style={{ color: "var(--text-3)" }}>
+                      <span>ILA 20,5% <span style={{ fontSize: 11 }}>(s/neto prod.)</span></span>
+                      <span className="mono">{fmtClp(inv.totalIla)}</span>
+                    </div>
+                    <div className="preview-total-row" style={{ color: "var(--text-3)" }}>
+                      <span>IVA 19% <span style={{ fontSize: 11 }}>(s/neto+log.)</span></span>
+                      <span className="mono">{fmtClp(inv.totalIva)}</span>
+                    </div>
+                    <div className="preview-total-row preview-grand-total">
+                      <span>Total factura</span>
+                      <span className="mono">{fmtClp(inv.grandTotal)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="invoice-preview-footer">
+              <button type="button" className="btn-sm btn-link" onClick={() => setPreviewData(null)} disabled={pending}>
+                Volver a editar
+              </button>
+              <button type="button" className="btn-sm btn-primary-sm" onClick={handleConfirmSave} disabled={pending}>
+                {pending ? "Guardando…" : "Confirmar y guardar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* === SIDEBAR: conciliación === */}
       <aside className="oc-editor-sidebar">

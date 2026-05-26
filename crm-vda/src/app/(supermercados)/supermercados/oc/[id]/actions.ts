@@ -181,6 +181,7 @@ export async function saveOcLineUpdates(
   revalidatePath("/supermercados/ordenes");
   revalidatePath("/supermercados");
   revalidatePath("/supermercados/analisis");
+  revalidatePath("/nota-venta");
 
   return {
     ok: errors.length === 0,
@@ -188,4 +189,181 @@ export async function saveOcLineUpdates(
     invoicesAffected: affectedInvoices.size,
     errors,
   };
+}
+
+/* ============================================================
+   Crear NV en maestro desde factura supermercado
+   ============================================================ */
+
+export interface SupermarketNvLine {
+  productId: string;
+  productSku: string;
+  productName: string;
+  brandName: string | null;
+  categoryName: string | null;
+  boxes: number;
+  unitsPerBox: number;
+  unitPrice: number;
+  netProduct: number;
+  logisticsCostPerUnit: number;
+  logisticsTotal: number;
+}
+
+export interface SupermarketNvInput {
+  ocId: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  chainId: string;
+  lines: SupermarketNvLine[];
+  totalNetProduct: number;
+  totalLogistics: number;
+  totalIla: number;
+  totalIva: number;
+  grandTotal: number;
+}
+
+export interface NvCreateResult {
+  ok: boolean;
+  nvNumber: string | null;
+  error: string | null;
+}
+
+export async function createSupermarketNv(input: SupermarketNvInput): Promise<NvCreateResult> {
+  const supabase = await createClient();
+
+  // 1) Resolve chain → client
+  const { data: chain } = await supabase
+    .from("supermarket_chains")
+    .select("id, name, client_id")
+    .eq("id", input.chainId)
+    .single();
+
+  if (!chain?.client_id) {
+    return {
+      ok: false,
+      nvNumber: null,
+      error: `Cadena "${chain?.name ?? input.chainId}" no tiene cliente asignado. Configúralo en Admin > Cadenas.`,
+    };
+  }
+
+  // 2) Get supermercado channel
+  const { data: channel } = await supabase
+    .from("sales_channels")
+    .select("id, nv_prefix, nv_last_correlative")
+    .eq("name", "supermercado")
+    .single();
+
+  if (!channel) {
+    return { ok: false, nvNumber: null, error: "Canal 'supermercado' no encontrado." };
+  }
+
+  // 3) Generate NV number atomically
+  const { data: newCorr, error: rpcErr } = await supabase.rpc("increment_channel_correlative", {
+    p_channel_id: channel.id,
+  });
+
+  if (rpcErr || newCorr == null) {
+    return { ok: false, nvNumber: null, error: `Error generando correlativo: ${rpcErr?.message ?? "null"}` };
+  }
+
+  const nvNumber = `${channel.nv_prefix}-${String(newCorr).padStart(6, "0")}`;
+
+  // 4) Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  let salespersonId: string | null = null;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .single();
+    salespersonId = profile?.id ?? null;
+  }
+
+  // 5) Get default warehouse
+  const { data: wh } = await supabase
+    .from("warehouses")
+    .select("id")
+    .eq("is_default", true)
+    .limit(1)
+    .single();
+
+  const totalBoxes = input.lines.reduce((s, l) => s + l.boxes, 0);
+  const totalUnits = input.lines.reduce((s, l) => s + l.boxes * l.unitsPerBox, 0);
+
+  // 6) Insert sales_note
+  const { data: nv, error: nvErr } = await supabase
+    .from("sales_notes")
+    .insert({
+      nv_number: nvNumber,
+      client_id: chain.client_id,
+      channel_id: channel.id,
+      salesperson_id: salespersonId,
+      nv_date: input.invoiceDate || new Date().toISOString().split("T")[0],
+      warehouse_id: wh?.id ?? null,
+      status: "FACTURADO",
+      invoice_number: input.invoiceNumber,
+      invoiced_at: new Date().toISOString(),
+      invoiced_by: salespersonId,
+      total_base_net: input.totalNetProduct,
+      total_discount: 0,
+      total_net: input.totalNetProduct,
+      total_iva: input.totalIva,
+      total_ila: input.totalIla,
+      total_logistics: input.totalLogistics,
+      total_amount: input.grandTotal,
+      total_boxes: totalBoxes,
+      total_units: totalUnits,
+    })
+    .select("id")
+    .single();
+
+  if (nvErr || !nv) {
+    return { ok: false, nvNumber, error: `Error creando NV: ${nvErr?.message ?? "desconocido"}` };
+  }
+
+  // 7) Insert sales_note_items
+  const items = input.lines.map((l, i) => {
+    const lineNet = l.netProduct;
+    const lineIla = Math.round(lineNet * 0.205);
+    const lineIva = Math.round((lineNet + l.logisticsTotal) * 0.19);
+    const lineTotal = lineNet + l.logisticsTotal + lineIla + lineIva;
+    return {
+      sales_note_id: nv.id,
+      product_id: l.productId,
+      line_number: i + 1,
+      quantity_boxes: l.boxes,
+      units_per_box: l.unitsPerBox,
+      quantity_units: l.boxes * l.unitsPerBox,
+      price_net_base: l.unitPrice,
+      price_gross_base: l.unitPrice,
+      price_net_final: l.unitPrice,
+      price_gross_final: l.unitPrice,
+      min_price_net: 0,
+      iva_rate: 0.19,
+      ila_rate: 0.205,
+      discount_amount: 0,
+      logistics_net: l.logisticsTotal,
+      logistics_iva: Math.round(l.logisticsTotal * 0.19),
+      line_net: lineNet,
+      line_iva: lineIva,
+      line_ila: lineIla,
+      line_total: lineTotal,
+      product_sku: l.productSku,
+      product_name: l.productName,
+      category_name: l.categoryName,
+      brand_name: l.brandName,
+    };
+  });
+
+  if (items.length > 0) {
+    const { error: itemsErr } = await supabase.from("sales_note_items").insert(items);
+    if (itemsErr) {
+      return { ok: false, nvNumber, error: `NV creada pero error en líneas: ${itemsErr.message}` };
+    }
+  }
+
+  revalidatePath("/nota-venta");
+
+  return { ok: true, nvNumber, error: null };
 }

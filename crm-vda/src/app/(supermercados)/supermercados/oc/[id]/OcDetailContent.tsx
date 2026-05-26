@@ -8,7 +8,7 @@ const fmtClpCompact = (n: number) => {
   return `$${Math.round(n)}`;
 };
 
-export function OcDetailContent({ oc, mode }: { oc: OcDetail; mode: "page" | "modal" }) {
+export function OcDetailContent({ oc, mode, logisticsCosts = {} }: { oc: OcDetail; mode: "page" | "modal"; logisticsCosts?: Record<string, number> }) {
   const cumplimTone = oc.cumplim >= 80 ? "ok" : oc.cumplim >= 50 ? "warn" : "danger";
   const pendiente = Math.max(0, oc.total_amount - oc.totalFacturado - oc.totalLostSale);
   const orphanCount = oc.items.filter((it) => !it.product).length;
@@ -120,7 +120,7 @@ export function OcDetailContent({ oc, mode }: { oc: OcDetail; mode: "page" | "mo
       </section>
 
       {/* Editor inline + sidebar */}
-      <OcLinesEditor oc={oc} />
+      <OcLinesEditor oc={oc} logisticsCosts={logisticsCosts} />
     </>
   );
 }

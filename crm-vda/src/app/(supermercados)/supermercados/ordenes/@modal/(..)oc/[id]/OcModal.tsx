@@ -2,7 +2,6 @@
 
 import { useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 export function OcModal({ id, children }: { id: string; children: React.ReactNode }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -49,7 +48,7 @@ export function OcModal({ id, children }: { id: string; children: React.ReactNod
               <path d="M18 6L6 18M6 6l12 12"/>
             </svg>
           </button>
-          <Link
+          <a
             href={`/supermercados/oc/${id}`}
             className="oc-modal-expand"
             title="Abrir en página completa"
@@ -58,7 +57,7 @@ export function OcModal({ id, children }: { id: string; children: React.ReactNod
               <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
             </svg>
             Vista completa
-          </Link>
+          </a>
         </div>
         <div className="oc-modal-body">{children}</div>
       </div>

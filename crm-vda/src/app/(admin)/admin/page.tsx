@@ -11,6 +11,7 @@ export default async function AdminPage() {
     { count: cUpcMatched },
     { count: cProductCosts },
     { count: cRappel },
+    { count: cLogisticRules },
   ] = await Promise.all([
     supabase.from("clients").select("*", { count: "exact", head: true }).is("deleted_at", null),
     supabase.from("products").select("*", { count: "exact", head: true }).is("deleted_at", null),
@@ -19,6 +20,7 @@ export default async function AdminPage() {
     supabase.from("sku_upc_mapping").select("*", { count: "exact", head: true }).not("product_id", "is", null),
     supabase.from("product_costs").select("*", { count: "exact", head: true }),
     supabase.from("rappel_agreements").select("*", { count: "exact", head: true }).eq("is_active", true),
+    supabase.from("supermarket_logistics_costs").select("*", { count: "exact", head: true }),
   ]);
 
   return (
@@ -74,6 +76,18 @@ export default async function AdminPage() {
               ]}
               href="/admin/costos"
               iconSvg={<><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></>}
+            />
+
+            <DataCard
+              icon="suppliers"
+              title="Logística Supermercados"
+              desc="Costo logístico por unidad, configurable por marca y cadena."
+              pill={(cLogisticRules ?? 0) > 1 ? { tone: "ok", text: `${(cLogisticRules ?? 1) - 1} excepcion${(cLogisticRules ?? 1) - 1 !== 1 ? "es" : ""}` } : { tone: "default", text: "solo default" }}
+              stats={[
+                { val: cLogisticRules ?? 0, key: "Reglas" },
+              ]}
+              href="/admin/logistica-super"
+              iconSvg={<><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></>}
             />
           </div>
         </div>

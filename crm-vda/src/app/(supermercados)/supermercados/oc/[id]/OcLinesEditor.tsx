@@ -86,7 +86,7 @@ export function OcLinesEditor({ oc }: { oc: OcDetail }) {
           ...next[id],
           invoice: bulkInvoice.trim(),
           date: bulkDate || next[id].date,
-          boxes: next[id].boxes || String(line.quantity_boxes),
+          boxes: String(line.quantity_boxes),
           lostReason: "",
           dirty: true,
         };

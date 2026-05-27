@@ -93,37 +93,46 @@ npm run lint     # eslint
 
 ## Estado de la migración
 
-Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05-26:
+Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05-27:
 
-- ✅ Auth + dashboard layout + home rediseñado (cards-dashboard con stats live)
+- ✅ Auth + dashboard layout
+- ✅ **Home rediseñado "Centro de Comando"** (mockup mn-home-centro-comando v1.0):
+  - PageHeader sobrio (sin "Hola, Admin") + quick actions Nueva NV + Cargar OC
+  - Pulso del negocio (4 KPIs): Facturación mes, Cumplimiento OC, Deuda clientes, OC vencidas (wine card)
+  - 8 cards de módulos en 2 secciones (Operaciones + Gestión) sobrios sin KPIs internos
+  - Bloque "Requiere atención hoy" con OC vencidas priorizadas por severidad
+  - Inter font + paleta editorial (bg-base/surface, ink/ink-2/ink-3, wine, pos/neg/warn/orange)
 - ✅ Login rediseñado split editorial 40/60
-- ✅ Data maestra: cargadores Excel (clientes, productos, seguros) + CRUDs modal
-  - Export/Import productos incluye columna "Activo" (is_active)
-- ✅ **Emisión NV** completa con cálculo replicado de Apps Script + PDF + persistencia
-  - Badge seguro de crédito (VIGENTE/CANCELADO/RECHAZADO/SIN SEGURO)
-  - Uso de crédito real: deuda vigente de NV previas + NV actual
-  - Barra de crédito con color dinámico (>70% warning, >90% danger)
-- ✅ **Módulo Supermercados** completo:
-  - Route group propio sin sidebar
-  - 4 tabs: Cumplimiento (dashboard) · Análisis comercial · Órdenes · Alertas
-  - Detalle OC con parallel/intercepting routes (modal sin perder filtros)
-  - Editor de facturas inline + bulk + sidebar conciliación
-  - **Preview factura → NV**: al guardar factura, modal muestra desglose (neto + logística + ILA 20.5% + IVA 19% = total) con contexto (cadena, OC, NV a generar). Al confirmar, crea NV (SM-XXXXXX) en maestro `sales_notes`
-  - Logística configurable por marca/cadena (`supermarket_logistics_costs`)
-  - Mapeo DUN→SKU (1 fila = 1 DUN, auto-remap)
-  - Alertas accionables auto-calculadas
-  - Mobile responsive (tablas → cards verticales en <900px)
+- ✅ Data maestra: cargadores Excel + CRUDs modal
+  - **Ficha producto** edita `ila_rate` e `iva_rate` por SKU (no solo via Excel)
+- ✅ **Emisión NV** completa: cálculo + PDF + persistencia, badge seguro de crédito, uso de crédito real
+- ✅ **Módulo Supermercados rediseñado v1.0** (mockup mercado-nacional-supermercados):
+  - Layout slim con Inter font (sin brand header grande)
+  - TabsNav estilo pestañas wine activo + badges (conteo en Órdenes, neg en Alertas)
+  - PageHeader compartido con eyebrow BVDA + título + selector mes navegable + botón Cargar OC
+  - **Tab Cumplimiento**: AlertBanner sobrio border-l wine + 4 KPIs (último en wine card) + tabla cadenas con bandera color + fill rate inline
+  - **Tab Análisis**: detalle mensual YTD vs año anterior + grid 2×2 (Por cadena, Razones venta perdida, Top productos, Performance ranking)
+  - **Tab Órdenes** (centro de trabajo): KPI bar densa 8 cols + acordeón por cadena con mini-dashboard 5 cols + tabla con semáforo (verde/amarillo/rojo) + filtros (vencidas, cadena, buscador)
+  - **Tab Alertas**: 4 cards severidad (Críticas wine, Altas neg, Medias orange, Recientes warn) + cola priorizada
+  - Modal OC + editor facturas: estilos legacy preservados (warm.css + supermercados.css)
+- ✅ **Parser OC Walmart** (Comercionet ORD_WM, HTML disfrazado de .doc): captura todos los campos + 23 OCs reales parseadas OK
+- ✅ **Cálculo facturación**: `unit_price` de OC es NETO por caja en TODAS las cadenas (incluye Walmart). Fórmula: precio_unit_neto = round(unit_price_caja / unidades_por_caja); neto_línea = unidades_totales × precio_unit_neto; ILA = neto × ila_rate (variable por SKU); IVA = (neto + log) × 0.19. Garantiza que la factura SII impresa cuadre exacto.
 - ✅ **Módulo Costos y Rappel**: costos por trimestre, acuerdos rappel por cadena
-- ✅ Cargador de **seguros** corregido: `applyInsurance` recibe `ApplyInput` directo + try-catch + logging
-- ✅ **Módulo Finanzas** (fase 1): línea de crédito por cliente, historial de cargas, cargador de seguros integrado
-- ✅ **Listado NV** con KPIs reactivos, filtros (año/mes/canal/status), paginación, margen por NV
-- ⏳ **Rediseño visual Supermercados**: prototipo HTML standalone listo en `~/Downloads/Index.html` + `tokens.css`. Pendiente migrar a Next.js
-- ⏳ Resto de módulos (Despacho, Stock) — solo placeholder, todavía sin implementación
+- ✅ **Módulo Finanzas** (fase 1): línea de crédito, historial de cargas, cargador de seguros
+- ✅ **Listado NV** con KPIs reactivos, filtros y paginación
+- ✅ **RLS Supabase aplicado en todas las 43 tablas públicas** (Fase 0→4): helper `current_role_name()` SECURITY DEFINER, políticas por rol; audit_log append-only; vista `v_stock_available` con security_invoker. Activar leaked password protection en Auth dashboard pendiente (manual)
+- ⏳ Resto de módulos (Despacho, Stock) — placeholder con badge "Pronto"
 - ⏳ Finanzas fase 2: cartolas bancarias + conciliación de pagos
 
 ## Convenciones críticas
 
+- **Paleta del sistema** (en `globals.css` via `@theme`): bg-base/surface/muted/subtle, ink/ink-2/ink-3, line/line-2, wine/wine-2/wine-text, pos/neg/warn/orange/info (+ `-soft` variantes), ch-walmart/cencosud/smu/tottus/other. Usar clases Tailwind estáticas (no interpoladas).
+- **Inter font** en home y módulo Supermercados; el resto del dashboard mantiene Fraunces/Instrument/JetBrains.
 - **Casts de joins Supabase**: usar `as unknown as TipoEsperado` (PostgREST infiere relaciones FK como arrays incluso si conceptualmente son 1:1). Cast directo rompe build de prod aunque dev funcione.
 - **`tsc --noEmit` antes de push**: cuando agregaste nuevos SELECT con joins. Vercel falla con TS2352 si no lo respetás.
-- **Margen $/%**: viene de `products.unit_cost_net` (cargable via Excel cargador productos o CRUD individual). Si está NULL, las vistas muestran "—".
-- **Venta perdida**: campo `purchase_order_items.lost_sale_reason` (manual, valores: `sin_stock` / `no_entro_cd` / `fuera_plazo` / `error_mapeo` / `otro`).
+- **Tailwind v4 clases estáticas**: NO usar interpolación como `bg-${tone}`. Definir maps `TONE_BG = { pos: "bg-pos", warn: "bg-warn", neg: "bg-neg" }` y usar `TONE_BG[tone]`. Si no, las clases no se generan en el build.
+- **`unit_price` de OC**: SIEMPRE es neto por caja (Cencosud, Walmart, Tottus, SMU). Verificado contra factura real OC 3251101692. NO desbrutar.
+- **Precio unitario en facturación**: redondear a entero (CLP) primero y derivar el neto producto desde el unitario × cantidad_unidades, no desde `cajas × unit_price_caja`. Garantiza cuadre exacto en factura SII.
+- **ILA por SKU** (no por categoría): `products.ila_rate` editable en ficha producto. 0.205 vinos, 0.315 licores fuertes, 0.10 cervezas/sin alcohol, 0.18 energéticas.
+- **Margen $/%**: viene de `products.unit_cost_net` (cargable via Excel o CRUD). Si NULL, vistas muestran "—".
+- **Venta perdida**: campo `purchase_order_items.lost_sale_reason` (valores: `sin_stock` / `no_entro_cd` / `fuera_plazo` / `error_mapeo` / `otro`).

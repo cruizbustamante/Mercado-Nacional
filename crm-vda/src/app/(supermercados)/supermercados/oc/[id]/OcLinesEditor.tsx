@@ -4,6 +4,13 @@ import { useState, useMemo, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { OcDetail, OcDetailLine } from "../../_lib/queries";
 import { saveOcLineUpdates, createSupermarketNv, type LineUpdate, type SupermarketNvInput } from "./actions";
+import {
+  chainSendsGross,
+  computeLine,
+  DEFAULT_LOGISTICS_PER_UNIT,
+  DEFAULT_ILA_RATE,
+  DEFAULT_IVA_RATE,
+} from "./compute-invoice";
 
 const fmtClp = (n: number) => `$${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(n)}`;
 const fmtClpCompact = (n: number) => {
@@ -38,9 +45,6 @@ function lineToDraft(line: OcDetailLine): DraftLine {
   };
 }
 
-const ILA_RATE = 0.205;
-const IVA_RATE = 0.19;
-const DEFAULT_LOGISTICS = 360;
 
 export interface InvoicePreview {
   invoiceNumber: string;
@@ -51,10 +55,12 @@ export interface InvoicePreview {
     sku: string | null;
     boxes: number;
     unitsPerPack: number;
-    unitPrice: number;
+    unitPrice: number;        // neto por caja (desbrutado si era Walmart)
     netProduct: number;
     logisticsCostPerUnit: number;
     logisticsTotal: number;
+    ila: number;
+    iva: number;
   }>;
   totalNetProduct: number;
   totalLogistics: number;
@@ -191,6 +197,8 @@ export function OcLinesEditor({ oc, logisticsCosts = {} }: { oc: OcDetail; logis
       return;
     }
 
+    const isGrossSource = chainSendsGross(oc.chain?.name);
+
     const previews: InvoicePreview[] = [];
     for (const [invoiceNumber, group] of invoiceGroups) {
       const lines = group.lineIds.map((lid) => {
@@ -198,30 +206,43 @@ export function OcLinesEditor({ oc, logisticsCosts = {} }: { oc: OcDetail; logis
         const d = drafts[lid];
         const boxes = parseInt(d.boxes || "0", 10) || 0;
         const unitsPerPack = line.units_per_pack ?? 1;
-        const totalUnits = boxes * unitsPerPack;
-        const netProduct = boxes * line.unit_price;
         const brandId = line.product?.brand_id ?? null;
         const logCost = brandId && logisticsCosts[brandId] != null
           ? logisticsCosts[brandId]
-          : DEFAULT_LOGISTICS;
-        const logisticsTotal = totalUnits * logCost;
+          : DEFAULT_LOGISTICS_PER_UNIT;
+        const ilaRate = Number(line.product?.ila_rate ?? DEFAULT_ILA_RATE);
+        const ivaRate = Number(line.product?.iva_rate ?? DEFAULT_IVA_RATE);
+
+        const computed = computeLine({
+          boxes,
+          unitsPerPack,
+          ocUnitPrice: line.unit_price,
+          logisticsCostPerUnit: logCost,
+          ilaRate,
+          ivaRate,
+          isGrossSource,
+        });
+
         return {
           lineId: lid,
           productName: line.product?.name ?? line.product_name_oc ?? "—",
           sku: line.product?.sku ?? null,
           boxes,
           unitsPerPack,
-          unitPrice: line.unit_price,
-          netProduct,
+          unitPrice: computed.unitPriceNet,
+          netProduct: computed.netProduct,
           logisticsCostPerUnit: logCost,
-          logisticsTotal,
+          logisticsTotal: computed.logisticsTotal,
+          ila: computed.ila,
+          iva: computed.iva,
         };
       });
 
+      // Sumar ILA por línea (porque varía por SKU); IVA también por línea por consistencia.
       const totalNetProduct = lines.reduce((s, l) => s + l.netProduct, 0);
       const totalLogistics = lines.reduce((s, l) => s + l.logisticsTotal, 0);
-      const totalIla = Math.round(totalNetProduct * ILA_RATE);
-      const totalIva = Math.round((totalNetProduct + totalLogistics) * IVA_RATE);
+      const totalIla = lines.reduce((s, l) => s + l.ila, 0);
+      const totalIva = lines.reduce((s, l) => s + l.iva, 0);
       const grandTotal = totalNetProduct + totalLogistics + totalIla + totalIva;
 
       previews.push({

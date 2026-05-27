@@ -140,17 +140,92 @@ function parseMarkitdownOC(textRaw: string, chain: SuperChain): ParsedOc {
   };
 }
 
-// ---------- Walmart (pendiente ejemplo PDF) ----------
-function parseWalmart(text: string): ParsedOc {
-  // TODO: implementar cuando tenga el PDF de Walmart parseado
-  // Por ahora intenta el genérico
-  return parseMarkitdownOC(text, "Walmart");
+// ---------- Walmart (Comercionet ORD_WM en HTML) ----------
+// Cada celda de la tabla queda en su propia línea tras file-to-text.ts.
+// Formato de línea de producto (11 campos consecutivos seguidos de "Descripción" + nombre):
+//   Linea | UPC | ITEM | Cod.Prov | Talla/UM | Color/Desc | Cantidad | Precio | Unid/Emp | Empaques | Importe
+//   Descripción
+//   NOMBRE PRODUCTO
+function parseWalmart(textRaw: string): ParsedOc {
+  // Colapsar todo a una sola línea con pipes consistentes.
+  // Cada celda del HTML viene en su propia línea con "X |" al final, así que al
+  // unir con " | " se producen pipes duplicados que hay que colapsar.
+  const text = textRaw
+    .replace(/\r?\n+/g, " | ")
+    .replace(/\s*\|\s*/g, " | ")
+    .replace(/(\|\s*){2,}/g, "| ")
+    .replace(/\s{2,}/g, " ");
+
+  const find = (re: RegExp): string => {
+    const m = text.match(re);
+    return m ? m[1].trim() : "";
+  };
+
+  const order_number = find(/N[úu]mero de Orden de Compra:\s*\|?\s*(\d+)/i);
+  const order_date_raw = find(/Fecha generaci[óo]n Mensaje:\s*\|?\s*(\d{2}\/\d{2}\/\d{4})/i);
+  const cancel_date_raw =
+    find(/Fecha de Cancelacion:?\s*\|?\s*(\d{2}\/\d{2}\/\d{4})/i) ||
+    find(/Fecha de Embarque:?\s*\|?\s*(\d{2}\/\d{2}\/\d{4})/i);
+  const issuer = find(/Emisor:\s*\|?\s*([^|]+?)\s*\|/i) || "Walmart Chile S.A";
+  const buyer = find(/Receptor:\s*\|?\s*([^|]+?)\s*\|/i) || "";
+  const delivery_place = find(/Lugar de Entrega:\s*\|?\s*([^|]+?)\s*\|/i) || null;
+  const payment_terms_raw = find(/Condiciones de Pago:\s*\|?\s*([^|]+?)\s*\|/i);
+  const payment_terms = payment_terms_raw ? payment_terms_raw.replace(/\s+/g, " ") : null;
+  const total_str = find(/Importe Total\s*\|?\s*\$\s*([\d.,]+)/i);
+  const total_amount = clpToInt(total_str);
+
+  // Línea de producto: 11 campos numéricos/cortos + "Descripción" + nombre
+  // UPC Walmart tiene 12-14 dígitos. Cantidad y Empaques con coma decimal (44,00).
+  // Precio e Importe con punto como separador de miles (18.172, 989.648).
+  // Unid/Emp es entero pequeño (6, 12, 24).
+  const lineRe =
+    /(\d{1,3})\s*\|\s*(\d{12,14})\s*\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|\s*(\d+)\s*\|\s*([\d.,]+)\s*\|\s*([\d.,]+)\s*\|\s*Descripci[óo]n\s*\|?\s*([^|]+?)\s*\|/gi;
+
+  const lines: ParsedOcLine[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = lineRe.exec(text)) !== null) {
+    const [, lineNum, upc, , , , , cantidadStr, precioStr, unidEmpStr, empaquesStr, importeStr, descRaw] = m;
+    const empaques = Math.round(clNumber(empaquesStr));
+    const cantidad = Math.round(clNumber(cantidadStr));
+    const unitsPerPack = parseInt(unidEmpStr, 10);
+    const precio = clpToInt(precioStr);
+    const importe = clpToInt(importeStr);
+    // Walmart usa "Cantidad" y "Empaques" generalmente iguales (cajas pedidas).
+    // Preferimos "Empaques" como quantity_boxes; fallback a cantidad si difiere.
+    const cajas = empaques > 0 ? empaques : cantidad;
+    // Limpiar descripción: "NOMBRE LARGO.....NOMBRE CORTO" → "NOMBRE LARGO"
+    const name = descRaw.split(/\.{3,}/)[0].trim();
+
+    lines.push({
+      line_number: parseInt(lineNum, 10),
+      upc_code: canonUpc(upc),
+      product_name_oc: name,
+      quantity_boxes: cajas,
+      units_per_pack: unitsPerPack,
+      unit_price: precio,
+      line_amount: importe,
+    });
+  }
+
+  return {
+    chain: "Walmart",
+    order_number,
+    order_date: order_date_raw ? dmyToIso(order_date_raw) : null,
+    cancellation_date: cancel_date_raw ? dmyToIso(cancel_date_raw) : null,
+    issuer,
+    buyer,
+    delivery_place,
+    total_amount,
+    payment_terms,
+    lines,
+    raw_excerpt: text.slice(0, 500),
+  };
 }
 
 // ---------- Entry point ----------
 export function parseOc(text: string): ParsedOc {
   const chain = detectChain(text);
-  if (chain === "Walmart") return parseWalmart(text);
+  if (chain === "Walmart" || /Comercionet,\s*ORD_WM/i.test(text)) return parseWalmart(text);
   if (chain === "Otro") {
     return {
       chain, order_number: "", order_date: null, cancellation_date: null,

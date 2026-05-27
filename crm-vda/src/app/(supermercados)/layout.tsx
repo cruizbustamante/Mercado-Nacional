@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Inter } from "next/font/google";
 import { getCurrentProfile } from "@/lib/auth";
 import { logout } from "@/app/login/actions";
+import "../warm.css";
 import "./theme.css";
 import "./supermercados/supermercados.css";
 
@@ -13,7 +14,7 @@ export default async function SupermercadosLayout({ children }: { children: Reac
   if (!profile) redirect("/login");
 
   return (
-    <div className={`sm-shell ${inter.variable}`}>
+    <div className={`warm sm-shell ${inter.variable}`}>
       {/* Slim topbar: link CRM + user + logout */}
       <div className="border-b border-line bg-bg-surface">
         <div className="max-w-[1440px] mx-auto px-8 py-2 flex items-center justify-between">

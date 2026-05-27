@@ -2327,3 +2327,35 @@
   .preview-context-strip { grid-template-columns: 1fr 1fr; }
   .preview-summary-strip { grid-template-columns: 1fr 1fr; }
 }
+
+/* ============ Modal OC: Skeleton de carga ============ */
+.oc-modal-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0;
+}
+.oc-modal-skeleton .sk-row {
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.10) 50%, rgba(0,0,0,0.05) 100%);
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.2s ease-in-out infinite;
+}
+.oc-modal-skeleton .sk-row-big {
+  height: 28px;
+  width: 60%;
+}
+.oc-modal-skeleton .sk-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.oc-modal-skeleton .sk-table .sk-row { height: 20px; }
+@keyframes sk-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

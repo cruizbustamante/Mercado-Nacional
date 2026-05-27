@@ -21,7 +21,7 @@ export default async function InterceptedOcPage({
   const logisticsCosts = Object.fromEntries(logisticsMap);
 
   return (
-    <OcModal id={id}>
+    <OcModal key={id} id={id}>
       <OcDetailContent oc={oc} mode="modal" logisticsCosts={logisticsCosts} />
     </OcModal>
   );

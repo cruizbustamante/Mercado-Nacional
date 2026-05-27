@@ -57,28 +57,35 @@ export function computeLine(input: ComputeLineInput): ComputedLine {
   const logisticsTotal = unitsTotal * logisticsCostPerUnit;
   const logPerBox = unitsPerPack * logisticsCostPerUnit;
 
-  let unitPriceNet: number;
+  // Paso 1: obtener precio neto por CAJA según cadena
+  let unitPriceNetBoxRaw: number;
   if (isGrossSource) {
     // Desbrutación: neto por caja = (bruto - log_caja×(1+iva)) / (1+ila+iva)
     const denom = 1 + ilaRate + ivaRate;
-    unitPriceNet = denom > 0 ? (ocUnitPrice - logPerBox * (1 + ivaRate)) / denom : 0;
-    if (unitPriceNet < 0) unitPriceNet = 0;
+    unitPriceNetBoxRaw = denom > 0 ? (ocUnitPrice - logPerBox * (1 + ivaRate)) / denom : 0;
+    if (unitPriceNetBoxRaw < 0) unitPriceNetBoxRaw = 0;
   } else {
-    unitPriceNet = ocUnitPrice;
+    unitPriceNetBoxRaw = ocUnitPrice;
   }
 
-  const netProduct = Math.round(boxes * unitPriceNet);
+  // Paso 2: convertir a precio neto por UNIDAD redondeado (entero CLP).
+  // Todos los cálculos posteriores derivan de este unitario redondeado
+  // para que la factura impresa cuadre: cantidad_unidades × precio_unit = neto_línea.
+  const unitPriceNetPerUnit = unitsPerPack > 0
+    ? Math.round(unitPriceNetBoxRaw / unitsPerPack)
+    : 0;
+
+  // Paso 3: derivar todo desde el unitario redondeado
+  const netProduct = unitsTotal * unitPriceNetPerUnit;
+  const unitPriceNet = unitPriceNetPerUnit * unitsPerPack; // neto por caja recalculado
   const ila = Math.round(netProduct * ilaRate);
   const iva = Math.round((netProduct + logisticsTotal) * ivaRate);
   const grossTotal = netProduct + logisticsTotal + ila + iva;
 
-  const unitPriceNetRounded = Math.round(unitPriceNet);
-  const unitPriceNetPerUnit = unitsPerPack > 0 ? unitPriceNetRounded / unitsPerPack : 0;
-
   return {
     boxes,
     unitsPerPack,
-    unitPriceNet: unitPriceNetRounded,
+    unitPriceNet,
     unitPriceNetPerUnit,
     netProduct,
     logisticsTotal,

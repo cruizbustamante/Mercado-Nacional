@@ -636,11 +636,7 @@ export function OcLinesEditor({ oc, logisticsCosts = {} }: { oc: OcDetail; logis
                     </thead>
                     <tbody>
                       {inv.lines.map((l) => {
-                        const perUnit = l.unitPricePerUnit;
-                        // Si es entero exacto, mostrar sin decimales; si tiene decimales, mostrar 2
-                        const perUnitStr = Number.isInteger(perUnit)
-                          ? `$${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(perUnit)}`
-                          : `$${new Intl.NumberFormat("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(perUnit)}`;
+                        const perUnitStr = fmtClp(l.unitPricePerUnit);
                         return (
                           <tr key={l.lineId}>
                             <td>

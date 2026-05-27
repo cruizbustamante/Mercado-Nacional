@@ -55,7 +55,8 @@ export interface InvoicePreview {
     sku: string | null;
     boxes: number;
     unitsPerPack: number;
-    unitPrice: number;        // neto por caja (desbrutado si era Walmart)
+    unitPrice: number;          // neto por caja
+    unitPricePerUnit: number;   // neto por unidad de venta (puede tener decimales)
     netProduct: number;
     logisticsCostPerUnit: number;
     logisticsTotal: number;
@@ -230,6 +231,7 @@ export function OcLinesEditor({ oc, logisticsCosts = {} }: { oc: OcDetail; logis
           boxes,
           unitsPerPack,
           unitPrice: computed.unitPriceNet,
+          unitPricePerUnit: computed.unitPriceNetPerUnit,
           netProduct: computed.netProduct,
           logisticsCostPerUnit: logCost,
           logisticsTotal: computed.logisticsTotal,
@@ -626,25 +628,34 @@ export function OcLinesEditor({ oc, logisticsCosts = {} }: { oc: OcDetail; logis
                         <th>Producto</th>
                         <th className="num">Cajas</th>
                         <th className="num">Uds</th>
+                        <th className="num">P. unit neto</th>
                         <th className="num">Neto prod.</th>
                         <th className="num">Log. /ud</th>
                         <th className="num">Logística</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {inv.lines.map((l) => (
-                        <tr key={l.lineId}>
-                          <td>
-                            <span>{l.productName}</span>
-                            {l.sku && <span className="pill" style={{ marginLeft: 6, fontSize: 10 }}>{l.sku}</span>}
-                          </td>
-                          <td className="num mono">{l.boxes}</td>
-                          <td className="num mono">{l.boxes * l.unitsPerPack}</td>
-                          <td className="num mono">{fmtClp(l.netProduct)}</td>
-                          <td className="num mono" style={{ color: "var(--text-3)" }}>{fmtClp(l.logisticsCostPerUnit)}</td>
-                          <td className="num mono">{fmtClp(l.logisticsTotal)}</td>
-                        </tr>
-                      ))}
+                      {inv.lines.map((l) => {
+                        const perUnit = l.unitPricePerUnit;
+                        // Si es entero exacto, mostrar sin decimales; si tiene decimales, mostrar 2
+                        const perUnitStr = Number.isInteger(perUnit)
+                          ? `$${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(perUnit)}`
+                          : `$${new Intl.NumberFormat("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(perUnit)}`;
+                        return (
+                          <tr key={l.lineId}>
+                            <td>
+                              <span>{l.productName}</span>
+                              {l.sku && <span className="pill" style={{ marginLeft: 6, fontSize: 10 }}>{l.sku}</span>}
+                            </td>
+                            <td className="num mono">{l.boxes}</td>
+                            <td className="num mono">{l.boxes * l.unitsPerPack}</td>
+                            <td className="num mono">{perUnitStr}</td>
+                            <td className="num mono">{fmtClp(l.netProduct)}</td>
+                            <td className="num mono" style={{ color: "var(--text-3)" }}>{fmtClp(l.logisticsCostPerUnit)}</td>
+                            <td className="num mono">{fmtClp(l.logisticsTotal)}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
 

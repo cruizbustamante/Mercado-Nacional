@@ -34,7 +34,8 @@ export interface ComputeLineInput {
 export interface ComputedLine {
   boxes: number;
   unitsPerPack: number;
-  unitPriceNet: number;       // precio neto por caja (calculado o = ocUnitPrice según cadena)
+  unitPriceNet: number;       // precio neto por caja (entero CLP)
+  unitPriceNetPerUnit: number; // precio neto por unidad de venta (puede tener decimales)
   netProduct: number;         // boxes × unitPriceNet
   logisticsTotal: number;     // boxes × unitsPerPack × logisticsCostPerUnit
   ila: number;                // netProduct × ilaRate
@@ -71,10 +72,14 @@ export function computeLine(input: ComputeLineInput): ComputedLine {
   const iva = Math.round((netProduct + logisticsTotal) * ivaRate);
   const grossTotal = netProduct + logisticsTotal + ila + iva;
 
+  const unitPriceNetRounded = Math.round(unitPriceNet);
+  const unitPriceNetPerUnit = unitsPerPack > 0 ? unitPriceNetRounded / unitsPerPack : 0;
+
   return {
     boxes,
     unitsPerPack,
-    unitPriceNet: Math.round(unitPriceNet),
+    unitPriceNet: unitPriceNetRounded,
+    unitPriceNetPerUnit,
     netProduct,
     logisticsTotal,
     ila,

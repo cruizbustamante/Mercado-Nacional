@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import { getCurrentProfile } from "@/lib/auth";
 import { logout } from "@/app/login/actions";
 import "./theme.css";
+import "./supermercados/supermercados.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 

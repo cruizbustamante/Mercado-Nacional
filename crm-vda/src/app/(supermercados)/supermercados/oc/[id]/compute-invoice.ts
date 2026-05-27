@@ -6,22 +6,19 @@
  *   ILA = neto × ila_rate (variable por SKU; 20.5% vinos, 31.5% licores fuertes, etc.)
  *   IVA = (neto + log) × iva_rate (19%)
  *
- * Diferencia por cadena:
- *  - Cencosud/Tottus/etc: OC trae `unit_price` en NETO por caja → usar directo.
- *  - Walmart: OC trae `unit_price` en BRUTO por caja (con ILA + IVA + log embebida).
- *    Hay que "desbrutar" antes de calcular la factura:
- *       neto_caja = (bruto_caja - log_caja × (1 + iva)) / (1 + ila + iva)
+ * Todas las cadenas (Cencosud, Walmart, Tottus, SMU, etc.) traen `unit_price`
+ * en NETO POR CAJA. Walmart y Cencosud comparten esa semántica — el "Importe
+ * Total" del documento Walmart sí está en bruto, pero el precio por línea
+ * es neto. Se factura directo sobre `unit_price`.
  */
 
 export const DEFAULT_LOGISTICS_PER_UNIT = 360;
 export const DEFAULT_ILA_RATE = 0.205;
 export const DEFAULT_IVA_RATE = 0.19;
 
-/** ¿La cadena entrega la OC con precio bruto (todo incluido)? */
-export function chainSendsGross(chainName: string | null | undefined): boolean {
-  if (!chainName) return false;
-  const n = chainName.toLowerCase();
-  return n.includes("walmart") || n.includes("lider") || n.includes("líder") || n.includes("acuenta");
+/** Compatibilidad: ninguna cadena envía bruto a nivel de línea. */
+export function chainSendsGross(_chainName: string | null | undefined): boolean {
+  return false;
 }
 
 export interface ComputeLineInput {

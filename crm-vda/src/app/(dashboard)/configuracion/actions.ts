@@ -53,9 +53,12 @@ export async function saveProduct(prev: FormState, fd: FormData): Promise<FormSt
     if (existing) {
       category_id = existing.id;
     } else {
-      const { data: created } = await supabase
+      const { data: created, error: catErr } = await supabase
         .from("product_categories").insert({ name: categoryName }).select("id").single();
-      category_id = created?.id ?? null;
+      if (catErr || !created) {
+        return { ok: false, error: `No se pudo crear la categoría "${categoryName}": ${catErr?.message ?? "error desconocido"}` };
+      }
+      category_id = created.id;
     }
   }
 
@@ -66,9 +69,12 @@ export async function saveProduct(prev: FormState, fd: FormData): Promise<FormSt
     if (existing) {
       brand_id = existing.id;
     } else {
-      const { data: created } = await supabase
+      const { data: created, error: brandErr } = await supabase
         .from("brands").insert({ name: brandName }).select("id").single();
-      brand_id = created?.id ?? null;
+      if (brandErr || !created) {
+        return { ok: false, error: `No se pudo crear la marca "${brandName}": ${brandErr?.message ?? "error desconocido"}` };
+      }
+      brand_id = created.id;
     }
   }
 

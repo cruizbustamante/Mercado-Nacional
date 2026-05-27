@@ -21,6 +21,14 @@ function toIntOrZero(v: FormDataEntryValue | null): number {
   return toIntOrNull(v) ?? 0;
 }
 
+function toNumberOrNull(v: FormDataEntryValue | null): number | null {
+  const s = (v as string | null)?.toString().trim();
+  if (!s) return null;
+  // Aceptar coma o punto decimal
+  const n = parseFloat(s.replace(",", "."));
+  return isNaN(n) ? null : n;
+}
+
 /* ── PRODUCTO ───────────────────────────────────────────────────── */
 
 export async function saveProduct(prev: FormState, fd: FormData): Promise<FormState> {
@@ -42,6 +50,8 @@ export async function saveProduct(prev: FormState, fd: FormData): Promise<FormSt
   const base_price_gross = toIntOrZero(fd.get("base_price_gross"));
   const min_price_net = toIntOrZero(fd.get("min_price_net"));
   const unit_cost_net = toIntOrNull(fd.get("unit_cost_net"));
+  const ila_rate = toNumberOrNull(fd.get("ila_rate"));
+  const iva_rate = toNumberOrNull(fd.get("iva_rate"));
   const is_active = fd.get("is_active") === "on" || fd.get("is_active") === "true";
 
   const supabase = await createClient();
@@ -78,11 +88,13 @@ export async function saveProduct(prev: FormState, fd: FormData): Promise<FormSt
     }
   }
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     sku, name, category_id, brand_id, supplier, cc_vinos, wine_line, grape,
     units_per_box, base_price_net, base_price_gross, min_price_net,
     unit_cost_net, is_active,
   };
+  if (ila_rate !== null) payload.ila_rate = ila_rate;
+  if (iva_rate !== null) payload.iva_rate = iva_rate;
 
   if (id) {
     const { error } = await supabase.from("products").update(payload).eq("id", id);

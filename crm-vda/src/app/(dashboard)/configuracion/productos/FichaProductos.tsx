@@ -561,6 +561,34 @@ const ProductDialog = forwardRef<
                 </div>
                 <span className="ficha-field-helper">Bloquea ventas bajo este valor.</span>
               </div>
+              <div className="ficha-field">
+                <label className="ficha-label">ILA % <span className="optional">por SKU</span></label>
+                <input
+                  name="ila_rate"
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  max="1"
+                  className="ficha-input mono"
+                  style={{ textAlign: "right" }}
+                  defaultValue={p?.ila_rate ?? 0.205}
+                />
+                <span className="ficha-field-helper">0.205 vinos · 0.315 licores fuertes · 0.10 cervezas. Aplica s/neto.</span>
+              </div>
+              <div className="ficha-field">
+                <label className="ficha-label">IVA %</label>
+                <input
+                  name="iva_rate"
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  max="1"
+                  className="ficha-input mono"
+                  style={{ textAlign: "right" }}
+                  defaultValue={p?.iva_rate ?? 0.19}
+                />
+                <span className="ficha-field-helper">0.19 estándar Chile. Aplica s/(neto + log).</span>
+              </div>
             </div>
             <input type="hidden" name="base_price_gross" value={p?.base_price_gross ?? 0} />
             <input type="hidden" name="unit_cost_net" value={p?.unit_cost_net ?? ""} />

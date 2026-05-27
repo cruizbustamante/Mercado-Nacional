@@ -2419,7 +2419,7 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0;
-  background: var(--bg);
+  background: #fff;
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
@@ -2459,7 +2459,7 @@
   display: flex;
   align-items: stretch;
   gap: 0;
-  background: var(--bg);
+  background: #fff;
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
@@ -2468,7 +2468,7 @@
   color: inherit;
   transition: background 120ms;
 }
-.ord-alert:hover { background: var(--bg-2); }
+.ord-alert:hover { background: #FAFAFA; }
 .ord-alert-bar {
   width: 3px;
   background: var(--danger, #B83838);
@@ -2531,7 +2531,7 @@
   flex-direction: column;
   gap: 8px;
   padding: 16px;
-  background: var(--bg);
+  background: #fff;
   border: 1px solid var(--border);
   border-radius: 10px;
   cursor: pointer;
@@ -2545,7 +2545,7 @@
 }
 .ord-chain.is-active {
   border-color: var(--text);
-  background: var(--bg-2);
+  background: #F5F2EA;
 }
 .ord-chain-name {
   font-size: 13px;
@@ -2587,7 +2587,7 @@
 .ord-chain-progress-track {
   flex: 1;
   height: 4px;
-  background: var(--bg-2);
+  background: #EEE;
   border-radius: 999px;
   overflow: hidden;
 }
@@ -2627,7 +2627,7 @@
   align-items: center;
   gap: 10px;
   padding: 6px 10px;
-  background: var(--bg);
+  background: #fff;
   border: 1px solid var(--border);
   border-radius: 10px;
   margin-bottom: 16px;
@@ -2701,7 +2701,7 @@
 .ord-empty {
   padding: 48px 24px;
   text-align: center;
-  background: var(--bg);
+  background: #fff;
   border: 1px dashed var(--border);
   border-radius: 10px;
 }
@@ -2721,7 +2721,7 @@
 /* Lista agrupada */
 .ord-list { display: flex; flex-direction: column; gap: 20px; }
 .ord-group {
-  background: var(--bg);
+  background: #fff;
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
@@ -2766,7 +2766,7 @@
   color: var(--text-3);
   font-weight: 500;
   padding: 10px 18px;
-  background: var(--bg-2);
+  background: #FAFAFA;
   border-bottom: 1px solid var(--border);
 }
 .ord-table th.num { text-align: right; }
@@ -2776,7 +2776,7 @@
   vertical-align: middle;
 }
 .ord-table tbody tr:last-child td { border-bottom: none; }
-.ord-table tbody tr:hover { background: var(--bg-2); }
+.ord-table tbody tr:hover { background: #FAFAFA; }
 .ord-table td.num { text-align: right; }
 .ord-table td.mono { font-family: var(--f-mono); font-size: 12.5px; }
 .ord-table td.dim { color: var(--text-3); }

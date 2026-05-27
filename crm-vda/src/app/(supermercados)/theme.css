@@ -1,0 +1,9 @@
+/* Shell del módulo Supermercados — el resto de la paleta vive en globals.css */
+
+.sm-shell {
+  background: var(--color-bg-base);
+  color: var(--color-ink);
+  min-height: 100vh;
+  font-family: var(--font-inter, 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif);
+  -webkit-font-smoothing: antialiased;
+}

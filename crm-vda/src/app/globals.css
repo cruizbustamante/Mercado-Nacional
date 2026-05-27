@@ -12,6 +12,40 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Paleta del módulo Supermercados (rediseño v1.0) */
+@theme {
+  --color-bg-base:     #F7F6F1;
+  --color-bg-surface:  #FFFFFF;
+  --color-bg-muted:    #F1EFE8;
+  --color-bg-subtle:   #FAFAF7;
+  --color-bg-sidebar:  #EDEAE0;
+  --color-ink:    #1A1A1A;
+  --color-ink-2:  #5F5E5A;
+  --color-ink-3:  #9B9B96;
+  --color-line:    rgba(0, 0, 0, 0.08);
+  --color-line-2:  rgba(0, 0, 0, 0.15);
+  --color-wine:        #501313;
+  --color-wine-2:      #7A2424;
+  --color-wine-text:   #F5E1E1;
+  --color-wine-text-2: #D9B8B8;
+  --color-pos:        #0F6E56;
+  --color-pos-2:      #1D9E75;
+  --color-pos-soft:   #E1F5EE;
+  --color-neg:        #A32D2D;
+  --color-neg-soft:   #FCEBEB;
+  --color-warn:       #BA7517;
+  --color-warn-soft:  #FAEEDA;
+  --color-orange:     #D97706;
+  --color-orange-soft:#FEF3C7;
+  --color-info:       #2563EB;
+  --color-info-soft:  #DBEAFE;
+  --color-ch-walmart:  #0071CE;
+  --color-ch-cencosud: #E11D48;
+  --color-ch-smu:      #1D9E75;
+  --color-ch-tottus:   #D97706;
+  --color-ch-other:    #5F5E5A;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -24,3 +58,6 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Tabular numerals utility para tablas/montos */
+.tabular { font-variant-numeric: tabular-nums; }

@@ -24,13 +24,12 @@ export interface ChainCard {
   totalOc: number;
   totalFacturado: number;
   vencidas: number;
-  fillRate: number; // 0..1
+  fillRate: number;
 }
 
 interface Props {
   orders: OrdenRow[];
   chainCards: ChainCard[];
-  mesParam: string;
   monthLabel: string;
   prevMesParam: string;
   nextMesParam: string;
@@ -40,36 +39,40 @@ interface Props {
   totalVencidasMonto: number;
 }
 
+const fmtClp = (n: number) =>
+  `$${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(n)}`;
+
 const fmtClpCompact = (n: number) => {
   if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(Math.abs(n) >= 10_000_000 ? 0 : 1)}M`;
   if (Math.abs(n) >= 1_000) return `$${Math.round(n / 1_000)}K`;
   return `$${n}`;
 };
+
 const fmtDate = (iso: string | null) => {
   if (!iso) return "—";
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y.slice(2)}`;
 };
 
-function chainAccent(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes("cencosud") || n.includes("jumbo") || n.includes("santa isabel")) return "cen";
-  if (n.includes("smu") || n.includes("unimarc")) return "smu";
-  if (n.includes("tottus") || n.includes("falabella")) return "tot";
-  if (n.includes("walmart") || n.includes("lider") || n.includes("líder") || n.includes("acuenta")) return "wal";
-  if (n.includes("rendic")) return "ren";
-  return "gen";
-}
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 
 export function OrdenesView({
-  orders, chainCards, mesParam, monthLabel,
+  orders, chainCards, monthLabel,
   prevMesParam, nextMesParam, prevLabel, nextLabel,
   totalVencidas, totalVencidasMonto,
 }: Props) {
   const [search, setSearch] = useState("");
   const [chainFilter, setChainFilter] = useState<string | null>(null);
   const [onlyVencidas, setOnlyVencidas] = useState(false);
-  const [expandedChain, setExpandedChain] = useState<string | null>(() => chainCards[0]?.id ?? null);
+
+  // Totales agregados del período
+  const totals = useMemo(() => {
+    const totalOc = orders.length;
+    const totalMonto = orders.reduce((s, o) => s + o.total_amount, 0);
+    const totalFacturado = orders.reduce((s, o) => s + o.facturado, 0);
+    const cumplim = totalMonto > 0 ? totalFacturado / totalMonto : 0;
+    return { totalOc, totalMonto, totalFacturado, cumplim };
+  }, [orders]);
 
   const filteredOrders = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -81,7 +84,6 @@ export function OrdenesView({
     });
   }, [orders, search, chainFilter, onlyVencidas]);
 
-  // Group filtered by chain for display
   const groupedByChain = useMemo(() => {
     const map = new Map<string, { chain: ChainCard; rows: OrdenRow[] }>();
     for (const card of chainCards) {
@@ -91,208 +93,213 @@ export function OrdenesView({
       const g = map.get(o.chain_id);
       if (g) g.rows.push(o);
     }
-    // Keep order of chainCards (sorted by ocCount desc)
     return Array.from(map.values()).filter((g) => g.rows.length > 0);
   }, [filteredOrders, chainCards]);
 
   return (
     <>
-      {/* HEADER compacto */}
-      <section className="ordenes-topbar">
-        <div>
-          <div className="eyebrow">Listado</div>
-          <h1>Órdenes de Compra</h1>
+      {/* HEADER */}
+      <section className="ord-header">
+        <div className="ord-title-block">
+          <div className="ord-eyebrow">Listado</div>
+          <h1 className="ord-title">Órdenes de Compra</h1>
+          <div className="ord-meta">
+            Período <span className="ord-meta-value">{capitalize(monthLabel)}</span> · {totals.totalOc} órdenes
+          </div>
         </div>
-        <div className="month-switcher">
-          <Link href={`/supermercados/ordenes?mes=${prevMesParam}`} className="ms-btn" title={prevLabel} prefetch>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
-          </Link>
-          <span className="ms-label">{monthLabel}</span>
-          <Link href={`/supermercados/ordenes?mes=${nextMesParam}`} className="ms-btn" title={nextLabel} prefetch>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
-          </Link>
-          <Link href="/admin/cargadores/oc-supermercados" className="ms-cta" prefetch>+ Cargar OC</Link>
+        <div className="ord-controls">
+          <div className="ord-month-nav">
+            <Link href={`/supermercados/ordenes?mes=${prevMesParam}`} className="ord-month-btn" title={capitalize(prevLabel)} prefetch>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
+            </Link>
+            <span className="ord-month-label">{capitalize(monthLabel)}</span>
+            <Link href={`/supermercados/ordenes?mes=${nextMesParam}`} className="ord-month-btn" title={capitalize(nextLabel)} prefetch>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+            </Link>
+          </div>
+          <Link href="/admin/cargadores/oc-supermercados" className="ord-cta" prefetch>Cargar OC</Link>
         </div>
       </section>
 
-      {/* BANNER ALERTA */}
+      {/* KPIs */}
+      <section className="ord-kpis">
+        <div className="ord-kpi">
+          <div className="ord-kpi-label">Órdenes</div>
+          <div className="ord-kpi-value">{totals.totalOc}</div>
+          <div className="ord-kpi-sub">recibidas en el período</div>
+        </div>
+        <div className="ord-kpi">
+          <div className="ord-kpi-label">Monto comprado</div>
+          <div className="ord-kpi-value">{fmtClpCompact(totals.totalMonto)}</div>
+          <div className="ord-kpi-sub">{fmtClp(totals.totalMonto)}</div>
+        </div>
+        <div className="ord-kpi">
+          <div className="ord-kpi-label">Facturado</div>
+          <div className="ord-kpi-value">{fmtClpCompact(totals.totalFacturado)}</div>
+          <div className="ord-kpi-sub">acumulado</div>
+        </div>
+        <div className="ord-kpi">
+          <div className="ord-kpi-label">Cumplimiento</div>
+          <div className="ord-kpi-value">{Math.round(totals.cumplim * 100)}%</div>
+          <div className="ord-kpi-sub">facturado sobre comprado</div>
+        </div>
+      </section>
+
+      {/* ALERTA EJECUTIVA */}
       {totalVencidas > 0 && (
-        <Link href="/supermercados/alertas" className="ordenes-alert" prefetch>
-          <span className="icon-circle">!</span>
-          <span className="msg">
-            <b>{totalVencidas} OC vencida{totalVencidas !== 1 ? "s" : ""}</b>{" "}
-            suman <b>{fmtClpCompact(totalVencidasMonto)}</b> en pendiente — atención urgente
-          </span>
-          <span className="link">Ver alertas →</span>
+        <Link href="/supermercados/alertas" className="ord-alert" prefetch>
+          <div className="ord-alert-bar" />
+          <div className="ord-alert-content">
+            <div className="ord-alert-headline">{totalVencidas} órdenes vencidas representan {fmtClpCompact(totalVencidasMonto)} en pendientes</div>
+            <div className="ord-alert-sub">Revisar antes del cierre de mes</div>
+          </div>
+          <div className="ord-alert-cta">Ver alertas</div>
         </Link>
       )}
 
-      {/* CARDS POR CADENA */}
+      {/* CADENAS */}
       {chainCards.length > 0 && (
-        <section className="chain-cards">
-          {chainCards.map((c) => {
-            const pct = Math.round(c.fillRate * 100);
-            const isActive = chainFilter === c.id;
-            const accent = chainAccent(c.name);
-            const tone = c.fillRate >= 0.85 ? "ok" : c.fillRate >= 0.7 ? "wn" : "dg";
-            const circumference = 2 * Math.PI * 14;
-            const strokeLen = (pct / 100) * circumference;
-            const gapLen = circumference - strokeLen;
-            const strokeColor = tone === "ok" ? "#2C6E3B" : tone === "wn" ? "#B86E15" : "#B83838";
-            const bgStroke = tone === "ok" ? "#E6EFE3" : tone === "wn" ? "#FAEDD8" : "#FBE7E5";
-
-            return (
-              <button
-                key={c.id}
-                type="button"
-                className={`chain-card ${isActive ? "is-active" : ""}`}
-                onClick={() => setChainFilter(isActive ? null : c.id)}
-              >
-                <div className="cc-top">
-                  <div className={`cc-badge ${accent}`}>{c.name.slice(0, 3).toUpperCase()}</div>
-                  {c.vencidas > 0 && <div className="cc-alert">⚠ {c.vencidas}</div>}
-                </div>
-                <div className="cc-name">{c.name}</div>
-                <div className="cc-stats">
-                  <div className="cc-count">
-                    <b>{c.ocCount}</b>
-                    <span>OC</span>
+        <section className="ord-chains">
+          <div className="ord-section-head">
+            <h2>Por cadena</h2>
+            <span className="ord-section-hint">Haga clic para filtrar</span>
+          </div>
+          <div className="ord-chains-grid">
+            {chainCards.map((c) => {
+              const pct = Math.round(c.fillRate * 100);
+              const isActive = chainFilter === c.id;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={`ord-chain ${isActive ? "is-active" : ""}`}
+                  onClick={() => setChainFilter(isActive ? null : c.id)}
+                >
+                  <div className="ord-chain-name">{c.name}</div>
+                  <div className="ord-chain-main">
+                    <span className="ord-chain-count">{c.ocCount}</span>
+                    <span className="ord-chain-count-label">{c.ocCount === 1 ? "orden" : "órdenes"}</span>
                   </div>
-                  <div className="cc-donut">
-                    <svg viewBox="0 0 32 32">
-                      <circle cx="16" cy="16" r="14" fill="none" stroke={bgStroke} strokeWidth="3" />
-                      <circle cx="16" cy="16" r="14" fill="none" stroke={strokeColor} strokeWidth="3"
-                        strokeDasharray={`${strokeLen.toFixed(1)} ${gapLen.toFixed(1)}`}
-                        transform="rotate(-90 16 16)" />
-                    </svg>
-                    <span className={`cc-pct ${tone}`}>{pct}%</span>
+                  <div className="ord-chain-amount">{fmtClpCompact(c.totalOc)}</div>
+                  <div className="ord-chain-progress">
+                    <div className="ord-chain-progress-track">
+                      <div className="ord-chain-progress-fill" style={{ width: `${Math.max(2, pct)}%` }} />
+                    </div>
+                    <span className="ord-chain-progress-pct">{pct}%</span>
                   </div>
-                </div>
-                <div className="cc-amount">{fmtClpCompact(c.totalOc)}</div>
-              </button>
-            );
-          })}
+                  {c.vencidas > 0 && (
+                    <div className="ord-chain-vencidas">
+                      <span className="ord-chain-dot" /> {c.vencidas} vencida{c.vencidas !== 1 ? "s" : ""}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </section>
       )}
 
-      {/* TOOLBAR: buscador + filtros */}
-      <div className="ordenes-toolbar">
-        <div className="search-wrap">
+      {/* TOOLBAR */}
+      <div className="ord-toolbar">
+        <div className="ord-search">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/>
           </svg>
           <input
             type="text"
-            placeholder="Buscar OC o cadena…"
+            placeholder="Buscar por número de orden o cadena"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="search-input"
           />
           {search && (
-            <button type="button" className="search-clear" onClick={() => setSearch("")} aria-label="Limpiar">
+            <button type="button" onClick={() => setSearch("")} aria-label="Limpiar">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
             </button>
           )}
         </div>
-        <label className="filter-toggle">
+        <label className="ord-checkbox">
           <input type="checkbox" checked={onlyVencidas} onChange={(e) => setOnlyVencidas(e.target.checked)} />
           <span>Solo vencidas</span>
         </label>
         {chainFilter && (
-          <button type="button" className="filter-clear" onClick={() => setChainFilter(null)}>
-            Quitar filtro cadena ×
+          <button type="button" className="ord-filter-pill" onClick={() => setChainFilter(null)}>
+            {chainCards.find((c) => c.id === chainFilter)?.name ?? "Cadena"}
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         )}
-        <div className="result-count">
-          {filteredOrders.length} OC {filteredOrders.length !== orders.length ? `de ${orders.length}` : ""}
-        </div>
+        <div className="ord-count">{filteredOrders.length} {filteredOrders.length === 1 ? "resultado" : "resultados"}</div>
       </div>
 
-      {/* LISTA AGRUPADA POR CADENA */}
-      <div className="ordenes-list">
+      {/* LISTA */}
+      <div className="ord-list">
         {groupedByChain.length === 0 ? (
-          <div className="sm-empty">
-            <div className="sm-empty-title">Sin resultados</div>
-            <p className="sm-empty-desc">
+          <div className="ord-empty">
+            <div className="ord-empty-title">Sin resultados</div>
+            <p>
               {orders.length === 0
-                ? `No hay OC cargadas en ${monthLabel}.`
-                : "Ningún resultado matchea los filtros actuales."}
+                ? `No hay órdenes cargadas en ${capitalize(monthLabel)}.`
+                : "Ningún resultado matchea los filtros."}
             </p>
             {orders.length === 0 && (
-              <div className="sm-empty-actions">
-                <Link href="/admin/cargadores/oc-supermercados" className="btn btn-primary">+ Cargar OC</Link>
-              </div>
+              <Link href="/admin/cargadores/oc-supermercados" className="ord-cta">Cargar OC</Link>
             )}
           </div>
         ) : (
           groupedByChain.map(({ chain, rows }) => {
-            const isExpanded = expandedChain === chain.id || groupedByChain.length === 1;
-            const accent = chainAccent(chain.name);
             const rowsTotal = rows.reduce((s, r) => s + r.total_amount, 0);
             return (
-              <div key={chain.id} className={`chain-group ${isExpanded ? "is-open" : ""}`}>
-                <button
-                  type="button"
-                  className="chain-group-head"
-                  onClick={() => setExpandedChain(isExpanded ? null : chain.id)}
-                >
-                  <span className="cg-caret">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M9 18l6-6-6-6"/></svg>
-                  </span>
-                  <span className={`cg-badge ${accent}`}>{chain.name.slice(0, 3).toUpperCase()}</span>
-                  <span className="cg-name">{chain.name}</span>
-                  <span className="cg-meta">{rows.length} OC · {fmtClpCompact(rowsTotal)}</span>
-                </button>
-                {isExpanded && (
-                  <div className="chain-group-body">
-                    <table className="oc-table">
-                      <thead>
-                        <tr>
-                          <th>N° Orden</th>
-                          <th>Fecha</th>
-                          <th>Vence</th>
-                          <th className="num">Líneas</th>
-                          <th className="num">Monto</th>
-                          <th className="num">Facturado</th>
-                          <th className="num">Cumpl.</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((o) => {
-                          const cumpl = o.total_amount > 0 ? Math.round((o.facturado / o.total_amount) * 100) : 0;
-                          return (
-                            <tr key={o.id} className={o.is_vencida ? "is-vencida" : ""}>
-                              <td>
-                                <Link href={`/supermercados/oc/${o.id}`} className="oc-link" prefetch>
-                                  {o.is_vencida && <span className="dot dot-danger" title="Vencida" />}
-                                  <span className="mono">{o.order_number}</span>
-                                </Link>
-                              </td>
-                              <td className="mono dim">{fmtDate(o.order_date)}</td>
-                              <td className={`mono ${o.is_vencida ? "danger" : "dim"}`}>{fmtDate(o.cancellation_date)}</td>
-                              <td className="num mono">{o.items_count}</td>
-                              <td className="num mono">{fmtClpCompact(o.total_amount)}</td>
-                              <td className="num mono dim">{o.facturado > 0 ? fmtClpCompact(o.facturado) : "—"}</td>
-                              <td className="num">
-                                <span className={`cumpl-pill ${cumpl >= 80 ? "ok" : cumpl >= 50 ? "wn" : "dg"}`}>
-                                  {cumpl}%
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+              <section key={chain.id} className="ord-group">
+                <header className="ord-group-head">
+                  <h3>{chain.name}</h3>
+                  <div className="ord-group-meta">
+                    <span>{rows.length} {rows.length === 1 ? "orden" : "órdenes"}</span>
+                    <span className="ord-group-sep">·</span>
+                    <span>{fmtClpCompact(rowsTotal)}</span>
                   </div>
-                )}
-              </div>
+                </header>
+                <div className="ord-table-wrap">
+                  <table className="ord-table">
+                    <thead>
+                      <tr>
+                        <th>N° Orden</th>
+                        <th>Emisión</th>
+                        <th>Vencimiento</th>
+                        <th className="num">Líneas</th>
+                        <th className="num">Monto</th>
+                        <th className="num">Facturado</th>
+                        <th className="num">Cumplimiento</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((o) => {
+                        const cumpl = o.total_amount > 0 ? Math.round((o.facturado / o.total_amount) * 100) : 0;
+                        return (
+                          <tr key={o.id} className={o.is_vencida ? "is-vencida" : ""}>
+                            <td>
+                              <Link href={`/supermercados/oc/${o.id}`} className="ord-oc-link" prefetch>
+                                {o.is_vencida && <span className="ord-vencida-dot" aria-label="Vencida" />}
+                                <span className="mono">{o.order_number}</span>
+                              </Link>
+                            </td>
+                            <td className="mono dim">{fmtDate(o.order_date)}</td>
+                            <td className={`mono ${o.is_vencida ? "danger" : "dim"}`}>{fmtDate(o.cancellation_date)}</td>
+                            <td className="num mono">{o.items_count}</td>
+                            <td className="num mono">{fmtClp(o.total_amount)}</td>
+                            <td className="num mono dim">{o.facturado > 0 ? fmtClp(o.facturado) : "—"}</td>
+                            <td className="num">
+                              <span className={`ord-cumpl ${cumpl >= 80 ? "ok" : cumpl >= 50 ? "wn" : "dg"}`}>{cumpl}%</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
             );
           })
         )}
       </div>
-
-      {/* mes/key for prefetch hint compat */}
-      <input type="hidden" value={mesParam} readOnly />
     </>
   );
 }

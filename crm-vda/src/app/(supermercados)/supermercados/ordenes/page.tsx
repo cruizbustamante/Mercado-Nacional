@@ -43,26 +43,28 @@ export default async function OrdenesPage({
   };
   const all = (ordersData ?? []) as unknown as Row[];
 
-  const orders: OrdenRow[] = all.map((o) => {
-    const facturado = o.invoices.reduce(
-      (acc, inv) => acc + inv.oc_invoice_items.reduce((a, it) => a + (it.amount_invoiced || 0), 0),
-      0
-    );
-    const vencida = !!o.cancellation_date && new Date(o.cancellation_date) < now && o.status !== "COMPLETADA";
-    return {
-      id: o.id,
-      order_number: o.order_number,
-      order_date: o.order_date,
-      cancellation_date: o.cancellation_date,
-      total_amount: o.total_amount,
-      facturado,
-      status: o.status,
-      items_count: o.items.length,
-      chain_id: o.chain?.id ?? "sin-cadena",
-      chain_name: o.chain?.name ?? "Sin cadena",
-      is_vencida: vencida,
-    };
-  });
+  const orders: OrdenRow[] = all
+    .filter((o) => !!o.chain)
+    .map((o) => {
+      const facturado = o.invoices.reduce(
+        (acc, inv) => acc + inv.oc_invoice_items.reduce((a, it) => a + (it.amount_invoiced || 0), 0),
+        0
+      );
+      const vencida = !!o.cancellation_date && new Date(o.cancellation_date) < now && o.status !== "COMPLETADA";
+      return {
+        id: o.id,
+        order_number: o.order_number,
+        order_date: o.order_date,
+        cancellation_date: o.cancellation_date,
+        total_amount: o.total_amount,
+        facturado,
+        status: o.status,
+        items_count: o.items.length,
+        chain_id: o.chain!.id,
+        chain_name: o.chain!.name,
+        is_vencida: vencida,
+      };
+    });
 
   // Cards por cadena (solo con OC > 0)
   const chainMap = new Map<string, ChainCard>();
@@ -106,7 +108,6 @@ export default async function OrdenesPage({
     <OrdenesView
       orders={orders}
       chainCards={chainCards}
-      mesParam={mesParam}
       monthLabel={monthLabel}
       prevMesParam={fmtMes(prev)}
       nextMesParam={fmtMes(next)}

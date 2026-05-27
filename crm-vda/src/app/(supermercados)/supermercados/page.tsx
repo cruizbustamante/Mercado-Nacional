@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { parsePeriod, periodPresets } from "./_lib/period";
-import { getDashboardKpis, getChainBreakdown, getTopSkus } from "./_lib/queries";
+import { getDashboardKpis, getChainBreakdown, getTopSkus, getTopBrands } from "./_lib/queries";
 
 export const revalidate = 60;
 
@@ -13,7 +13,22 @@ const fmtClp = (n: number, compact = false) => {
   return `$${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(n)}`;
 };
 const fmtNum = (n: number) => new Intl.NumberFormat("es-CL").format(n);
-const fmtPct = (r: number) => `${Math.round(r * 100)}%`;
+
+function chainAccent(name: string): string {
+  const n = name.toLowerCase();
+  if (n.includes("cencosud") || n.includes("cenco") || n.includes("jumbo") || n.includes("santa isabel")) return "cen";
+  if (n.includes("smu") || n.includes("unimarc")) return "smu";
+  if (n.includes("tottus") || n.includes("falabella")) return "tot";
+  if (n.includes("walmart") || n.includes("líder") || n.includes("lider") || n.includes("acuenta")) return "wal";
+  if (n.includes("rendic")) return "ren";
+  return "gen";
+}
+
+function chainInitials(name: string): string {
+  const accent = chainAccent(name);
+  if (accent !== "gen") return accent.toUpperCase();
+  return name.slice(0, 3).toUpperCase();
+}
 
 export default async function CumplimientoPage({
   searchParams,
@@ -24,231 +39,281 @@ export default async function CumplimientoPage({
   const period = parsePeriod(sp.periodo);
   const presets = periodPresets(period);
 
-  const [kpis, chains, topSkus] = await Promise.all([
+  const [kpis, chains, topSkus, topBrands] = await Promise.all([
     getDashboardKpis(period),
     getChainBreakdown(period),
-    getTopSkus(period, 8),
+    getTopSkus(period, 5),
+    getTopBrands(period, 5),
   ]);
 
-  const frTone = kpis.fillRate >= 0.85 ? "ok" : kpis.fillRate >= 0.7 ? "warn" : "danger";
+  const frPct = Math.round(kpis.fillRate * 100);
+  const noCapturado = kpis.totalPendiente + kpis.totalPerdido;
+  const pendPct = kpis.totalOc > 0 ? (kpis.totalPendiente / kpis.totalOc) * 100 : 0;
+  const perdPct = kpis.totalOc > 0 ? (kpis.totalPerdido / kpis.totalOc) * 100 : 0;
+  const maxBrandOc = topBrands.length > 0 ? topBrands[0].totalOc : 1;
+  const maxSkuOc = topSkus.length > 0 ? topSkus[0].totalOc : 1;
 
   return (
     <>
-      {/* DOC HEAD */}
-      <section className="doc-head">
-        <div className="doc-head-grid">
-          <div>
-            <div className="doc-eyebrow">Dashboard</div>
-            <h1 className="doc-title">Cumplimiento</h1>
-            <p className="doc-sub" style={{ textTransform: "capitalize" }}>
-              Período: <b style={{ color: "var(--text)" }}>{period.label}</b> · {kpis.ocCount} OC analizadas
-            </p>
-          </div>
-
-          {/* Period selector */}
-          <div className="period-picker">
-            {presets.map((p) => (
-              <Link
-                key={p.value}
-                href={`/supermercados?periodo=${p.value}`}
-                className={`period-chip ${p.active ? "is-active" : ""}`}
-              >
-                {p.label}
-              </Link>
-            ))}
+      {/* TOPBAR */}
+      <section className="sm-topbar">
+        <div>
+          <div className="eyebrow">Dashboard</div>
+          <h1>Cumplimiento</h1>
+          <div className="sub" style={{ textTransform: "capitalize" }}>
+            Período <b>{period.label}</b> · {kpis.ocCount} OC analizadas
           </div>
         </div>
+        <div className="sm-periods">
+          {presets.map((p) => (
+            <Link
+              key={p.value}
+              href={`/supermercados?periodo=${p.value}`}
+              className={`sm-pchip ${p.active ? "is-active" : ""}`}
+            >
+              {p.label}
+            </Link>
+          ))}
+        </div>
+      </section>
 
-        {/* KPI STRIP densificada (60px) */}
-        <div className="kpi-strip">
-          <div className="kpi-cell">
-            <div className="kpi-key">OC del período</div>
-            <div className="kpi-val">{kpis.ocCount}</div>
+      {/* FLOW CARD — ¿Dónde está la plata? */}
+      <section className="flow-card">
+        <div className="flow-header">
+          <span className="label">Flujo del mes</span>
+          <span className="question">¿Dónde está la plata?</span>
+        </div>
+
+        <div className="flow-stages">
+          <div className="stage">
+            <div className="stage-label">Monto OC</div>
+            <div className="stage-value">{fmtClp(kpis.totalOc, true)}</div>
+            <div className="stage-context">{kpis.ocCount} OC · {kpis.chainCount} cadena{kpis.chainCount !== 1 ? "s" : ""}</div>
           </div>
-          <div className="kpi-cell">
-            <div className="kpi-key">Monto OC</div>
-            <div className="kpi-val">{fmtClp(kpis.totalOc, true)}</div>
+          <div className="stage-arrow">→</div>
+          <div className="stage">
+            <div className="stage-label">Facturado</div>
+            <div className="stage-value ok">{fmtClp(kpis.totalFacturado, true)}</div>
+            <div className="stage-context">Fill rate {frPct}%</div>
           </div>
-          <div className="kpi-cell">
-            <div className="kpi-key">Facturado</div>
-            <div className="kpi-val ok">{fmtClp(kpis.totalFacturado, true)}</div>
-          </div>
-          <div className="kpi-cell">
-            <div className="kpi-key">Fill rate</div>
-            <div className={`kpi-val ${frTone}`}>{fmtPct(kpis.fillRate)}</div>
-          </div>
-          <div className="kpi-cell">
-            <div className="kpi-key">Pendiente recuperable</div>
-            <div className="kpi-val warn">{fmtClp(kpis.totalPendiente, true)}</div>
-          </div>
-          <div className="kpi-cell">
-            <div className="kpi-key">Venta perdida</div>
-            <div className={`kpi-val ${kpis.totalPerdido > 0 ? "danger" : "ok"}`}>
-              {fmtClp(kpis.totalPerdido, true)}
-            </div>
-          </div>
-          <div className="kpi-cell">
-            <div className="kpi-key">Margen aprox.</div>
-            <div className="kpi-val">
-              {kpis.marginCoverage > 0 ? fmtClp(kpis.marginAmount, true) : "—"}
-            </div>
-            <div className="kpi-sub">
-              {kpis.marginCoverage > 0
-                ? `${fmtPct(kpis.marginRate)} · cobertura ${fmtPct(kpis.marginCoverage)}`
-                : "carga costos en productos"}
+          <div className="stage-arrow">→</div>
+          <div className="stage">
+            <div className="stage-label">No capturado</div>
+            <div className="stage-value dg">{fmtClp(noCapturado, true)}</div>
+            <div className="stage-context">
+              {fmtClp(kpis.totalPendiente, true)} pendiente · {fmtClp(kpis.totalPerdido, true)} perdida
             </div>
           </div>
         </div>
 
-        {/* Alerta líneas huérfanas */}
-        {kpis.orphanLines > 0 && (
-          <Link href="/admin/mapeo-upc" className="dashboard-alert tone-warn">
-            <span className="dashboard-alert-dot" />
+        {/* Stacked bar */}
+        <div className="flow-bar">
+          <span className="seg-ok" style={{ width: `${frPct}%` }} />
+          <span className="seg-wn" style={{ width: `${pendPct.toFixed(1)}%` }} />
+          <span className="seg-dg" style={{ width: `${perdPct.toFixed(1)}%` }} />
+        </div>
+
+        <div className="flow-legend">
+          <span className="item">
+            <span className="dot" style={{ background: "var(--success)" }} />
+            Facturado <span className="v">{fmtClp(kpis.totalFacturado, true)}</span>
+          </span>
+          <span className="item">
+            <span className="dot" style={{ background: "var(--warning)" }} />
+            Pendiente recuperable <span className="v">{fmtClp(kpis.totalPendiente, true)}</span>
+          </span>
+          <span className="item">
+            <span className="dot" style={{ background: "var(--danger)" }} />
+            Venta perdida <span className="v">{fmtClp(kpis.totalPerdido, true)}</span>
+          </span>
+        </div>
+
+        {/* Crit banner */}
+        {kpis.vencidasCount > 0 && (
+          <Link href="/supermercados/alertas" className="crit-banner" style={{ textDecoration: "none" }}>
+            <span className="icon-circle">!</span>
             <span>
-              <b>{kpis.orphanLines}</b> de {kpis.totalLines} líneas sin SKU mapeado en este período —
-              el dashboard subestima los totales reales.
+              <b>{kpis.vencidasCount} OC vencida{kpis.vencidasCount !== 1 ? "s" : ""}</b>{" "}
+              suman <b>{fmtClp(kpis.totalPerdido, true)}</b> en venta perdida — atención urgente
             </span>
-            <span className="dashboard-alert-arrow">Resolver →</span>
+            <span className="link">Ver alertas →</span>
+          </Link>
+        )}
+
+        {kpis.orphanLines > 0 && (
+          <Link href="/admin/mapeo-upc" className="crit-banner" style={{ textDecoration: "none", background: "var(--warning-soft)", borderColor: "rgba(184,110,21,0.18)", color: "var(--warning)" }}>
+            <span className="icon-circle" style={{ background: "var(--warning)" }}>⚠</span>
+            <span>
+              <b>{kpis.orphanLines}</b> de {kpis.totalLines} líneas sin SKU mapeado —
+              el dashboard subestima los totales reales
+            </span>
+            <span className="link" style={{ color: "var(--warning)" }}>Resolver →</span>
           </Link>
         )}
       </section>
 
-      <main className="content">
-        {/* TABLA POR CADENA */}
-        <section className="dash-block">
-          <div className="dash-block-head">
-            <h2 className="dash-block-title">Por cadena</h2>
-            <span className="dash-block-hint">Click en una fila para ver sus OC</span>
+      {/* CADENA GRID — scorecards with donuts */}
+      {chains.length > 0 && (
+        <section>
+          <div className="sm-section-head">
+            <h2>Cadenas</h2>
+            <div className="meta">
+              {chains.length} activa{chains.length !== 1 ? "s" : ""} ·{" "}
+              <Link href="/supermercados/ordenes">Ver todas →</Link>
+            </div>
           </div>
 
-          {chains.length === 0 ? (
-            <div className="sm-empty" style={{ padding: "32px 24px" }}>
-              <div className="sm-empty-title" style={{ fontSize: 15 }}>Sin OC en el período</div>
-              <p className="sm-empty-desc" style={{ fontSize: 12.5 }}>
-                Cuando cargues OC del período seleccionado, aparecerán acá.
-              </p>
-            </div>
-          ) : (
-            <div className="dash-table-wrap">
-              <table className="dash-table">
-                <thead>
-                  <tr>
-                    <th>Cadena</th>
-                    <th className="num">OC</th>
-                    <th className="num">Monto OC</th>
-                    <th className="num">Facturado</th>
-                    <th className="num">Pendiente</th>
-                    <th className="num">Margen $</th>
-                    <th className="num">Margen %</th>
-                    <th>Fill rate</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {chains.map((ch) => {
-                    const frPct = Math.round(ch.fillRate * 100);
-                    const tone = ch.fillRate >= 0.85 ? "ok" : ch.fillRate >= 0.7 ? "warn" : "danger";
-                    return (
-                      <tr key={ch.id}>
-                        <td>
-                          <Link
-                            href={`/supermercados/ordenes?mes=${period.kind === "month" ? period.paramValue : ""}&chain=${ch.id}`}
-                            className="dash-chain-link"
-                          >
-                            {ch.name}
-                          </Link>
-                        </td>
-                        <td className="num mono" data-label="OC">{ch.ocCount}</td>
-                        <td className="num mono" data-label="Monto OC">{fmtClp(ch.totalOc, true)}</td>
-                        <td className="num mono" data-label="Facturado">{fmtClp(ch.totalFacturado, true)}</td>
-                        <td className={`num mono ${ch.totalPendiente > 0 ? "warn-text" : ""}`} data-label="Pendiente">
-                          {fmtClp(ch.totalPendiente, true)}
-                        </td>
-                        <td className="num mono" data-label="Margen $">
-                          {ch.marginAmount > 0 ? fmtClp(ch.marginAmount, true) : "—"}
-                        </td>
-                        <td className="num mono" data-label="Margen %">
-                          {ch.marginRate > 0 ? fmtPct(ch.marginRate) : "—"}
-                        </td>
-                        <td data-label="Fill rate">
-                          <div className="fr-inline">
-                            <div className="fr-bar"><div className={`fr-fill ${tone}`} style={{ width: `${Math.min(100, frPct)}%` }} /></div>
-                            <span className={`fr-pct ${tone}`}>{frPct}%</span>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td><strong>Total</strong></td>
-                    <td className="num mono">{kpis.ocCount}</td>
-                    <td className="num mono">{fmtClp(kpis.totalOc, true)}</td>
-                    <td className="num mono">{fmtClp(kpis.totalFacturado, true)}</td>
-                    <td className="num mono">{fmtClp(kpis.totalPendiente, true)}</td>
-                    <td className="num mono">{kpis.marginAmount > 0 ? fmtClp(kpis.marginAmount, true) : "—"}</td>
-                    <td className="num mono">{kpis.marginRate > 0 ? fmtPct(kpis.marginRate) : "—"}</td>
-                    <td><span className={`fr-pct ${frTone}`}>{fmtPct(kpis.fillRate)}</span></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
-        </section>
+          <div className="cadena-grid">
+            {chains.map((ch) => {
+              const pct = Math.round(ch.fillRate * 100);
+              const isCrit = ch.fillRate < 0.7;
+              const tone = ch.fillRate >= 0.85 ? "ok" : ch.fillRate >= 0.7 ? "wn" : "dg";
+              const accent = chainAccent(ch.name);
+              const circumference = 2 * Math.PI * 15.9;
+              const strokeLen = (pct / 100) * circumference;
+              const gapLen = circumference - strokeLen;
+              const strokeColor = tone === "ok" ? "#2C6E3B" : tone === "wn" ? "#B86E15" : "#B83838";
+              const bgStroke = tone === "ok" ? "#E6EFE3" : tone === "wn" ? "#FAEDD8" : "#FBE7E5";
 
-        {/* TOP SKUs */}
-        <section className="dash-block" style={{ marginTop: 24 }}>
-          <div className="dash-block-head">
-            <h2 className="dash-block-title">Top SKUs por volumen OC</h2>
-            <Link href="/supermercados/analisis" className="dash-block-action">
-              Ver análisis completo →
-            </Link>
+              return (
+                <div key={ch.id} className={`cadena-card ${isCrit ? "crit" : ""}`}>
+                  {isCrit && <span className="top-accent" />}
+                  <div className="cadena-top">
+                    <div className="cadena-id">
+                      <div className={`cadena-initials ${accent}`}>{chainInitials(ch.name)}</div>
+                      <div className="cadena-name">
+                        <b>{ch.name}</b>
+                        <span>{ch.ocCount} OC · {ch.skuCount} SKU</span>
+                      </div>
+                    </div>
+                    {isCrit && <div className="status-pill crit">Crítico</div>}
+                  </div>
+
+                  <div className="cadena-body">
+                    <div className="donut">
+                      <svg viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="15.9" fill="none" stroke={bgStroke} strokeWidth="3.5" />
+                        <circle cx="18" cy="18" r="15.9" fill="none" stroke={strokeColor} strokeWidth="3.5"
+                          strokeDasharray={`${strokeLen.toFixed(1)} ${gapLen.toFixed(1)}`} />
+                      </svg>
+                      <div className={`pct ${tone}`}>{pct}%</div>
+                    </div>
+                    <div className="cadena-figs">
+                      <div className="fig-row"><span className="l">OC</span><span className="v">{fmtClp(ch.totalOc, true)}</span></div>
+                      <div className="fig-row"><span className="l">Facturado</span><span className="v">{fmtClp(ch.totalFacturado, true)}</span></div>
+                      {ch.totalPendiente > 0 && (
+                        <div className="fig-row"><span className="l">Pendiente</span><span className="v wn">{fmtClp(ch.totalPendiente, true)}</span></div>
+                      )}
+                      {ch.totalPerdido > 0 && (
+                        <div className="fig-row"><span className="l">Perdido</span><span className="v dg">{fmtClp(ch.totalPerdido, true)}</span></div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="cadena-foot">
+                    <span>{ch.ocCount} orden{ch.ocCount !== 1 ? "es" : ""}</span>
+                    <Link href={`/supermercados/ordenes?chain=${ch.id}`}>Ver OC →</Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* LEADERBOARD GRID — Top marcas + Top SKUs */}
+      {(topBrands.length > 0 || topSkus.length > 0) && (
+        <section>
+          <div className="sm-section-head">
+            <h2>Ranking</h2>
+            <div className="meta">
+              <Link href="/supermercados/analisis">Ver análisis completo →</Link>
+            </div>
           </div>
 
-          {topSkus.length === 0 ? (
-            <div className="sm-empty" style={{ padding: "24px 16px" }}>
-              <p className="sm-empty-desc" style={{ fontSize: 12.5 }}>Sin datos de SKU en el período.</p>
-            </div>
-          ) : (
-            <div className="dash-table-wrap">
-              <table className="dash-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: 28 }}>#</th>
-                    <th>SKU / Producto</th>
-                    <th className="num">Cajas</th>
-                    <th className="num">Unidades</th>
-                    <th className="num">Monto OC</th>
-                    <th className="num">Facturado est.</th>
-                    <th className="num">Margen $</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topSkus.map((s, i) => (
-                    <tr key={`${s.product_id ?? s.name}-${i}`}>
-                      <td className="mono" style={{ color: "var(--text-3)" }}>{i + 1}</td>
-                      <td>
-                        <div className="prod-name">{s.name}</div>
-                        <div className="mono" style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>
-                          {s.sku ?? <span className="badge badge-warn">sin SKU</span>}
-                        </div>
-                      </td>
-                      <td className="num mono" data-label="Cajas">{fmtNum(s.boxes)}</td>
-                      <td className="num mono" data-label="Unidades">{fmtNum(s.units)}</td>
-                      <td className="num mono" data-label="Monto OC">{fmtClp(s.totalOc, true)}</td>
-                      <td className="num mono" data-label="Facturado est.">{fmtClp(s.totalFacturado, true)}</td>
-                      <td className="num mono" data-label="Margen $">
-                        {s.marginAmount === null ? <span style={{ color: "var(--text-4)" }}>—</span>
-                          : fmtClp(s.marginAmount, true)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <div className="lb-grid">
+            {/* Top Marcas */}
+            {topBrands.length > 0 && (
+              <div className="lb-card">
+                <div className="lb-head">
+                  <div className="left">
+                    <div className="icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3>Top marcas</h3>
+                      <span className="sub">por volumen OC</span>
+                    </div>
+                  </div>
+                </div>
+                {topBrands.map((b, i) => {
+                  const barW = maxBrandOc > 0 ? (b.totalOc / maxBrandOc) * 100 : 0;
+                  return (
+                    <div key={b.brand} className="lb-row">
+                      <div className={`lb-rank ${i < 3 ? "podium" : ""}`}>{i + 1}</div>
+                      <div className="lb-name">
+                        <b>{b.brand}</b>
+                        <span>{b.categoryCount} cat{b.categoryCount !== 1 ? "s" : ""}</span>
+                      </div>
+                      <div className="lb-bar">
+                        <div className="track"><span style={{ width: `${barW}%` }} /></div>
+                        <span className="vol">{fmtNum(b.boxes)}</span>
+                      </div>
+                      <div className="lb-amt">{fmtClp(b.totalOc, true)}</div>
+                    </div>
+                  );
+                })}
+                <div className="lb-foot">
+                  <span>{topBrands.length} marcas mostradas</span>
+                  <Link href="/supermercados/analisis?dim=marca">Ver todas →</Link>
+                </div>
+              </div>
+            )}
+
+            {/* Top SKUs */}
+            {topSkus.length > 0 && (
+              <div className="lb-card">
+                <div className="lb-head">
+                  <div className="left">
+                    <div className="icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3>Top SKUs</h3>
+                      <span className="sub">por volumen OC</span>
+                    </div>
+                  </div>
+                </div>
+                {topSkus.map((s, i) => {
+                  const barW = maxSkuOc > 0 ? (s.totalOc / maxSkuOc) * 100 : 0;
+                  return (
+                    <div key={`${s.product_id ?? s.name}-${i}`} className="lb-row">
+                      <div className={`lb-rank ${i < 3 ? "podium" : ""}`}>{i + 1}</div>
+                      <div className="lb-name">
+                        <b>{s.name}</b>
+                        <span>{s.sku ?? "sin SKU"}</span>
+                      </div>
+                      <div className="lb-bar">
+                        <div className="track"><span style={{ width: `${barW}%` }} /></div>
+                        <span className="vol">{fmtNum(s.boxes)}</span>
+                      </div>
+                      <div className="lb-amt">{fmtClp(s.totalOc, true)}</div>
+                    </div>
+                  );
+                })}
+                <div className="lb-foot">
+                  <span>{topSkus.length} SKUs mostrados</span>
+                  <Link href="/supermercados/analisis?dim=sku">Ver todos →</Link>
+                </div>
+              </div>
+            )}
+          </div>
         </section>
-      </main>
+      )}
     </>
   );
 }

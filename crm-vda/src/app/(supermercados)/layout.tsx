@@ -13,8 +13,8 @@ const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--f-mono", display:
 
 const TABS = [
   { href: "/supermercados",          label: "Cumplimiento" },
-  { href: "/supermercados/analisis", label: "Análisis comercial" },
-  { href: "/supermercados/ordenes",  label: "Órdenes (OC)" },
+  { href: "/supermercados/analisis", label: "Análisis" },
+  { href: "/supermercados/ordenes",  label: "Órdenes" },
   { href: "/supermercados/alertas",  label: "Alertas" },
 ] as const;
 
@@ -25,54 +25,47 @@ export default async function SupermercadosLayout({ children }: { children: Reac
   return (
     <div className={`warm sm-shell ${fraunces.variable} ${instrument.variable} ${mono.variable}`}>
       <header className="sm-header">
-        <Link href="/" className="brand" aria-label="Volver al inicio">
-          <div className="brand-mark">MN</div>
-          <div className="brand-name-block">
-            <span className="brand-name">Mercado Nacional</span>
-            <span className="brand-sub">Supermercados</span>
+        <div className="sm-header-row">
+          <div className="sm-header-left">
+            <Link href="/" className="sm-brand" aria-label="Volver al inicio">
+              <div className="sm-brand-logo">MN</div>
+              <div className="sm-brand-text">
+                <b>Mercado Nacional</b>
+                <span>Supermercados</span>
+              </div>
+            </Link>
+            <nav className="sm-crumbs" aria-label="breadcrumb">
+              <Link href="/">Inicio</Link>
+              <span className="sep">&rsaquo;</span>
+              <span className="current">Supermercados</span>
+            </nav>
           </div>
-        </Link>
 
-        <div className="divider-v" />
+          <TabsNav tabs={TABS} />
 
-        <nav className="crumbs" aria-label="breadcrumb">
-          <Link href="/">Inicio</Link>
-          <span className="sep">/</span>
-          <Link href="/supermercados" className="here">Supermercados</Link>
-        </nav>
-
-        <div className="header-spacer" />
-
-        <Link href="/admin/cargadores/oc-supermercados" className="sm-header-cta">
-          <svg className="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
-          </svg>
-          Cargar OC
-        </Link>
-
-        <div className="header-user">
-          <div
-            className="user-avatar"
-            style={{ background: profile.color ? `linear-gradient(135deg, ${profile.color} 0%, #4A453D 100%)` : undefined }}
-          >
-            {profile.initials ?? "??"}
-          </div>
-          <div className="user-info">
-            <strong>{profile.short_name ?? profile.full_name}</strong>
-            <span>{profile.email}</span>
+          <div className="sm-header-right">
+            <div className="sm-user-chip">
+              <div
+                className="sm-user-avatar"
+                style={{ background: profile.color ?? undefined }}
+              >
+                {profile.initials ?? "??"}
+              </div>
+              <div className="sm-user-info">
+                <b>{profile.short_name ?? profile.full_name}</b>
+                <span>{profile.email}</span>
+              </div>
+            </div>
+            <form action={logout}>
+              <button type="submit" className="sm-btn-logout" title="Cerrar sesión">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+                </svg>
+              </button>
+            </form>
           </div>
         </div>
-
-        <form action={logout}>
-          <button type="submit" className="btn-logout" title="Cerrar sesión">
-            <svg className="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
-            </svg>
-          </button>
-        </form>
       </header>
-
-      <TabsNav tabs={TABS} />
 
       <main className="sm-main">{children}</main>
     </div>

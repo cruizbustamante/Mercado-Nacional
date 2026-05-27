@@ -93,7 +93,7 @@ npm run lint     # eslint
 
 ## Estado de la migración
 
-Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05-25:
+Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05-26:
 
 - ✅ Auth + dashboard layout + home rediseñado (cards-dashboard con stats live)
 - ✅ Login rediseñado split editorial 40/60
@@ -108,12 +108,16 @@ Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05
   - 4 tabs: Cumplimiento (dashboard) · Análisis comercial · Órdenes · Alertas
   - Detalle OC con parallel/intercepting routes (modal sin perder filtros)
   - Editor de facturas inline + bulk + sidebar conciliación
+  - **Preview factura → NV**: al guardar factura, modal muestra desglose (neto + logística + ILA 20.5% + IVA 19% = total) con contexto (cadena, OC, NV a generar). Al confirmar, crea NV (SM-XXXXXX) en maestro `sales_notes`
+  - Logística configurable por marca/cadena (`supermarket_logistics_costs`)
   - Mapeo DUN→SKU (1 fila = 1 DUN, auto-remap)
   - Alertas accionables auto-calculadas
   - Mobile responsive (tablas → cards verticales en <900px)
 - ✅ **Módulo Costos y Rappel**: costos por trimestre, acuerdos rappel por cadena
 - ✅ Cargador de **seguros** corregido: `applyInsurance` recibe `ApplyInput` directo + try-catch + logging
 - ✅ **Módulo Finanzas** (fase 1): línea de crédito por cliente, historial de cargas, cargador de seguros integrado
+- ✅ **Listado NV** con KPIs reactivos, filtros (año/mes/canal/status), paginación, margen por NV
+- ⏳ **Rediseño visual Supermercados**: prototipo HTML standalone listo en `~/Downloads/Index.html` + `tokens.css`. Pendiente migrar a Next.js
 - ⏳ Resto de módulos (Despacho, Stock) — solo placeholder, todavía sin implementación
 - ⏳ Finanzas fase 2: cartolas bancarias + conciliación de pagos
 

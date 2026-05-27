@@ -16,15 +16,19 @@ export interface DashboardKpis {
   marginAmount: number;     // margen $ aproximado en facturado (donde hay costo)
   marginRate: number;       // 0..1
   marginCoverage: number;   // % facturado con costo conocido
+  chainCount: number;       // cadenas distintas en el período
+  vencidasCount: number;    // OC vencidas con pendiente > 0
 }
 
 export interface ChainRow {
   id: string;
   name: string;
   ocCount: number;
+  skuCount: number;
   totalOc: number;
   totalFacturado: number;
   totalPendiente: number;
+  totalPerdido: number;
   fillRate: number;
   marginAmount: number;
   marginRate: number;
@@ -123,14 +127,21 @@ export async function getDashboardKpis(period: Period): Promise<DashboardKpis> {
   let totalLines = 0, orphanLines = 0;
   let marginAmount = 0;
   let facturadoConCosto = 0;
+  let vencidasCount = 0;
+  const chainIds = new Set<string>();
 
   for (const o of orders) {
+    if (o.chain?.id) chainIds.add(o.chain.id);
     const fact = ocFacturado(o);
     totalOc += o.total_amount;
     totalFacturado += fact;
     const gap = Math.max(0, o.total_amount - fact);
-    if (isVencida(o, today)) totalPerdido += gap;
-    else totalPendiente += gap;
+    if (isVencida(o, today)) {
+      totalPerdido += gap;
+      if (gap > 0) vencidasCount++;
+    } else {
+      totalPendiente += gap;
+    }
 
     for (const it of o.items) {
       totalLines++;
@@ -159,6 +170,8 @@ export async function getDashboardKpis(period: Period): Promise<DashboardKpis> {
     marginAmount,
     marginRate,
     marginCoverage,
+    chainCount: chainIds.size,
+    vencidasCount,
   };
 }
 
@@ -166,7 +179,8 @@ export async function getDashboardKpis(period: Period): Promise<DashboardKpis> {
 
 export async function getChainBreakdown(period: Period): Promise<ChainRow[]> {
   const orders = await loadOrders(period);
-  const map = new Map<string, ChainRow>();
+  const today = new Date().toISOString().split("T")[0];
+  const map = new Map<string, ChainRow & { _skus: Set<string> }>();
 
   for (const o of orders) {
     const ch = o.chain;
@@ -174,8 +188,10 @@ export async function getChainBreakdown(period: Period): Promise<ChainRow[]> {
     if (!map.has(ch.id)) {
       map.set(ch.id, {
         id: ch.id, name: ch.name,
-        ocCount: 0, totalOc: 0, totalFacturado: 0, totalPendiente: 0,
+        ocCount: 0, skuCount: 0, totalOc: 0, totalFacturado: 0,
+        totalPendiente: 0, totalPerdido: 0,
         fillRate: 0, marginAmount: 0, marginRate: 0,
+        _skus: new Set(),
       });
     }
     const row = map.get(ch.id)!;
@@ -183,9 +199,12 @@ export async function getChainBreakdown(period: Period): Promise<ChainRow[]> {
     row.ocCount++;
     row.totalOc += o.total_amount;
     row.totalFacturado += fact;
-    row.totalPendiente += Math.max(0, o.total_amount - fact);
+    const gap = Math.max(0, o.total_amount - fact);
+    if (isVencida(o, today)) row.totalPerdido += gap;
+    else row.totalPendiente += gap;
 
     for (const it of o.items) {
+      if (it.product_id) row._skus.add(it.product_id);
       if (it.product?.unit_cost_net && it.product.unit_cost_net > 0) {
         row.marginAmount += (it.unit_price - it.product.unit_cost_net) * it.quantity_units;
       }
@@ -195,9 +214,44 @@ export async function getChainBreakdown(period: Period): Promise<ChainRow[]> {
   for (const row of map.values()) {
     row.fillRate = row.totalOc > 0 ? row.totalFacturado / row.totalOc : 0;
     row.marginRate = row.totalFacturado > 0 ? row.marginAmount / row.totalFacturado : 0;
+    row.skuCount = row._skus.size;
   }
 
-  return Array.from(map.values()).sort((a, b) => b.totalOc - a.totalOc);
+  return Array.from(map.values())
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    .map(({ _skus, ...row }) => row)
+    .sort((a, b) => b.totalOc - a.totalOc);
+}
+
+/* ============= Top Brands (para leaderboard dashboard) ============= */
+
+export interface TopBrandRow {
+  brand: string;
+  categoryCount: number;
+  totalOc: number;
+  boxes: number;
+}
+
+export async function getTopBrands(period: Period, limit = 5): Promise<TopBrandRow[]> {
+  const orders = await loadOrders(period);
+  const map = new Map<string, { brand: string; cats: Set<string>; totalOc: number; boxes: number }>();
+
+  for (const o of orders) {
+    for (const it of o.items) {
+      const brand = it.product?.brand?.name ?? null;
+      if (!brand) continue;
+      if (!map.has(brand)) map.set(brand, { brand, cats: new Set(), totalOc: 0, boxes: 0 });
+      const row = map.get(brand)!;
+      row.totalOc += it.line_amount;
+      row.boxes += it.quantity_boxes;
+      if (it.product?.category?.name) row.cats.add(it.product.category.name);
+    }
+  }
+
+  return Array.from(map.values())
+    .map((r) => ({ brand: r.brand, categoryCount: r.cats.size, totalOc: r.totalOc, boxes: r.boxes }))
+    .sort((a, b) => b.totalOc - a.totalOc)
+    .slice(0, limit);
 }
 
 /* ============= Top SKUs ============= */

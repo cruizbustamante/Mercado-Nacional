@@ -93,7 +93,7 @@ npm run lint     # eslint
 
 ## Estado de la migración
 
-Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05-27:
+Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05-28:
 
 - ✅ Auth + dashboard layout
 - ✅ **Home rediseñado "Centro de Comando"** (mockup mn-home-centro-comando v1.0):
@@ -106,16 +106,17 @@ Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05
 - ✅ Data maestra: cargadores Excel + CRUDs modal
   - **Ficha producto** edita `ila_rate` e `iva_rate` por SKU (no solo via Excel)
 - ✅ **Emisión NV** completa: cálculo + PDF + persistencia, badge seguro de crédito, uso de crédito real
-- ✅ **Módulo Supermercados rediseñado v1.0** (mockup mercado-nacional-supermercados):
-  - Layout slim con Inter font (sin brand header grande)
-  - TabsNav estilo pestañas wine activo + badges (conteo en Órdenes, neg en Alertas)
-  - PageHeader compartido con eyebrow BVDA + título + selector mes navegable + botón Cargar OC
-  - **Tab Cumplimiento**: AlertBanner sobrio border-l wine + 4 KPIs (último en wine card) + tabla cadenas con bandera color + fill rate inline
-  - **Tab Análisis**: detalle mensual YTD vs año anterior + grid 2×2 (Por cadena, Razones venta perdida, Top productos, Performance ranking)
-  - **Tab Órdenes** (centro de trabajo): KPI bar densa 8 cols + acordeón por cadena con mini-dashboard 5 cols + tabla con semáforo (verde/amarillo/rojo) + filtros (vencidas, cadena, buscador)
-  - **Tab Alertas**: 4 cards severidad (Críticas wine, Altas neg, Medias orange, Recientes warn) + cola priorizada
+- ✅ **Módulo Supermercados rediseñado v2.0** (fusión Análisis + Cumplimiento):
+  - Layout full-width sin `max-w-7xl`, padding mínimo `px-3 sm:px-5 lg:px-6` para aprovechar todo el ancho
+  - **3 pestañas con ancho igual (grid)**: Análisis · Órdenes · Alertas. Cumplimiento eliminada (duplicaba "Por cadena")
+  - Texto blanco en pestañas activas vía `style={{ color: "#fff" }}` + warm.css envuelto en `@layer base`
+  - **Tab Análisis (/supermercados)** (fusión completa): 4 KPIs + filtros (cadena/marca/categoría con `FilterSelect.tsx` client) + detalle mensual YoY + 6 cards (Por cadena, Por marca, Por categoría, Top productos, Razones, Performance ranking). Clic en cualquier fila aplica filtro a todo el dashboard
+  - **Tab Órdenes**: KPI bar 8 cols + acordeón por cadena con mini-dashboard + tabla densificada con columnas Edad (días desde emisión con color) · Cajas (fact/pedidas) · Pendiente $ · PDF (link al `source_pdf`). N°OC con truncate+title para Rendic/SCPD de 21 dígitos
+  - **Tab Alertas**: 4 cards severidad + cola priorizada
   - Modal OC + editor facturas: estilos legacy preservados (warm.css + supermercados.css)
-- ✅ **Parser OC Walmart** (Comercionet ORD_WM, HTML disfrazado de .doc): captura todos los campos + 23 OCs reales parseadas OK
+  - `/supermercados/analisis` queda como redirect 307 a `/supermercados`
+- ✅ **Cadenas separadas**: Rendic, Alvi y SCPD ahora son cadenas propias en `supermarket_chains` (no aliases de SMU). 30 OCs históricas reasignadas. Distribución: Walmart 23 · Rendic 15 · Cencosud 10 · SCPD 9 · Tottus 8 · Alvi 6
+- ✅ **Parser OC Walmart** (Comercionet ORD_WM): `buyer` ahora captura "Información Comprador" (CD real como "6009 Centro De Distribución Lo Aguirre" / "CD 6020 El Peñón"), no "Receptor" que es BVDA. 23 OCs Walmart con backfill aplicado
 - ✅ **Cálculo facturación**: `unit_price` de OC es NETO por caja en TODAS las cadenas (incluye Walmart). Fórmula: precio_unit_neto = round(unit_price_caja / unidades_por_caja); neto_línea = unidades_totales × precio_unit_neto; ILA = neto × ila_rate (variable por SKU); IVA = (neto + log) × 0.19. Garantiza que la factura SII impresa cuadre exacto.
 - ✅ **Módulo Costos y Rappel**: costos por trimestre, acuerdos rappel por cadena
 - ✅ **Módulo Finanzas** (fase 1): línea de crédito, historial de cargas, cargador de seguros
@@ -128,6 +129,7 @@ Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05
 
 - **Paleta del sistema** (en `globals.css` via `@theme`): bg-base/surface/muted/subtle, ink/ink-2/ink-3, line/line-2, wine/wine-2/wine-text, pos/neg/warn/orange/info (+ `-soft` variantes), ch-walmart/cencosud/smu/tottus/other. Usar clases Tailwind estáticas (no interpoladas).
 - **Inter font** en home y módulo Supermercados; el resto del dashboard mantiene Fraunces/Instrument/JetBrains.
+- **`warm.css` en `@layer base`**: las reglas de `.warm { color: var(--text) }` y resets de `a`/`button`/`input` deben estar dentro de `@layer base { ... }`. Sin esto, ganan en cascade sobre utilidades Tailwind (`text-white`, `bg-wine`) y los botones wine aparecen con texto negro. Fallback: `style={{ color: "#fff" }}` inline.
 - **Casts de joins Supabase**: usar `as unknown as TipoEsperado` (PostgREST infiere relaciones FK como arrays incluso si conceptualmente son 1:1). Cast directo rompe build de prod aunque dev funcione.
 - **`tsc --noEmit` antes de push**: cuando agregaste nuevos SELECT con joins. Vercel falla con TS2352 si no lo respetás.
 - **Tailwind v4 clases estáticas**: NO usar interpolación como `bg-${tone}`. Definir maps `TONE_BG = { pos: "bg-pos", warn: "bg-warn", neg: "bg-neg" }` y usar `TONE_BG[tone]`. Si no, las clases no se generan en el build.
@@ -136,3 +138,5 @@ Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05
 - **ILA por SKU** (no por categoría): `products.ila_rate` editable en ficha producto. 0.205 vinos, 0.315 licores fuertes, 0.10 cervezas/sin alcohol, 0.18 energéticas.
 - **Margen $/%**: viene de `products.unit_cost_net` (cargable via Excel o CRUD). Si NULL, vistas muestran "—".
 - **Venta perdida**: campo `purchase_order_items.lost_sale_reason` (valores: `sin_stock` / `no_entro_cd` / `fuera_plazo` / `error_mapeo` / `otro`).
+- **Cadenas de supermercado independientes**: Rendic, Alvi y SCPD son cadenas separadas en `supermarket_chains` (NO aliases de SMU), aunque Rendic Hermanos legalmente sea parte del grupo SMU. Decisión del usuario para ver desempeño por unidad operacional.
+- **Parser Walmart `buyer`**: capturar "Información Comprador" del HTML Comercionet ORD_WM, NO "Receptor:" (ese es BVDA, el vendedor). Los valores reales son CDs como "6009 Centro De Distribución Lo Aguirre" o "CD 6020 El Peñón".

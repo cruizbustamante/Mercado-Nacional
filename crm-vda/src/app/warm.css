@@ -1,34 +1,36 @@
 /* =========================================================
    Mercado Nacional — Warm theme (admin + future modules)
    ========================================================= */
-.warm {
-  --bg:#FAF8F3; --surface:#FFFFFF; --surface-2:#F4F1EA; --surface-3:#EDE9DF;
-  --border:#E5E1D6; --border-2:#D4CFC0;
-  --text:#1A1612; --text-2:#4A453D; --text-3:#8A857A; --text-4:#B5B0A4;
-  --accent:#6B1F2E; --accent-2:#8B2D3E; --accent-soft:#F5E8EA;
-  --success:#2D5F3F; --success-soft:#E8F0EA;
-  --warning:#9C6A1E; --warning-soft:#F5EAD3;
-  --info:#2C4A6B; --info-soft:#E6ECF3;
-  --danger:#8B2D1F; --danger-soft:#F5E1DD;
-  --excel:#1F6E43; --excel-soft:#E2EFE8;
-  --r-xs:3px; --r-sm:5px; --r:7px; --r-lg:10px;
-  --header-h:52px;
-  --shadow-1:0 1px 2px rgba(26,22,18,.04),0 0 0 1px rgba(26,22,18,.04);
-  --shadow-2:0 4px 16px -4px rgba(26,22,18,.08),0 0 0 1px rgba(26,22,18,.06);
-  --shadow-3:0 24px 48px -12px rgba(26,22,18,.18),0 0 0 1px rgba(26,22,18,.08);
+@layer base {
+  .warm {
+    --bg:#FAF8F3; --surface:#FFFFFF; --surface-2:#F4F1EA; --surface-3:#EDE9DF;
+    --border:#E5E1D6; --border-2:#D4CFC0;
+    --text:#1A1612; --text-2:#4A453D; --text-3:#8A857A; --text-4:#B5B0A4;
+    --accent:#6B1F2E; --accent-2:#8B2D3E; --accent-soft:#F5E8EA;
+    --success:#2D5F3F; --success-soft:#E8F0EA;
+    --warning:#9C6A1E; --warning-soft:#F5EAD3;
+    --info:#2C4A6B; --info-soft:#E6ECF3;
+    --danger:#8B2D1F; --danger-soft:#F5E1DD;
+    --excel:#1F6E43; --excel-soft:#E2EFE8;
+    --r-xs:3px; --r-sm:5px; --r:7px; --r-lg:10px;
+    --header-h:52px;
+    --shadow-1:0 1px 2px rgba(26,22,18,.04),0 0 0 1px rgba(26,22,18,.04);
+    --shadow-2:0 4px 16px -4px rgba(26,22,18,.08),0 0 0 1px rgba(26,22,18,.06);
+    --shadow-3:0 24px 48px -12px rgba(26,22,18,.18),0 0 0 1px rgba(26,22,18,.08);
 
-  font-family: var(--f-sans), system-ui, sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--text);
-  background: var(--bg);
-  min-height: 100vh;
+    font-family: var(--f-sans), system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text);
+    background: var(--bg);
+    min-height: 100vh;
+  }
+
+  .warm *, .warm *::before, .warm *::after { box-sizing: border-box; }
+  .warm a { color: inherit; text-decoration: none; }
+  .warm button { font: inherit; color: inherit; cursor: pointer; background: transparent; border: none; }
+  .warm input, .warm select, .warm textarea { font: inherit; color: inherit; }
 }
-
-.warm *, .warm *::before, .warm *::after { box-sizing: border-box; }
-.warm a { color: inherit; text-decoration: none; }
-.warm button { font: inherit; color: inherit; cursor: pointer; background: transparent; border: none; }
-.warm input, .warm select, .warm textarea { font: inherit; color: inherit; }
 
 /* APP HEADER */
 .warm .app-header {

@@ -12,21 +12,10 @@ interface TabDef {
 const TAB_DEFS: TabDef[] = [
   {
     href: "/supermercados",
-    label: "Cumplimiento",
-    icon: (
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M3 3v18h18M7 16l4-4 4 4 6-6" />
-      </svg>
-    ),
-  },
-  {
-    href: "/supermercados/analisis",
     label: "Análisis",
     icon: (
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <line x1="3" y1="12" x2="21" y2="12" />
-        <line x1="3" y1="6" x2="21" y2="6" />
-        <line x1="3" y1="18" x2="21" y2="18" />
+        <path d="M3 3v18h18M7 16l4-4 4 4 6-6" />
       </svg>
     ),
   },
@@ -60,7 +49,7 @@ export function TabsNav({
   const pathname = usePathname();
 
   const isActive = (href: string) => {
-    if (href === "/supermercados") return pathname === href;
+    if (href === "/supermercados") return pathname === href || pathname === "/supermercados/analisis";
     return pathname === href || pathname.startsWith(href + "/");
   };
 
@@ -70,7 +59,7 @@ export function TabsNav({
   };
 
   return (
-    <nav className="flex items-center gap-1" aria-label="Pestañas Supermercados">
+    <nav className="grid grid-cols-3 gap-1 w-full max-w-md bg-bg-muted/40 p-1 rounded-lg" aria-label="Pestañas Supermercados">
       {TAB_DEFS.map((tab) => {
         const active = isActive(tab.href);
         const badge = badges[tab.href];
@@ -79,19 +68,21 @@ export function TabsNav({
             key={tab.href}
             href={tab.href}
             prefetch
-            className={`text-xs px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 transition-colors ${
+            style={active ? { color: "#ffffff" } : undefined}
+            className={`text-xs px-2 py-1.5 rounded-md inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap ${
               active
-                ? "bg-wine text-white font-medium"
-                : "text-ink-2 hover:bg-bg-muted"
+                ? "bg-wine font-medium shadow-sm"
+                : "text-ink-2 hover:bg-bg-surface"
             }`}
           >
-            {tab.icon}
-            {tab.label}
+            <span className={active ? "text-white" : ""}>{tab.icon}</span>
+            <span>{tab.label}</span>
             {badge && (
               <span
+                style={active ? { color: "#ffffff" } : undefined}
                 className={`text-[10px] px-1.5 py-0.5 rounded-full tabular ${
                   active
-                    ? "bg-white/15"
+                    ? "bg-white/20"
                     : badge.tone === "danger"
                     ? "bg-neg-soft text-neg font-medium"
                     : "bg-bg-muted text-ink-2"

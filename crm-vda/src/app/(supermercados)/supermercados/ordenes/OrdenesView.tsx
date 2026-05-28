@@ -11,8 +11,13 @@ export interface OrdenRow {
   cancellation_date: string | null;
   total_amount: number;
   facturado: number;
+  pendiente: number;        // total_amount - facturado
   status: string;
   items_count: number;
+  boxes_total: number;      // cajas pedidas
+  boxes_invoiced: number;   // cajas facturadas
+  age_days: number;         // días desde order_date hasta hoy
+  source_pdf: string | null;
   buyer: string | null;
   chain_id: string;
   chain_name: string;
@@ -119,17 +124,17 @@ export function OrdenesView({
   return (
     <>
       {/* PAGE HEADER */}
-      <div className="flex justify-between items-start pb-5 border-b border-line">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 pb-4 border-b border-line">
         <div>
-          <div className="text-[10px] tracking-[0.12em] uppercase text-ink-3 font-medium mb-1.5">
+          <div className="text-[10px] tracking-[0.12em] uppercase text-ink-3 font-medium mb-1">
             BVDA · Mercado Nacional · Supermercados
           </div>
-          <h2 className="text-xl font-semibold tracking-tight text-ink">Órdenes · Asignación de facturas</h2>
-          <p className="text-xs text-ink-2 mt-1">
+          <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-ink">Órdenes · Asignación de facturas</h2>
+          <p className="text-xs text-ink-2 mt-0.5">
             Centro de trabajo · {totalOc} OC activas · {capitalize(monthLabel)}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0">
           <div className="inline-flex bg-bg-surface border border-line rounded-md text-xs">
             <Link href={`?mes=${prevMesParam}`} className="px-2.5 py-1.5 text-ink-2 hover:bg-bg-muted rounded-l-md border-r border-line" prefetch>‹</Link>
             <span className="px-3 py-1.5 bg-ink text-white font-medium tabular">{capitalize(monthLabel)}</span>
@@ -141,15 +146,15 @@ export function OrdenesView({
             prefetch
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
-            Cargar OC
+            <span className="hidden sm:inline">Cargar OC</span>
           </Link>
         </div>
       </div>
 
       {/* TABS + FILTROS */}
-      <div className="flex items-center justify-between mt-5 mb-5 pb-4 border-b border-line">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mt-4 mb-4 pb-3 border-b border-line">
         <TabsNav ordenesCount={totalOc} alertasCount={totalVencidas} />
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <label className="inline-flex items-center gap-1.5 text-[11px] text-ink-2 cursor-pointer">
             <input type="checkbox" className="rounded border-line accent-wine" checked={onlyVencidas} onChange={(e) => setOnlyVencidas(e.target.checked)} />
             Solo vencidas
@@ -165,47 +170,47 @@ export function OrdenesView({
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
-          <div className="relative">
+          <div className="relative flex-1 min-w-[180px] max-w-xs">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3">
               <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
             </svg>
             <input
               type="text"
-              placeholder="Buscar N° OC, cadena o comprador..."
+              placeholder="Buscar N° OC, cadena..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="text-xs bg-bg-surface border border-line rounded-md pl-7 pr-3 py-1 w-64 placeholder-ink-3 focus:outline-none focus:border-ink-2"
+              className="text-xs bg-bg-surface border border-line rounded-md pl-7 pr-3 py-1 w-full placeholder-ink-3 focus:outline-none focus:border-ink-2"
             />
           </div>
         </div>
       </div>
 
       {/* KPI bar densa */}
-      <div className="bg-bg-surface border border-line rounded-md p-4 mb-3">
-        <div className="grid grid-cols-8 divide-x divide-line">
-          <div className="px-4 first:pl-0">
+      <div className="bg-bg-surface border border-line rounded-md p-3 sm:p-4 mb-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-px bg-line">
+          <div className="px-3 sm:px-4 py-2 sm:py-0 bg-bg-surface">
             <div className="text-[9px] uppercase tracking-wider text-ink-3 font-medium">OC abiertas</div>
-            <div className="text-xl font-semibold tabular text-ink mt-1 leading-none">{totalOc}</div>
-            <div className="text-[10px] text-ink-2 mt-1.5 tabular">{fmtClpCompact(totalMonto)} total</div>
+            <div className="text-lg sm:text-xl font-semibold tabular text-ink mt-1 leading-none">{totalOc}</div>
+            <div className="text-[10px] text-ink-2 mt-1 tabular">{fmtClpCompact(totalMonto)} total</div>
           </div>
-          <div className="px-4">
-            <div className="text-[9px] uppercase tracking-wider text-ink-3 font-medium">Líneas por facturar</div>
-            <div className="text-xl font-semibold tabular text-ink mt-1 leading-none">
+          <div className="px-3 sm:px-4 py-2 sm:py-0 bg-bg-surface">
+            <div className="text-[9px] uppercase tracking-wider text-ink-3 font-medium">Líneas por fact.</div>
+            <div className="text-lg sm:text-xl font-semibold tabular text-ink mt-1 leading-none">
               {fmtNum(totalLineas - totalLineasFacturadas)}<span className="text-xs text-ink-2 font-normal"> / {fmtNum(totalLineas)}</span>
             </div>
-            <div className="mt-1.5 h-1 bg-bg-muted rounded-full overflow-hidden">
+            <div className="mt-1 h-1 bg-bg-muted rounded-full overflow-hidden">
               <div className="h-full bg-warn rounded-full" style={{ width: `${totalLineas > 0 ? Math.round((totalLineasFacturadas / totalLineas) * 100) : 0}%` }} />
             </div>
           </div>
-          <div className="px-4">
+          <div className="px-3 sm:px-4 py-2 sm:py-0 bg-bg-surface">
             <div className="text-[9px] uppercase tracking-wider text-ink-3 font-medium">Vencidas</div>
-            <div className="text-xl font-semibold tabular text-neg mt-1 leading-none">{totalVencidas}</div>
-            <div className="text-[10px] text-neg mt-1.5 tabular font-medium">{fmtClpCompact(totalVencidasMonto)} en riesgo</div>
+            <div className="text-lg sm:text-xl font-semibold tabular text-neg mt-1 leading-none">{totalVencidas}</div>
+            <div className="text-[10px] text-neg mt-1 tabular font-medium">{fmtClpCompact(totalVencidasMonto)} en riesgo</div>
           </div>
-          <div className="px-4">
+          <div className="px-3 sm:px-4 py-2 sm:py-0 bg-bg-surface">
             <div className="text-[9px] uppercase tracking-wider text-ink-3 font-medium">% completado</div>
             <div className="flex items-baseline gap-1.5 mt-1">
-              <div className={`text-xl font-semibold tabular leading-none ${fillRate >= 0.85 ? "text-pos" : fillRate >= 0.5 ? "text-warn" : "text-neg"}`}>
+              <div className={`text-lg sm:text-xl font-semibold tabular leading-none ${fillRate >= 0.85 ? "text-pos" : fillRate >= 0.5 ? "text-warn" : "text-neg"}`}>
                 {Math.round(fillRate * 100)}<span className="text-xs text-ink-2 font-normal">%</span>
               </div>
               {deltaFillPp !== 0 && (
@@ -214,31 +219,31 @@ export function OrdenesView({
                 </span>
               )}
             </div>
-            <div className="text-[10px] text-ink-2 mt-1.5 tabular">vs mes ant. ({prevFillPct}%)</div>
+            <div className="text-[10px] text-ink-2 mt-1 tabular">vs mes ant. ({prevFillPct}%)</div>
           </div>
 
-          <div className="px-4 bg-bg-subtle/40 -mx-px">
-            <div className="text-[9px] uppercase tracking-wider text-ink-3 font-medium">Sin asignar factura</div>
-            <div className="text-xl font-semibold tabular text-warn mt-1 leading-none">{sinAsignar}</div>
-            <div className="text-[10px] text-ink-2 mt-1.5 tabular">{fmtNum(sinAsignarLineas)} líneas</div>
+          <div className="px-3 sm:px-4 py-2 sm:py-0 bg-bg-subtle/40">
+            <div className="text-[9px] uppercase tracking-wider text-ink-3 font-medium">Sin asignar</div>
+            <div className="text-lg sm:text-xl font-semibold tabular text-warn mt-1 leading-none">{sinAsignar}</div>
+            <div className="text-[10px] text-ink-2 mt-1 tabular">{fmtNum(sinAsignarLineas)} líneas</div>
           </div>
-          <div className="px-4 bg-bg-subtle/40">
-            <div className="text-[9px] uppercase tracking-wider text-pos font-medium">Marcadas 100%</div>
-            <div className="text-xl font-semibold tabular text-ink mt-1 leading-none">{marcadas100}</div>
-            <div className="text-[10px] text-pos mt-1.5 tabular font-medium">{fmtClpCompact(marcadas100Monto)} cerrados</div>
+          <div className="px-3 sm:px-4 py-2 sm:py-0 bg-bg-subtle/40">
+            <div className="text-[9px] uppercase tracking-wider text-pos font-medium">100%</div>
+            <div className="text-lg sm:text-xl font-semibold tabular text-ink mt-1 leading-none">{marcadas100}</div>
+            <div className="text-[10px] text-pos mt-1 tabular font-medium">{fmtClpCompact(marcadas100Monto)} cerrados</div>
           </div>
-          <div className="px-4 bg-bg-subtle/40">
-            <div className="text-[9px] uppercase tracking-wider text-ink-3 font-medium">Facturado mes</div>
-            <div className="text-xl font-semibold tabular text-ink mt-1 leading-none">{fmtClpCompact(totalFacturado)}</div>
-            <div className="text-[10px] text-ink-2 mt-1.5 tabular">de {fmtClpCompact(totalMonto)}</div>
+          <div className="px-3 sm:px-4 py-2 sm:py-0 bg-bg-subtle/40">
+            <div className="text-[9px] uppercase tracking-wider text-ink-3 font-medium">Facturado</div>
+            <div className="text-lg sm:text-xl font-semibold tabular text-ink mt-1 leading-none">{fmtClpCompact(totalFacturado)}</div>
+            <div className="text-[10px] text-ink-2 mt-1 tabular">de {fmtClpCompact(totalMonto)}</div>
           </div>
-          <div className="px-4 bg-bg-subtle/40 -mr-px">
-            <div className="text-[9px] uppercase tracking-wider text-neg font-medium">Venta perdida</div>
-            <div className="text-xl font-semibold tabular text-ink mt-1 leading-none">{fmtClpCompact(totalVencidasMonto)}</div>
-            <div className="text-[10px] text-neg mt-1.5 tabular font-medium">{totalVencidas} OC vencidas</div>
+          <div className="px-3 sm:px-4 py-2 sm:py-0 bg-bg-subtle/40">
+            <div className="text-[9px] uppercase tracking-wider text-neg font-medium">Vta. perdida</div>
+            <div className="text-lg sm:text-xl font-semibold tabular text-ink mt-1 leading-none">{fmtClpCompact(totalVencidasMonto)}</div>
+            <div className="text-[10px] text-neg mt-1 tabular font-medium">{totalVencidas} OC vencidas</div>
           </div>
         </div>
-        <div className="flex justify-between mt-3 pt-3 border-t border-line text-[9px] uppercase tracking-[0.1em] text-ink-3 font-medium">
+        <div className="hidden sm:flex justify-between mt-3 pt-3 border-t border-line text-[9px] uppercase tracking-[0.1em] text-ink-3 font-medium">
           <span className="inline-flex items-center gap-1.5">
             <span className="w-1 h-1 rounded-full bg-ink-3"></span>
             Indicadores · estado global del mes
@@ -304,20 +309,20 @@ export function OrdenesView({
                     </div>
                   </button>
 
-                  {/* Mini-dashboard 5 columnas */}
-                  <div className="grid grid-cols-5 divide-x divide-line bg-bg-subtle/40 border-t border-line">
-                    <div className="px-4 py-2.5">
+                  {/* Mini-dashboard */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-line border-t border-line">
+                    <div className="px-3 sm:px-4 py-2 bg-bg-subtle/40">
                       <div className="text-[9px] uppercase tracking-wider text-ink-3 font-medium">OC abiertas</div>
                       <div className="text-base font-semibold tabular text-ink mt-1 leading-none">
                         {g.ocCount}<span className="text-[10px] text-ink-3 font-normal"> de {g.ocCountTotal}</span>
                       </div>
                     </div>
-                    <div className="px-4 py-2.5">
+                    <div className="px-3 sm:px-4 py-2 bg-bg-subtle/40">
                       <div className="text-[9px] uppercase tracking-wider text-ink-3 font-medium">Monto total</div>
                       <div className="text-base font-semibold tabular text-ink mt-1 leading-none">{fmtClpCompact(g.monto)}</div>
                       <div className="text-[9px] text-ink-2 mt-0.5 tabular">{g.cobertura.toFixed(1)}% del portafolio</div>
                     </div>
-                    <div className="px-4 py-2.5">
+                    <div className="px-3 sm:px-4 py-2 bg-bg-subtle/40">
                       <div className="text-[9px] uppercase tracking-wider text-ink-3 font-medium">Cumplimiento</div>
                       <div className="flex items-baseline gap-1.5 mt-1">
                         <div className={`text-base font-semibold tabular leading-none ${TONE_TEXT[tone]}`}>{pct}%</div>
@@ -331,8 +336,8 @@ export function OrdenesView({
                         <div className={`h-full ${TONE_BG[tone]} rounded-full`} style={{ width: `${pct}%` }} />
                       </div>
                     </div>
-                    <div className="px-4 py-2.5">
-                      <div className="text-[9px] uppercase tracking-wider text-ink-3 font-medium">Líneas / Facturadas</div>
+                    <div className="px-3 sm:px-4 py-2 bg-bg-subtle/40">
+                      <div className="text-[9px] uppercase tracking-wider text-ink-3 font-medium">Líneas / Fact.</div>
                       <div className="text-base font-semibold tabular text-ink mt-1 leading-none">
                         {fmtNum(g.lineasFacturadas)}<span className="text-[10px] text-ink-3 font-normal"> / {fmtNum(g.lineasTotal)}</span>
                       </div>
@@ -342,7 +347,7 @@ export function OrdenesView({
                         </div>
                       )}
                     </div>
-                    <div className={`px-4 py-2.5 ${g.cumpl >= 0.85 ? "bg-pos/[0.04]" : "bg-wine/[0.04]"}`}>
+                    <div className={`px-3 sm:px-4 py-2 col-span-2 sm:col-span-1 ${g.cumpl >= 0.85 ? "bg-pos/[0.04]" : "bg-wine/[0.04]"}`}>
                       <div className={`text-[9px] uppercase tracking-wider font-medium ${g.cumpl >= 0.85 ? "text-pos" : "text-wine"}`}>Acción siguiente</div>
                       <div className="text-xs font-medium text-ink mt-1">
                         {g.vencidas > 0 ? "Asignar facturas" : g.cumpl >= 0.85 ? "Mantener ritmo" : "Asignar facturas"}
@@ -357,16 +362,18 @@ export function OrdenesView({
                 {/* Tabla expandible */}
                 {isOpen && (
                   <>
-                    <div className="grid grid-cols-[16px_120px_1fr_90px_100px_60px_90px_90px_55px_24px] gap-2 px-4 py-2 border-b border-line text-[9px] uppercase tracking-wider text-ink-3 font-medium">
+                    {/* Desktop header */}
+                    <div className="hidden lg:grid grid-cols-[14px_140px_1fr_70px_90px_70px_85px_85px_55px_24px_18px] gap-2 px-4 py-2 border-b border-line text-[9px] uppercase tracking-wider text-ink-3 font-medium">
                       <div></div>
                       <div>N° OC</div>
                       <div>Comprador</div>
-                      <div>Fecha</div>
+                      <div className="text-right">Edad</div>
                       <div>Vence</div>
-                      <div className="text-right">Líneas</div>
+                      <div className="text-right">Cajas</div>
                       <div className="text-right">Monto</div>
-                      <div className="text-right">Facturado</div>
+                      <div className="text-right">Pendiente</div>
                       <div className="text-right">Cumpl.</div>
+                      <div className="text-center">PDF</div>
                       <div></div>
                     </div>
                     {rows.map((o) => {
@@ -374,42 +381,79 @@ export function OrdenesView({
                       const dotColor = o.oc_status === "vencida" ? "bg-neg" : o.oc_status === "por_vencer" ? "bg-warn" : "bg-pos";
                       const bgRow = o.oc_status === "vencida" ? "bg-neg-soft/20" : "";
                       const cumplBg = cumpl >= 85 ? "bg-pos-soft text-pos" : cumpl >= 50 ? "bg-warn-soft text-warn" : "bg-neg-soft text-neg";
+                      const ageCls = o.age_days >= 30 ? "text-neg font-medium" : o.age_days >= 14 ? "text-warn" : "text-ink-2";
                       return (
-                        <Link
-                          key={o.id}
-                          href={`/supermercados/oc/${o.id}`}
-                          prefetch
-                          className={`grid grid-cols-[16px_120px_1fr_90px_100px_60px_90px_90px_55px_24px] gap-2 px-4 py-2.5 hover:bg-bg-subtle border-b border-line last:border-b-0 items-center group ${bgRow}`}
-                        >
-                          <span className={`w-2 h-2 rounded-full ${dotColor}`} title={o.oc_status === "vencida" ? "Vencida" : o.oc_status === "por_vencer" ? "Por vencer" : "Al día"}></span>
-                          <span className="text-xs font-mono text-wine">{o.order_number}</span>
-                          <span className="text-[11px] text-ink-2 truncate">{o.buyer ?? "—"}</span>
-                          <span className="text-[11px] text-ink-2 tabular">{fmtDate(o.order_date)}</span>
-                          <div className="text-[11px] tabular">
-                            {o.oc_status === "vencida" ? (
-                              <>
-                                <span className="text-neg font-medium">{fmtDate(o.cancellation_date)}</span>
-                                <span className="text-[10px] text-neg ml-1">+{o.days_overdue}d</span>
-                              </>
-                            ) : o.oc_status === "por_vencer" ? (
-                              <>
-                                <span className="text-warn font-medium">{fmtDate(o.cancellation_date)}</span>
-                                <span className="text-[10px] text-warn ml-1">−{Math.abs(o.days_overdue)}d</span>
-                              </>
-                            ) : (
-                              <span className="text-ink-2">{fmtDate(o.cancellation_date)}</span>
-                            )}
+                        <div key={o.id} className={`block border-b border-line last:border-b-0 hover:bg-bg-subtle group ${bgRow}`}>
+                          {/* Desktop */}
+                          <div className="hidden lg:grid grid-cols-[14px_140px_1fr_70px_90px_70px_85px_85px_55px_24px_18px] gap-2 px-4 py-2.5 items-center">
+                            <Link href={`/supermercados/oc/${o.id}`} prefetch className="contents">
+                              <span className={`w-2 h-2 rounded-full ${dotColor}`}></span>
+                              <span className="text-[11px] font-mono text-wine truncate min-w-0 block" title={o.order_number}>{o.order_number}</span>
+                              <span className="text-[11px] text-ink-2 truncate min-w-0 block" title={o.buyer ?? ""}>{o.buyer ?? "—"}</span>
+                              <span className={`text-[11px] tabular text-right ${ageCls}`}>{o.age_days}d</span>
+                              <div className="text-[11px] tabular">
+                                {o.oc_status === "vencida" ? (
+                                  <><span className="text-neg font-medium">{fmtDate(o.cancellation_date)}</span><span className="text-[10px] text-neg ml-1">+{o.days_overdue}d</span></>
+                                ) : o.oc_status === "por_vencer" ? (
+                                  <><span className="text-warn font-medium">{fmtDate(o.cancellation_date)}</span><span className="text-[10px] text-warn ml-1">{Math.abs(o.days_overdue)}d</span></>
+                                ) : (
+                                  <span className="text-ink-2">{fmtDate(o.cancellation_date)}</span>
+                                )}
+                              </div>
+                              <span className="text-[11px] tabular text-right text-ink-2">
+                                {o.boxes_invoiced > 0 ? <><span className="text-ink font-medium">{fmtNum(o.boxes_invoiced)}</span><span className="text-ink-3">/{fmtNum(o.boxes_total)}</span></> : fmtNum(o.boxes_total)}
+                              </span>
+                              <span className="text-xs font-medium tabular text-right text-ink">{fmtClpCompact(o.total_amount)}</span>
+                              <span className={`text-[11px] tabular text-right ${o.pendiente > 0 ? (o.oc_status === "vencida" ? "text-neg font-medium" : "text-warn") : "text-ink-3"}`}>
+                                {o.pendiente > 0 ? fmtClpCompact(o.pendiente) : "—"}
+                              </span>
+                              <span className="text-right">
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-sm font-medium tabular ${cumplBg}`}>{cumpl}%</span>
+                              </span>
+                            </Link>
+                            {o.source_pdf ? (
+                              <a
+                                href={o.source_pdf}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-ink-3 hover:text-wine inline-flex justify-center"
+                                title="Abrir PDF de OC"
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg>
+                              </a>
+                            ) : <span className="text-ink-3 text-center">—</span>}
+                            <Link href={`/supermercados/oc/${o.id}`} prefetch>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-ink-3 group-hover:text-ink-2"><path d="M9 6l6 6-6 6"/></svg>
+                            </Link>
                           </div>
-                          <span className="text-[11px] tabular text-right text-ink-2">{o.items_count}</span>
-                          <span className="text-xs font-medium tabular text-right text-ink">{fmtClpCompact(o.total_amount)}</span>
-                          <span className={`text-[11px] tabular text-right ${o.facturado > 0 ? "text-ink" : "text-ink-3"}`}>
-                            {o.facturado > 0 ? fmtClpCompact(o.facturado) : "—"}
-                          </span>
-                          <span className="text-right">
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-sm font-medium tabular ${cumplBg}`}>{cumpl}%</span>
-                          </span>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-ink-3 group-hover:text-ink-2"><path d="M9 6l6 6-6 6"/></svg>
-                        </Link>
+                          {/* Mobile */}
+                          <Link href={`/supermercados/oc/${o.id}`} prefetch className="block lg:hidden px-3 py-2.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor}`}></span>
+                                <span className="text-xs font-mono text-wine">{o.order_number}</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-sm font-medium tabular ${cumplBg}`}>{cumpl}%</span>
+                              </div>
+                              <span className="text-xs font-medium tabular text-ink">{fmtClpCompact(o.total_amount)}</span>
+                            </div>
+                            <div className="flex items-center justify-between mt-1 text-[10px] text-ink-2">
+                              <span className="truncate min-w-0 max-w-[60%]">{o.buyer ?? "—"} · {fmtNum(o.boxes_total)} cj</span>
+                              {o.oc_status === "vencida" ? (
+                                <span className="text-neg font-medium">Vencida +{o.days_overdue}d</span>
+                              ) : o.oc_status === "por_vencer" ? (
+                                <span className="text-warn font-medium">Vence en {Math.abs(o.days_overdue)}d</span>
+                              ) : (
+                                <span>{o.age_days}d · {fmtDate(o.cancellation_date)}</span>
+                              )}
+                            </div>
+                            {o.pendiente > 0 && (
+                              <div className="text-[10px] text-warn tabular mt-0.5 font-medium">
+                                Pendiente {fmtClpCompact(o.pendiente)}
+                              </div>
+                            )}
+                          </Link>
+                        </div>
                       );
                     })}
                   </>
@@ -421,13 +465,13 @@ export function OrdenesView({
       </div>
 
       {/* Leyenda */}
-      <div className="flex justify-between mt-3 text-[10px] text-ink-3">
-        <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row sm:justify-between gap-1 mt-3 text-[10px] text-ink-3">
+        <div className="flex flex-wrap gap-3">
           <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-pos"></span>Al día</span>
-          <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-warn"></span>Por vencer (≤3 días)</span>
+          <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-warn"></span>Por vencer</span>
           <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-neg"></span>Vencida</span>
         </div>
-        <span>{filteredOrders.length} OC mostradas · clic para ver detalle</span>
+        <span>{filteredOrders.length} OC mostradas</span>
       </div>
     </>
   );

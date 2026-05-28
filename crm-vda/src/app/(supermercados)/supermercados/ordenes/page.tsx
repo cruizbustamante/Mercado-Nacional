@@ -6,6 +6,9 @@ const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", 
 function chainBg(name: string): string {
   const n = name.toLowerCase();
   if (n.includes("cencosud") || n.includes("jumbo") || n.includes("santa isabel")) return "bg-ch-cencosud";
+  if (n === "alvi" || n.includes("alvi")) return "bg-orange";
+  if (n === "rendic" || n.includes("rendic")) return "bg-info";
+  if (n === "scpd") return "bg-warn";
   if (n.includes("smu") || n.includes("unimarc")) return "bg-ch-smu";
   if (n.includes("tottus") || n.includes("falabella")) return "bg-ch-tottus";
   if (n.includes("walmart") || n.includes("lider") || n.includes("líder") || n.includes("acuenta")) return "bg-ch-walmart";
@@ -14,7 +17,10 @@ function chainBg(name: string): string {
 function chainSubtitle(name: string): string {
   const n = name.toLowerCase();
   if (n.includes("cencosud")) return "Jumbo · Santa Isabel · Spid 35";
-  if (n.includes("smu")) return "Unimarc · OK Market · Alvi · Mayorista 10";
+  if (n === "alvi") return "Alvi mayorista";
+  if (n === "rendic") return "CD Coquimbo · Transición";
+  if (n === "scpd") return "Cadena independiente";
+  if (n.includes("smu")) return "Unimarc · OK Market · Mayorista 10";
   if (n.includes("tottus")) return "Falabella retail";
   if (n.includes("walmart")) return "Líder · Ekono · aCuenta";
   return "";
@@ -40,9 +46,9 @@ export default async function OrdenesPage({
   const { data: ordersData } = await supabase
     .from("purchase_orders")
     .select(`
-      id, order_number, order_date, cancellation_date, total_amount, status, buyer,
+      id, order_number, order_date, cancellation_date, total_amount, status, buyer, source_pdf,
       chain:supermarket_chains(id, name),
-      items:purchase_order_items(id, line_amount),
+      items:purchase_order_items(id, line_amount, quantity_boxes),
       invoices:oc_invoices(oc_invoice_items(amount_invoiced, boxes_invoiced))
     `)
     .gte("order_date", start)
@@ -58,8 +64,9 @@ export default async function OrdenesPage({
     total_amount: number;
     status: string;
     buyer: string | null;
+    source_pdf: string | null;
     chain: { id: string; name: string } | null;
-    items: { id: string; line_amount: number }[];
+    items: { id: string; line_amount: number; quantity_boxes: number }[];
     invoices: { oc_invoice_items: { amount_invoiced: number; boxes_invoiced: number }[] }[];
   };
   const all = (ordersData ?? []) as unknown as Row[];
@@ -74,6 +81,15 @@ export default async function OrdenesPage({
         (acc, inv) => acc + inv.oc_invoice_items.reduce((a, it) => a + (it.amount_invoiced || 0), 0),
         0
       );
+      const boxes_invoiced = o.invoices.reduce(
+        (acc, inv) => acc + inv.oc_invoice_items.reduce((a, it) => a + (it.boxes_invoiced || 0), 0),
+        0
+      );
+      const boxes_total = o.items.reduce((acc, it) => acc + (it.quantity_boxes || 0), 0);
+      const issueDate = new Date(o.order_date);
+      issueDate.setHours(0, 0, 0, 0);
+      const age_days = Math.max(0, Math.floor((today.getTime() - issueDate.getTime()) / 86400000));
+
       let oc_status: OrdenRow["oc_status"] = "al_dia";
       let days_overdue = 0;
       if (o.cancellation_date) {
@@ -95,8 +111,13 @@ export default async function OrdenesPage({
         cancellation_date: o.cancellation_date,
         total_amount: o.total_amount,
         facturado,
+        pendiente: Math.max(0, o.total_amount - facturado),
         status: o.status,
         items_count: o.items.length,
+        boxes_total,
+        boxes_invoiced,
+        age_days,
+        source_pdf: o.source_pdf,
         buyer: o.buyer,
         chain_id: o.chain!.id,
         chain_name: o.chain!.name,

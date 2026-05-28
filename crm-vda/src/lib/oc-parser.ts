@@ -167,7 +167,12 @@ function parseWalmart(textRaw: string): ParsedOc {
     find(/Fecha de Cancelacion:?\s*\|?\s*(\d{2}\/\d{2}\/\d{4})/i) ||
     find(/Fecha de Embarque:?\s*\|?\s*(\d{2}\/\d{2}\/\d{4})/i);
   const issuer = find(/Emisor:\s*\|?\s*([^|]+?)\s*\|/i) || "Walmart Chile S.A";
-  const buyer = find(/Receptor:\s*\|?\s*([^|]+?)\s*\|/i) || "";
+  // El "Receptor" en Walmart es BVDA (vendedor). El comprador real está en
+  // "Información Comprador" (ej. "6009 Centro De Distribucion Lo Aguirre").
+  const buyer =
+    find(/Informaci[óo]n Comprador\s*\|?\s*([^|]+?)\s*\|/i) ||
+    find(/Receptor:\s*\|?\s*([^|]+?)\s*\|/i) ||
+    "";
   const delivery_place = find(/Lugar de Entrega:\s*\|?\s*([^|]+?)\s*\|/i) || null;
   const payment_terms_raw = find(/Condiciones de Pago:\s*\|?\s*([^|]+?)\s*\|/i);
   const payment_terms = payment_terms_raw ? payment_terms_raw.replace(/\s+/g, " ") : null;

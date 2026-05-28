@@ -15,9 +15,9 @@ export default async function SupermercadosLayout({ children }: { children: Reac
 
   return (
     <div className={`warm sm-shell ${inter.variable}`}>
-      {/* Slim topbar: link CRM + user + logout */}
+      {/* Slim topbar */}
       <div className="border-b border-line bg-bg-surface">
-        <div className="max-w-[1440px] mx-auto px-8 py-2 flex items-center justify-between">
+        <div className="w-full px-3 sm:px-5 lg:px-6 py-2 flex items-center justify-between">
           <Link
             href="/"
             className="inline-flex items-center gap-1.5 text-[11px] text-ink-2 hover:text-ink transition-colors"
@@ -25,7 +25,8 @@ export default async function SupermercadosLayout({ children }: { children: Reac
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
-            Volver al CRM
+            <span className="hidden sm:inline">Volver al CRM</span>
+            <span className="sm:hidden">CRM</span>
           </Link>
           <div className="flex items-center gap-3">
             <div className="inline-flex items-center gap-2">
@@ -35,7 +36,7 @@ export default async function SupermercadosLayout({ children }: { children: Reac
               >
                 {profile.initials ?? "??"}
               </div>
-              <div className="text-[11px] leading-tight">
+              <div className="text-[11px] leading-tight hidden sm:block">
                 <div className="text-ink font-medium">{profile.short_name ?? profile.full_name}</div>
                 <div className="text-ink-3">{profile.email}</div>
               </div>
@@ -55,7 +56,7 @@ export default async function SupermercadosLayout({ children }: { children: Reac
         </div>
       </div>
 
-      <main className="max-w-[1440px] mx-auto px-8 py-6">{children}</main>
+      <main className="w-full px-3 sm:px-5 lg:px-6 py-3 sm:py-4">{children}</main>
     </div>
   );
 }

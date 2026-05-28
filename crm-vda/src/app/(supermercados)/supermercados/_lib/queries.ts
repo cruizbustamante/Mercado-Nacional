@@ -91,9 +91,40 @@ function isVencida(o: OcRow, today: string): boolean {
 
 /* ============= Carga base ============= */
 
-async function loadOrders(period: Period): Promise<OcRow[]> {
+export interface Filters {
+  chain?: string | null;     // chain_id
+  brand?: string | null;     // brand name
+  categoria?: string | null; // category name
+}
+
+function applyLineFilters(o: OcRow, f: Filters): OcRow {
+  if (!f.brand && !f.categoria) return o;
+  const items = o.items.filter((it) => {
+    if (f.brand && it.product?.brand?.name !== f.brand) return false;
+    if (f.categoria && it.product?.category?.name !== f.categoria) return false;
+    return true;
+  });
+  // Recalcular total_amount proporcional al filtro de líneas
+  const allItemsTotal = o.items.reduce((s, it) => s + (it.line_amount || 0), 0);
+  const filteredItemsTotal = items.reduce((s, it) => s + (it.line_amount || 0), 0);
+  const ratio = allItemsTotal > 0 ? filteredItemsTotal / allItemsTotal : 0;
+  return {
+    ...o,
+    items,
+    total_amount: Math.round(o.total_amount * ratio),
+    invoices: o.invoices.map((inv) => ({
+      ...inv,
+      oc_invoice_items: inv.oc_invoice_items.map((ii) => ({
+        ...ii,
+        amount_invoiced: Math.round((ii.amount_invoiced || 0) * ratio),
+      })),
+    })),
+  };
+}
+
+async function loadOrders(period: Period, filters: Filters = {}): Promise<OcRow[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  let query = supabase
     .from("purchase_orders")
     .select(`
       id, total_amount, order_date, cancellation_date, status,
@@ -110,17 +141,28 @@ async function loadOrders(period: Period): Promise<OcRow[]> {
       invoices:oc_invoices(id, oc_invoice_items(amount_invoiced, boxes_invoiced))
     `)
     .gte("order_date", period.start)
-    .lte("order_date", period.end)
+    .lte("order_date", period.end);
+
+  if (filters.chain) query = query.eq("chain_id", filters.chain);
+
+  const { data } = await query
     .order("order_date", { ascending: false })
     .limit(2000);
 
-  return (data ?? []) as unknown as OcRow[];
+  const raw = (data ?? []) as unknown as OcRow[];
+  // Brand/categoria se filtran en memoria (los joins no permiten WHERE en relación N+1)
+  if (filters.brand || filters.categoria) {
+    return raw
+      .map((o) => applyLineFilters(o, filters))
+      .filter((o) => o.items.length > 0);
+  }
+  return raw;
 }
 
 /* ============= Dashboard KPIs ============= */
 
-export async function getDashboardKpis(period: Period): Promise<DashboardKpis> {
-  const orders = await loadOrders(period);
+export async function getDashboardKpis(period: Period, filters: Filters = {}): Promise<DashboardKpis> {
+  const orders = await loadOrders(period, filters);
   const today = new Date().toISOString().split("T")[0];
 
   let totalOc = 0, totalFacturado = 0, totalPerdido = 0, totalPendiente = 0;
@@ -177,8 +219,8 @@ export async function getDashboardKpis(period: Period): Promise<DashboardKpis> {
 
 /* ============= Tabla por cadena ============= */
 
-export async function getChainBreakdown(period: Period): Promise<ChainRow[]> {
-  const orders = await loadOrders(period);
+export async function getChainBreakdown(period: Period, filters: Filters = {}): Promise<ChainRow[]> {
+  const orders = await loadOrders(period, filters);
   const today = new Date().toISOString().split("T")[0];
   const map = new Map<string, ChainRow & { _skus: Set<string> }>();
 
@@ -223,6 +265,35 @@ export async function getChainBreakdown(period: Period): Promise<ChainRow[]> {
     .sort((a, b) => b.totalOc - a.totalOc);
 }
 
+/* ============= Listas para filtros ============= */
+
+export interface FilterOptions {
+  chains: { id: string; name: string }[];
+  brands: string[];
+  categories: string[];
+}
+
+export async function getFilterOptions(period: Period): Promise<FilterOptions> {
+  const orders = await loadOrders(period);
+  const chainMap = new Map<string, string>();
+  const brandSet = new Set<string>();
+  const catSet = new Set<string>();
+  for (const o of orders) {
+    if (o.chain?.id) chainMap.set(o.chain.id, o.chain.name);
+    for (const it of o.items) {
+      if (it.product?.brand?.name) brandSet.add(it.product.brand.name);
+      if (it.product?.category?.name) catSet.add(it.product.category.name);
+    }
+  }
+  return {
+    chains: Array.from(chainMap.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    brands: Array.from(brandSet).sort(),
+    categories: Array.from(catSet).sort(),
+  };
+}
+
 /* ============= Top Brands (para leaderboard dashboard) ============= */
 
 export interface TopBrandRow {
@@ -256,8 +327,8 @@ export async function getTopBrands(period: Period, limit = 5): Promise<TopBrandR
 
 /* ============= Top SKUs ============= */
 
-export async function getTopSkus(period: Period, limit = 10): Promise<TopSkuRow[]> {
-  const orders = await loadOrders(period);
+export async function getTopSkus(period: Period, limit = 10, filters: Filters = {}): Promise<TopSkuRow[]> {
+  const orders = await loadOrders(period, filters);
   const map = new Map<string, TopSkuRow>();
 
   for (const o of orders) {
@@ -766,11 +837,11 @@ function deltaPct(curr: number, prev: number): number | null {
   return (curr - prev) / prev;
 }
 
-export async function getRanking(period: Period, dim: Dimension): Promise<RankingRow[]> {
+export async function getRanking(period: Period, dim: Dimension, filters: Filters = {}): Promise<RankingRow[]> {
   const prevP = previousPeriod(period);
   const [orders, prevOrders] = await Promise.all([
-    loadOrders(period),
-    loadOrders(prevP),
+    loadOrders(period, filters),
+    loadOrders(prevP, filters),
   ]);
 
   const curr = aggregateRanking(orders, dim);

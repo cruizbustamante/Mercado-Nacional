@@ -21,7 +21,7 @@ interface AlertItem {
   cancellation_date: string;
   total_amount: number;
   facturado: number;
-  days: number;     // positivo si vencida (días desde vencer), negativo si por vencer
+  days: number;
   severity: Severity;
 }
 
@@ -47,7 +47,6 @@ export default async function AlertasPage() {
   today.setHours(0, 0, 0, 0);
   const horizonIso = new Date(today.getTime() + 7 * 86400000).toISOString().split("T")[0];
 
-  // Trae OC con vencimiento próximo o pasado, no completadas
   const { data } = await supabase
     .from("purchase_orders")
     .select(`
@@ -82,7 +81,6 @@ export default async function AlertasPage() {
       venc.setHours(0, 0, 0, 0);
       const days = Math.floor((today.getTime() - venc.getTime()) / 86400000);
       const facturado = r.invoices.reduce((s, inv) => s + inv.oc_invoice_items.reduce((a, it) => a + (it.amount_invoiced || 0), 0), 0);
-      // Filtrar OC ya facturadas completamente
       if (facturado >= r.total_amount && r.total_amount > 0) return null;
       return {
         oc_id: r.id,
@@ -98,7 +96,7 @@ export default async function AlertasPage() {
       };
     })
     .filter((a): a is AlertItem => a !== null)
-    .sort((a, b) => b.days - a.days);  // más vencidas primero
+    .sort((a, b) => b.days - a.days);
 
   const criticas = alerts.filter((a) => a.severity === "critica");
   const altas = alerts.filter((a) => a.severity === "alta");
@@ -110,35 +108,35 @@ export default async function AlertasPage() {
   return (
     <>
       {/* PAGE HEADER */}
-      <div className="flex justify-between items-start pb-5 border-b border-line">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 pb-4 border-b border-line">
         <div>
-          <div className="text-[10px] tracking-[0.12em] uppercase text-ink-3 font-medium mb-1.5">
+          <div className="text-[10px] tracking-[0.12em] uppercase text-ink-3 font-medium mb-1">
             BVDA · Mercado Nacional · Supermercados
           </div>
-          <h2 className="text-xl font-semibold tracking-tight text-ink">Alertas · Lo accionable hoy</h2>
-          <p className="text-xs text-ink-2 mt-1">
+          <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-ink">Alertas · Lo accionable hoy</h2>
+          <p className="text-xs text-ink-2 mt-0.5">
             Cola priorizada · {alerts.length} {alerts.length === 1 ? "alerta activa" : "alertas activas"}
             {criticas.length > 0 && <span className="text-neg font-medium"> · {criticas.length} crítica{criticas.length !== 1 ? "s" : ""}</span>}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0">
           <Link
             href="/admin/cargadores/oc-supermercados"
             className="text-xs px-3 py-1.5 rounded-md bg-wine text-white hover:bg-wine-2 inline-flex items-center gap-1.5 font-medium"
             prefetch
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
-            Cargar OC
+            <span className="hidden sm:inline">Cargar OC</span>
           </Link>
         </div>
       </div>
 
-      <div className="flex items-center justify-between mt-5 mb-5">
+      <div className="flex items-center justify-between mt-4 mb-4">
         <TabsNav alertasCount={alerts.length} />
       </div>
 
       {/* Resumen de alertas */}
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4">
         <div className="bg-bg-surface border border-line rounded-md p-3 border-l-[3px] border-l-wine">
           <div className="text-[10px] uppercase tracking-wider text-wine font-medium">Críticas</div>
           <div className="text-xl font-semibold tabular text-wine mt-1">{criticas.length}</div>
@@ -163,10 +161,10 @@ export default async function AlertasPage() {
 
       {/* Lista priorizada */}
       <div className="bg-bg-surface border border-line rounded-md overflow-hidden">
-        <div className="px-4 py-2.5 bg-bg-subtle border-b border-line flex justify-between items-baseline">
+        <div className="px-3 sm:px-4 py-2.5 bg-bg-subtle border-b border-line flex justify-between items-baseline">
           <div>
             <div className="text-xs font-medium text-ink">Cola priorizada · {alerts.length} alertas activas</div>
-            <div className="text-[10px] text-ink-2 mt-0.5">Ordenadas por severidad y antigüedad</div>
+            <div className="text-[10px] text-ink-2 mt-0.5 hidden sm:block">Ordenadas por severidad y antigüedad</div>
           </div>
         </div>
 
@@ -192,22 +190,40 @@ export default async function AlertasPage() {
               <Link
                 key={a.oc_id}
                 href={`/supermercados/oc/${a.oc_id}`}
-                className="w-full text-left grid grid-cols-[20px_120px_1fr_100px_70px_85px_24px] gap-3 px-4 py-2.5 hover:bg-bg-subtle border-b border-line last:border-b-0 items-center group"
+                className="w-full text-left flex flex-col sm:grid sm:grid-cols-[20px_100px_1fr_80px_55px_75px_24px] gap-1 sm:gap-3 px-3 sm:px-4 py-2.5 hover:bg-bg-subtle border-b border-line last:border-b-0 sm:items-center group"
                 prefetch
               >
-                <span className={`w-4 h-4 rounded-full flex items-center justify-center ${sevConfig.icon}`}>
+                {/* Mobile: condensed row */}
+                <div className="sm:hidden flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center ${sevConfig.icon}`}>
+                      {isVencida ? (
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.3 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /></svg>
+                      ) : (
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
+                      )}
+                    </span>
+                    <span className="text-xs font-mono text-wine truncate">{a.order_number}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-sm font-medium tabular ${sevConfig.badge}`}>{sevConfig.label}</span>
+                  </div>
+                  <span className={`text-[11px] tabular font-medium flex-shrink-0 ${isVencida ? "text-neg" : "text-warn"}`}>
+                    {isVencida ? `+${a.days}d` : `−${Math.abs(a.days)}d`}
+                  </span>
+                </div>
+                <div className="sm:hidden text-[11px] text-ink-2 pl-6">
+                  {a.chain_name} · {fmtClpCompact(pendiente)} sin facturar
+                </div>
+
+                {/* Desktop: grid row */}
+                <span className={`hidden sm:flex w-4 h-4 rounded-full items-center justify-center ${sevConfig.icon}`}>
                   {isVencida ? (
-                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M10.3 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                    </svg>
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.3 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /></svg>
                   ) : (
-                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
-                    </svg>
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
                   )}
                 </span>
-                <span className="text-xs font-mono text-wine">{a.order_number}</span>
-                <div>
+                <span className="hidden sm:inline text-xs font-mono text-wine">{a.order_number}</span>
+                <div className="hidden sm:block">
                   <div className="text-xs text-ink">
                     {a.chain_name} · {a.buyer ?? "—"} · {a.items_count} {a.items_count === 1 ? "línea" : "líneas"}
                   </div>
@@ -215,12 +231,12 @@ export default async function AlertasPage() {
                     {isVencida ? `Vencida ${fmtDate(a.cancellation_date)}` : `Vence ${fmtDate(a.cancellation_date)}`} · {fmtClpCompact(pendiente)} sin facturar
                   </div>
                 </div>
-                <span className="text-[11px] tabular text-right text-ink">{fmtClpCompact(a.total_amount)}</span>
-                <span className={`text-[11px] tabular text-right font-medium ${isVencida ? "text-neg" : "text-warn"}`}>
+                <span className="hidden sm:inline text-[11px] tabular text-right text-ink">{fmtClpCompact(a.total_amount)}</span>
+                <span className={`hidden sm:inline text-[11px] tabular text-right font-medium ${isVencida ? "text-neg" : "text-warn"}`}>
                   {isVencida ? `+${a.days}d` : `−${Math.abs(a.days)}d`}
                 </span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-sm font-medium tabular w-fit ml-auto ${sevConfig.badge}`}>{sevConfig.label}</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-ink-3 group-hover:text-ink-2"><path d="M9 6l6 6-6 6"/></svg>
+                <span className={`hidden sm:inline text-[10px] px-1.5 py-0.5 rounded-sm font-medium tabular w-fit ml-auto ${sevConfig.badge}`}>{sevConfig.label}</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="hidden sm:block text-ink-3 group-hover:text-ink-2"><path d="M9 6l6 6-6 6"/></svg>
               </Link>
             );
           })

@@ -4,7 +4,8 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { marcarFacturada } from "./actions";
 
-const prefacturaUrl = (nvId: string) => `/api/facturacion/prefactura?nv=${nvId}`;
+const prefacturaUrl = (r: { id: string; nv_number: string; client: { name: string } | null }) =>
+  `/prefactura?nv=${encodeURIComponent(r.id)}&nvnum=${encodeURIComponent(r.nv_number)}&cliente=${encodeURIComponent(r.client?.name ?? "")}`;
 
 /* ── Types ── */
 
@@ -167,12 +168,12 @@ export function FacturacionModule({ rows, canEmit }: Props) {
 
   const selectedRows = rows.filter((r) => selected.has(r.id) && r.lista);
 
-  /* Abre la prefactura (PDF) en una pestaña nueva — síncrono para no bloquear popups */
-  function verPrefactura(id: string) {
-    window.open(prefacturaUrl(id), "_blank");
+  /* Abre el visor de prefactura (pantalla de carga + PDF) en pestaña nueva */
+  function verPrefactura(r: FacturaRow) {
+    window.open(prefacturaUrl(r), "_blank");
   }
   function verPrefacturasSeleccionadas() {
-    selectedRows.forEach((r) => window.open(prefacturaUrl(r.id), "_blank"));
+    selectedRows.forEach((r) => window.open(prefacturaUrl(r), "_blank"));
   }
 
   function confirmarMarcar() {
@@ -320,7 +321,7 @@ export function FacturacionModule({ rows, canEmit }: Props) {
                         checked={selected.has(r.id)}
                         onToggle={() => toggleOne(r.id)}
                         onExpand={() => setExpanded(isOpen ? null : r.id)}
-                        onPrefactura={() => verPrefactura(r.id)}
+                        onPrefactura={() => verPrefactura(r)}
                         onMarcar={() => { setMarkRow(r); setFolio(""); setMarkErr(null); }}
                       />
                     );

@@ -385,10 +385,10 @@ export default async function HomePage() {
 
   return (
     <div className={`${inter.variable}`} style={{ fontFamily: "Inter, system-ui, -apple-system, sans-serif" }}>
-      <div className="max-w-[1280px] mx-auto px-8 py-6">
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         {/* PageHeader */}
-        <div className="flex justify-between items-start pb-5 border-b border-line">
+        <div className="flex flex-wrap gap-3 justify-between items-start pb-5 border-b border-line">
           <div>
             <div className="text-[10px] tracking-[0.12em] uppercase text-ink-3 font-medium mb-1.5">
               Sistema de gestión comercial · Bodegas y Viñedos de Aguirre
@@ -426,7 +426,7 @@ export default async function HomePage() {
             <div className="text-[10px] text-ink-3">— métricas clave del mes en curso ({capitalize(monthLabel(now))})</div>
           </div>
 
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {/* KPI 1 — Facturación del mes */}
             <div className="bg-bg-surface border border-line rounded-md p-4">
               <div className="text-[10px] tracking-[0.05em] uppercase text-ink-3 font-medium">Facturación del mes</div>
@@ -504,12 +504,12 @@ export default async function HomePage() {
           </div>
 
           <div className="text-[9px] uppercase tracking-[0.15em] text-ink-3 font-medium mb-2 mt-1">Operaciones</div>
-          <div className="grid grid-cols-5 gap-3 mb-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
             {operacionesModules.map((m) => <ModuleCardComponent key={m.id} m={m} />)}
           </div>
 
           <div className="text-[9px] uppercase tracking-[0.15em] text-ink-3 font-medium mb-2">Gestión y administración</div>
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {gestionModules.map((m) => <ModuleCardComponent key={m.id} m={m} />)}
             <div className="bg-bg-subtle border border-dashed border-line rounded-md p-4 flex items-center justify-center col-span-2">
               <div className="text-center">
@@ -532,8 +532,8 @@ export default async function HomePage() {
               <div className="text-[10px] text-ink-2 tabular">{attention.length} {attention.length === 1 ? "item activo" : "items activos"} · {todayLabel()}</div>
             </div>
 
-            <div className="bg-bg-surface border border-line rounded-md overflow-hidden">
-              <div className="grid grid-cols-[120px_28px_1fr_120px_100px_24px] gap-3 px-4 py-2 bg-bg-subtle border-b border-line text-[9px] uppercase tracking-wider text-ink-3 font-medium">
+            <div className="bg-bg-surface border border-line rounded-md overflow-x-auto">
+              <div className="grid min-w-[600px] grid-cols-[120px_28px_1fr_120px_100px_24px] gap-3 px-4 py-2 bg-bg-subtle border-b border-line text-[9px] uppercase tracking-wider text-ink-3 font-medium">
                 <div>Módulo</div>
                 <div></div>
                 <div>Detalle</div>
@@ -547,7 +547,7 @@ export default async function HomePage() {
                   key={item.id}
                   href={item.href}
                   prefetch
-                  className="grid grid-cols-[120px_28px_1fr_120px_100px_24px] gap-3 px-4 py-2.5 hover:bg-bg-subtle border-b border-line last:border-b-0 items-center group"
+                  className="grid min-w-[600px] grid-cols-[120px_28px_1fr_120px_100px_24px] gap-3 px-4 py-2.5 hover:bg-bg-subtle border-b border-line last:border-b-0 items-center group"
                 >
                   <div className="text-[11px] text-ink-2 inline-flex items-center gap-1.5">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-ink-3 flex-shrink-0">
@@ -567,7 +567,7 @@ export default async function HomePage() {
                 </Link>
               ))}
 
-              <div className="px-4 py-2 bg-bg-subtle border-t border-line flex justify-between items-center text-[10px]">
+              <div className="px-4 py-2 min-w-[600px] bg-bg-subtle border-t border-line flex justify-between items-center text-[10px]">
                 <div className="flex gap-3 text-ink-3">
                   <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-wine"></span>Crítica</span>
                   <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-neg"></span>Alta</span>

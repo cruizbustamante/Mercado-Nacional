@@ -93,7 +93,7 @@ npm run lint     # eslint
 
 ## Estado de la migración
 
-Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05-28:
+Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05-29:
 
 - ✅ Auth + dashboard layout
 - ✅ **Home rediseñado "Centro de Comando"** (mockup mn-home-centro-comando v1.0):
@@ -120,6 +120,7 @@ Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05
 - ✅ **Cálculo facturación**: `unit_price` de OC es NETO por caja en TODAS las cadenas (incluye Walmart). Fórmula: precio_unit_neto = round(unit_price_caja / unidades_por_caja); neto_línea = unidades_totales × precio_unit_neto; ILA = neto × ila_rate (variable por SKU); IVA = (neto + log) × 0.19. Garantiza que la factura SII impresa cuadre exacto.
 - ✅ **Módulo Costos y Rappel**: costos por trimestre, acuerdos rappel por cadena
 - ✅ **Módulo Finanzas** (fase 1): línea de crédito, historial de cargas, cargador de seguros
+- ✅ **Módulo Facturación** (`/facturacion`, rol admin/facturador): lista NV listas para facturar (APROBADO + V°B° OK), KPIs, filtros, detalle expandible, "Ver/imprimir NV". **Scraper de facturacion.cl** (puppeteer-core + @sparticuz/chromium-min en Vercel Functions) que llena la **Vista Previa** y captura el PDF de la prefactura — **modo preview, NUNCA emite el DTE** (hasta validar todo). Visor `/prefactura` con pantalla de carga + PDF embebido. Botón "Marcar facturada" (folio real) → estado FACTURADO. **Funciona en producción (free/Hobby) con la función en región `gru1` (São Paulo)** para bajar latencia a Chile. Falta: emisión real (botón Emitir Documento), envío por correo.
 - ✅ **Listado NV** con KPIs reactivos, filtros y paginación
 - ✅ **RLS Supabase aplicado en todas las 43 tablas públicas** (Fase 0→4): helper `current_role_name()` SECURITY DEFINER, políticas por rol; audit_log append-only; vista `v_stock_available` con security_invoker. Activar leaked password protection en Auth dashboard pendiente (manual)
 - ⏳ Resto de módulos (Despacho, Stock) — placeholder con badge "Pronto"
@@ -140,3 +141,4 @@ Ver el commit log como referencia más actualizada. En grandes rasgos al 2026-05
 - **Venta perdida**: campo `purchase_order_items.lost_sale_reason` (valores: `sin_stock` / `no_entro_cd` / `fuera_plazo` / `error_mapeo` / `otro`).
 - **Cadenas de supermercado independientes**: Rendic, Alvi y SCPD son cadenas separadas en `supermarket_chains` (NO aliases de SMU), aunque Rendic Hermanos legalmente sea parte del grupo SMU. Decisión del usuario para ver desempeño por unidad operacional.
 - **Parser Walmart `buyer`**: capturar "Información Comprador" del HTML Comercionet ORD_WM, NO "Receptor:" (ese es BVDA, el vendedor). Los valores reales son CDs como "6009 Centro De Distribución Lo Aguirre" o "CD 6020 El Peñón".
+- **Scraper facturacion.cl** (`src/lib/facturacion/`): puppeteer-core + @sparticuz/chromium-min, corre headless en Vercel Functions. Gotchas: (1) clickear la **Factura de VENTAS** por href `venta/venta.php',33,` — hay otra "Factura" de COMPRAS (`form/compra/`) con igual title que aparece antes en el DOM. (2) RUT: en headless el Tab NO dispara el lookup → además disparar change/blur + clic en lupa `#btnBuscar`. (3) Precio unitario = **NETO BASE**; descuento % si final<base; el ILA lo agrega solo facturacion.cl; flete = SKU **12311231**, cantidad=total unidades. (4) Capturar el PDF de Vista Previa con **CDP `Fetch` domain** (no `Network.getResponseBody` — falla con PDF inline). (5) **Región `gru1`** (vercel.json) para bajar latencia Vercel↔Chile y caber en 60s de Hobby. (6) **Solo modo preview, NUNCA emite** hasta validar. Credenciales en env vars `EMPRESA_FCL`/`USUARIO_FCL`/`PASSWORD_FCL` (server-only). Iterar en **localhost** (headless igual que prod, sin límite 60s).

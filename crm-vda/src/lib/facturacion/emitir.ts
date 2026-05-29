@@ -66,6 +66,7 @@ export interface FacturaResult {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const flog = (m: string) => console.log(`[fact] ${m}`);
 
 /* ───────────────────────── LOGIN (implementado) ───────────────────────── */
 
@@ -189,23 +190,20 @@ async function navegarFormularioEmision(page: Page): Promise<void> {
   await clickByTextVisible(page, "Ventas");
   await sleep(500);
 
-  // 2) "Documentos Electrónicos" → despliega el submenú.
-  await clickByTextVisible(page, "Documentos Electrónicos");
-  await sleep(700);
-
-  // 3) "Factura" (DTE 33). En headless el submenú no queda "visible", pero el
-  //    enlace existe en el DOM con title="Factura Electronica (Tipo 33)" y
-  //    href refresca_formulario_Menu('form/venta/venta.php',33,0). Lo clickeamos
-  //    por atributo (sin requerir visibilidad), reabriendo el submenú si hace falta.
+  // 2) Clic en LA "Factura" de VENTAS (DTE 33). OJO: existe otra "Factura" con el
+  //    mismo título bajo COMPRAS (form/compra/) que aparece antes en el DOM —
+  //    hay que elegir la de VENTAS por su href: refresca_formulario_Menu('form/venta/venta.php',33,0).
+  //    Su onclick clicka(...) fija el estado y carga el form. Funciona en headless.
   let clicked = false;
-  for (let i = 0; i < 6 && !clicked; i++) {
+  for (let i = 0; i < 8 && !clicked; i++) {
+    await clickByTextVisible(page, "Documentos Electrónicos");
+    await sleep(500);
     for (const f of page.frames()) {
       try {
         const ok = await f.evaluate(() => {
-          const a = Array.from(document.querySelectorAll("a")).find((el) => {
-            const oc = (el.getAttribute("onclick") || "") + (el.getAttribute("href") || "");
-            return el.getAttribute("title") === "Factura Electronica (Tipo 33)" || oc.includes("venta.php',33,");
-          });
+          const a = Array.from(document.querySelectorAll("a")).find((el) =>
+            ((el.getAttribute("href") || "") + (el.getAttribute("onclick") || "")).includes("venta/venta.php',33,")
+          );
           if (a) { (a as HTMLAnchorElement).click(); return true; }
           return false;
         });
@@ -214,9 +212,8 @@ async function navegarFormularioEmision(page: Page): Promise<void> {
         /* frame navegando */
       }
     }
-    if (!clicked) { await clickByTextVisible(page, "Documentos Electrónicos"); await sleep(700); }
   }
-  if (!clicked) throw new Error("No se encontró el enlace 'Factura' (DTE 33) en Documentos Electrónicos");
+  if (!clicked) throw new Error("No se encontró el enlace 'Factura' de VENTAS (form/venta/venta.php,33)");
 
   // 4) Esperar el formulario (campo R.U.T. del encabezado).
   const formFrame = await findFrame(page, 'form[name="formulario"] #rut', 25000);
@@ -255,19 +252,31 @@ async function llenarFormulario(page: Page, input: FacturaInput): Promise<void> 
     if (el) { el.value = ""; el.focus(); }
   });
   await fr.type("#rut", rutBody);
+  // Disparar la búsqueda del cliente. En headless el Tab no siempre dispara el
+  // lookup, así que también disparamos change/blur y clickeamos la lupa #btnBuscar.
   await page.keyboard.press("Tab");
+  await fr.evaluate(() => {
+    const el = document.querySelector("#rut") as HTMLInputElement | null;
+    if (el) {
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      el.dispatchEvent(new Event("blur", { bubbles: true }));
+    }
+    (document.querySelector("#btnBuscar") as HTMLButtonElement | null)?.click();
+  });
 
   // Esperar autocompletado de la razón social. El frame puede reemplazarse tras
   // navegar, así que re-buscamos el frame vigente con razón social poblada.
   const deadline = Date.now() + 12000;
+  let rsVal = "";
   while (Date.now() < deadline) {
     const f = await findFrame(page, "#razonsocial", 600);
     if (f) {
       const rs = await f.evaluate(() => (document.querySelector("#razonsocial") as HTMLInputElement | null)?.value.trim() || "").catch(() => "");
-      if (rs) { fr = f; break; }
+      if (rs) { fr = f; rsVal = rs; break; }
     }
     await sleep(200);
   }
+  flog(`razón social: "${rsVal}"`);
 
   // Valores unitarios = NETO (cboneto=false).
   await setVal(fr, "#cboneto", "false");
@@ -348,19 +357,29 @@ async function capturarPrefacturaPdf(page: Page): Promise<Buffer | null> {
 async function referenciarDocumento(page: Page, input: FacturaInput): Promise<void> {
   if (!input.referencia) return;
 
-  // Abrir la sección "Referenciar Documento" si está cerrada (FILA_mas = cerrado).
-  const secFr = await findFrame(page, "#td_1frame_docref", 8000);
-  if (secFr) {
-    await secFr.evaluate(() => {
-      const img = document.querySelector("#img_frame_docref");
-      const cerrado = !img || (img.getAttribute("src") || "").includes("mas");
-      if (cerrado) (document.querySelector("#td_1frame_docref") as HTMLElement | null)?.click();
-    });
-    await sleep(500);
+  // Tras "Continuar" el iframe de referencia (referencia_documento.php?idtemporal=…)
+  // se recarga; en headless tarda más en aparecer. Reintentamos abrir la sección
+  // y localizar #selectreferencia hasta ~18s.
+  let fr: Frame | null = null;
+  for (let i = 0; i < 9 && !fr; i++) {
+    const secFr = await findFrame(page, "#td_1frame_docref", 1500);
+    if (secFr) {
+      await secFr.evaluate(() => {
+        const img = document.querySelector("#img_frame_docref");
+        const cerrado = !img || (img.getAttribute("src") || "").includes("mas");
+        if (cerrado) (document.querySelector("#td_1frame_docref") as HTMLElement | null)?.click();
+      });
+    }
+    await sleep(600);
+    fr = await findFrame(page, "#selectreferencia", 1200);
   }
-
-  const fr = await findFrame(page, "#selectreferencia", 10000);
-  if (!fr) throw new Error("No se encontró el formulario de referencia (#selectreferencia)");
+  if (!fr) {
+    const urls = page.frames().map((f) => f.url()).filter(Boolean);
+    const hayDocref = await findFrame(page, "#td_1frame_docref", 500);
+    flog(`SIN referencia. #td_1frame_docref=${!!hayDocref}. frames=${JSON.stringify(urls)}`);
+    throw new Error("No se encontró el formulario de referencia (#selectreferencia)");
+  }
+  flog("iframe de referencia encontrado");
 
   // Tipo de referencia (default 802 = NOTA DE PEDIDO).
   const tipo = input.referencia.tipo || "802";
@@ -399,6 +418,7 @@ async function llenarDetalle(page: Page, input: FacturaInput): Promise<void> {
     await fr.type("#p_codigo", linea.sku);
     await page.keyboard.press("Enter");
     await sleep(900);
+    flog(`línea SKU '${linea.sku}' x${linea.cantidad_unidades}`);
 
     // Cantidad (unidades) y Precio Unitario = NETO BASE (siempre el base).
     await setVal(fr, "#p_cantidad", String(linea.cantidad_unidades));
@@ -454,17 +474,24 @@ export async function emitirFactura(input: FacturaInput): Promise<FacturaResult>
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     );
 
+    const t0 = Date.now();
+    const log = (m: string) => console.log(`[fact +${((Date.now() - t0) / 1000).toFixed(1)}s] ${m}`);
+
     const logged = await loginFacturacionCl(page);
     if (!logged) {
       return { ok: false, error: "No se pudo iniciar sesión en facturacion.cl — verificar credenciales" };
     }
+    log("login OK");
 
     await navegarFormularioEmision(page);
+    log("formulario Factura cargado");
     await llenarFormulario(page, input);
+    log("encabezado + referencia + detalle + observaciones OK");
 
     // ── MODO PREVIEW (default): captura la prefactura, NUNCA emite ──
     if ((input.modo ?? "preview") === "preview") {
       const pdf = await capturarPrefacturaPdf(page);
+      log(pdf ? `PDF capturado (${pdf.length} bytes)` : "vista previa SIN PDF");
       if (!pdf) return { ok: false, error: "No se pudo generar la prefactura (vista previa)" };
       return { ok: true, preview: true, pdf_base64: pdf.toString("base64"), pdf_size: pdf.length };
     }

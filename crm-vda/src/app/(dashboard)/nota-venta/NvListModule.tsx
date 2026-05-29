@@ -218,7 +218,7 @@ export function NvListModule({
         </div>
 
         {/* KPI Strip */}
-        <div className="stats-strip" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+        <div className="stats-strip" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))" }}>
           <div className="stat-cell">
             <div className="stat-key">Total NV</div>
             <div className="stat-val">{fmtNum.format(kpis.count)}</div>

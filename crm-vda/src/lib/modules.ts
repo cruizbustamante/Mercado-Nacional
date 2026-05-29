@@ -4,6 +4,7 @@ export const MODULE_ICONS: Record<string, string> = {
   boxes: "📦",
   "money-bills": "💰",
   cart: "🛒",
+  receipt: "🧾",
 };
 
 export const MODULE_ROUTES: Record<string, string> = {
@@ -12,4 +13,5 @@ export const MODULE_ROUTES: Record<string, string> = {
   stock: "/stock",
   finanzas: "/finanzas",
   oc_supermercados: "/supermercados",
+  facturacion: "/facturacion",
 };

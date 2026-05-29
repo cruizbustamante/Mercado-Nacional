@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# debug local del scraper (perfil Chrome, PDFs, capturas)
+scripts/debug/

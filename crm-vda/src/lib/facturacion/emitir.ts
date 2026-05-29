@@ -3,16 +3,11 @@ import { getBrowser } from "./browser";
 
 /**
  * Motor de emisión de facturas electrónicas en facturacion.cl (empresa BVDA).
+ * Propio de este proyecto (crm-vda). Usa puppeteer-core + @sparticuz/chromium-min
+ * para correr en Vercel Functions (sin servidor local).
  *
- * Arquitectura idéntica al módulo SII de "Notifica Next": puppeteer-core +
- * @sparticuz/chromium-min, corre en Vercel Functions (sin servidor local).
- *
- * El LOGIN está implementado (portado del scraper Python `Scraping Ventas.py`).
- * El FORMULARIO DE EMISIÓN está como estructura con `TODO`: los selectores
- * reales del flujo "emitir factura electrónica" los entrega el usuario
- * (inspección del DOM de facturacion.cl). Hasta entonces el motor se detiene
- * de forma segura ANTES de emitir y devuelve un error explicativo — nunca
- * emite un DTE a ciegas.
+ * Por defecto trabaja en modo PREVIEW: llena todo el formulario y captura la
+ * PREFACTURA (vista previa) — NUNCA emite el DTE mientras no se active "emitir".
  */
 
 const FCL_URL = "https://www.facturacion.cl/";

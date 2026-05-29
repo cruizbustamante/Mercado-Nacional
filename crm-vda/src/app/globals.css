@@ -5,6 +5,10 @@
   --foreground: #171717;
 }
 
+/* Guarda anti-desborde horizontal: evita que un elemento ancho ensanche la
+   página en móvil y el navegador aleje el zoom (contenido apretado a la izq). */
+html, body { max-width: 100%; overflow-x: hidden; }
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

@@ -70,7 +70,9 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /* ───────────────────────── LOGIN (implementado) ───────────────────────── */
 
 async function loginFacturacionCl(page: Page): Promise<boolean> {
-  await page.goto(FCL_URL, { waitUntil: "networkidle2", timeout: 60000 });
+  // domcontentloaded es más rápido que networkidle2 en sitios legacy pesados;
+  // el waitForSelector("#acceso") garantiza que el form esté listo.
+  await page.goto(FCL_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
 
   await page.waitForSelector("#acceso", { timeout: 20000 });
 
@@ -92,11 +94,11 @@ async function loginFacturacionCl(page: Page): Promise<boolean> {
     await page.evaluate((s) => {
       (document.querySelector(s) as HTMLInputElement).value = "";
     }, sel);
-    await page.type(sel, val, { delay: 20 });
+    await page.type(sel, val);
   }
 
   await page.click("#trigger");
-  await sleep(3000);
+  await sleep(1200);
 
   // Confirmar sesión: el form de login desaparece o aparece el menú.
   const logged = await page
@@ -185,12 +187,12 @@ async function setVal(fr: Frame, selector: string, value: string): Promise<void>
 async function navegarFormularioEmision(page: Page): Promise<void> {
   // 1) Menú "Ventas".
   await clickByTextVisible(page, "Ventas");
-  await sleep(1200);
+  await sleep(500);
 
   // 2) "Documentos Electrónicos" → despliega el submenú (Factura, Nota Crédito, …).
   //    Requiere clic REAL; un .click() por JS no abre el submenú.
   await clickByTextVisible(page, "Documentos Electrónicos");
-  await sleep(1500);
+  await sleep(700);
 
   // 3) "Factura" — DTE 33 (td#pos_3_3_2 / a#link_12 → form/venta/venta.php,33).
   const okFactura = await clickByTextVisible(page, "Factura");
@@ -232,19 +234,19 @@ async function llenarFormulario(page: Page, input: FacturaInput): Promise<void> 
     const el = document.querySelector("#rut") as HTMLInputElement | null;
     if (el) { el.value = ""; el.focus(); }
   });
-  await fr.type("#rut", rutBody, { delay: 40 });
+  await fr.type("#rut", rutBody);
   await page.keyboard.press("Tab");
 
   // Esperar autocompletado de la razón social. El frame puede reemplazarse tras
   // navegar, así que re-buscamos el frame vigente con razón social poblada.
   const deadline = Date.now() + 12000;
   while (Date.now() < deadline) {
-    const f = await findFrame(page, "#razonsocial", 1000);
+    const f = await findFrame(page, "#razonsocial", 600);
     if (f) {
       const rs = await f.evaluate(() => (document.querySelector("#razonsocial") as HTMLInputElement | null)?.value.trim() || "").catch(() => "");
       if (rs) { fr = f; break; }
     }
-    await sleep(500);
+    await sleep(200);
   }
 
   // Valores unitarios = NETO (cboneto=false).
@@ -268,7 +270,7 @@ async function llenarFormulario(page: Page, input: FacturaInput): Promise<void> 
     if (typeof fn === "function") fn();
     else (document.querySelector("#continuar") as HTMLButtonElement | null)?.click();
   });
-  await sleep(2500);
+  await sleep(1000);
 
   // ── REFERENCIA (Nota de Pedido / OC) ──
   await referenciarDocumento(page, input);
@@ -313,7 +315,9 @@ async function capturarPrefacturaPdf(page: Page): Promise<Buffer | null> {
     if (typeof fn === "function") fn();
     else (document.querySelector("#preview") as HTMLButtonElement | null)?.click();
   });
-  await sleep(6000);
+  // Esperar a que se capture el PDF (vía Fetch), no un tiempo fijo.
+  const deadline = Date.now() + 15000;
+  while (!pdfBuf && Date.now() < deadline) await sleep(200);
   await cdp.send("Fetch.disable").catch(() => {});
   return pdfBuf;
 }
@@ -332,7 +336,7 @@ async function referenciarDocumento(page: Page, input: FacturaInput): Promise<vo
       const cerrado = !img || (img.getAttribute("src") || "").includes("mas");
       if (cerrado) (document.querySelector("#td_1frame_docref") as HTMLElement | null)?.click();
     });
-    await sleep(1500);
+    await sleep(500);
   }
 
   const fr = await findFrame(page, "#selectreferencia", 10000);
@@ -344,7 +348,7 @@ async function referenciarDocumento(page: Page, input: FacturaInput): Promise<vo
     const s = document.querySelector("#selectreferencia") as HTMLSelectElement | null;
     if (s) { s.value = t; s.dispatchEvent(new Event("change", { bubbles: true })); }
   }, tipo);
-  await sleep(800);
+  await sleep(300);
 
   await setVal(fr, "#folioref", input.referencia.folio);
   if (input.referencia.fecha) await setVal(fr, "#fecharef", input.referencia.fecha);
@@ -357,7 +361,7 @@ async function referenciarDocumento(page: Page, input: FacturaInput): Promise<vo
     );
     (b as HTMLButtonElement | undefined)?.click();
   });
-  await sleep(1500);
+  await sleep(600);
 }
 
 // DETALLE: iframe grid_movimiento_ingreso.php (electronica=true). Campos:
@@ -372,9 +376,9 @@ async function llenarDetalle(page: Page, input: FacturaInput): Promise<void> {
 
     // Código (SKU) + Enter → autocompleta descripción y precio desde el maestro.
     await fr.evaluate(() => { const el = document.querySelector("#p_codigo") as HTMLInputElement | null; if (el) { el.value = ""; el.focus(); } });
-    await fr.type("#p_codigo", linea.sku, { delay: 30 });
+    await fr.type("#p_codigo", linea.sku);
     await page.keyboard.press("Enter");
-    await sleep(1500);
+    await sleep(900);
 
     // Cantidad (unidades) y Precio Unitario = NETO BASE (siempre el base).
     await setVal(fr, "#p_cantidad", String(linea.cantidad_unidades));
@@ -388,7 +392,7 @@ async function llenarDetalle(page: Page, input: FacturaInput): Promise<void> {
 
     // Insertar la línea en la grilla.
     await fr.evaluate(() => (document.querySelector("#agregar") as HTMLButtonElement | null)?.click());
-    await sleep(1500);
+    await sleep(700);
   }
 }
 

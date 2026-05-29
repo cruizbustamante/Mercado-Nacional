@@ -189,14 +189,34 @@ async function navegarFormularioEmision(page: Page): Promise<void> {
   await clickByTextVisible(page, "Ventas");
   await sleep(500);
 
-  // 2) "Documentos Electrónicos" → despliega el submenú (Factura, Nota Crédito, …).
-  //    Requiere clic REAL; un .click() por JS no abre el submenú.
+  // 2) "Documentos Electrónicos" → despliega el submenú.
   await clickByTextVisible(page, "Documentos Electrónicos");
   await sleep(700);
 
-  // 3) "Factura" — DTE 33 (td#pos_3_3_2 / a#link_12 → form/venta/venta.php,33).
-  const okFactura = await clickByTextVisible(page, "Factura");
-  if (!okFactura) throw new Error("No se encontró el botón 'Factura' en el submenú de Documentos Electrónicos");
+  // 3) "Factura" (DTE 33). En headless el submenú no queda "visible", pero el
+  //    enlace existe en el DOM con title="Factura Electronica (Tipo 33)" y
+  //    href refresca_formulario_Menu('form/venta/venta.php',33,0). Lo clickeamos
+  //    por atributo (sin requerir visibilidad), reabriendo el submenú si hace falta.
+  let clicked = false;
+  for (let i = 0; i < 6 && !clicked; i++) {
+    for (const f of page.frames()) {
+      try {
+        const ok = await f.evaluate(() => {
+          const a = Array.from(document.querySelectorAll("a")).find((el) => {
+            const oc = (el.getAttribute("onclick") || "") + (el.getAttribute("href") || "");
+            return el.getAttribute("title") === "Factura Electronica (Tipo 33)" || oc.includes("venta.php',33,");
+          });
+          if (a) { (a as HTMLAnchorElement).click(); return true; }
+          return false;
+        });
+        if (ok) { clicked = true; break; }
+      } catch {
+        /* frame navegando */
+      }
+    }
+    if (!clicked) { await clickByTextVisible(page, "Documentos Electrónicos"); await sleep(700); }
+  }
+  if (!clicked) throw new Error("No se encontró el enlace 'Factura' (DTE 33) en Documentos Electrónicos");
 
   // 4) Esperar el formulario (campo R.U.T. del encabezado).
   const formFrame = await findFrame(page, 'form[name="formulario"] #rut', 25000);

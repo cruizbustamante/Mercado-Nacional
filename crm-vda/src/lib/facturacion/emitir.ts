@@ -188,16 +188,14 @@ async function setVal(fr: Frame, selector: string, value: string): Promise<void>
 async function navegarFormularioEmision(page: Page): Promise<void> {
   // 1) Menú "Ventas".
   await clickByTextVisible(page, "Ventas");
-  await sleep(500);
+  await sleep(800);
 
-  // 2) Clic en LA "Factura" de VENTAS (DTE 33). OJO: existe otra "Factura" con el
-  //    mismo título bajo COMPRAS (form/compra/) que aparece antes en el DOM —
-  //    hay que elegir la de VENTAS por su href: refresca_formulario_Menu('form/venta/venta.php',33,0).
-  //    Su onclick clicka(...) fija el estado y carga el form. Funciona en headless.
-  let clicked = false;
-  for (let i = 0; i < 8 && !clicked; i++) {
+  // Clic en LA "Factura" de VENTAS (DTE 33). OJO: existe otra "Factura" con el
+  // mismo título bajo COMPRAS (form/compra/) — hay que elegir la de VENTAS por su
+  // href refresca_formulario_Menu('form/venta/venta.php',33,0).
+  const clickVentaFactura = async (): Promise<boolean> => {
     await clickByTextVisible(page, "Documentos Electrónicos");
-    await sleep(500);
+    await sleep(600);
     for (const f of page.frames()) {
       try {
         const ok = await f.evaluate(() => {
@@ -207,19 +205,25 @@ async function navegarFormularioEmision(page: Page): Promise<void> {
           if (a) { (a as HTMLAnchorElement).click(); return true; }
           return false;
         });
-        if (ok) { clicked = true; break; }
+        if (ok) return true;
       } catch {
         /* frame navegando */
       }
     }
-  }
-  if (!clicked) throw new Error("No se encontró el enlace 'Factura' de VENTAS (form/venta/venta.php,33)");
+    return false;
+  };
 
-  // 4) Esperar el formulario (campo R.U.T. del encabezado).
-  const formFrame = await findFrame(page, 'form[name="formulario"] #rut', 25000);
-  if (!formFrame) {
-    throw new Error("No se cargó el formulario de Factura (no apareció el campo R.U.T.)");
+  // Reintentar clic + espera del form. En producción (Vercel US ↔ facturacion.cl
+  // Chile) las cargas son lentas, así que reintentamos si el form no aparece.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    let clicked = false;
+    for (let i = 0; i < 4 && !clicked; i++) clicked = await clickVentaFactura();
+    if (!clicked) continue;
+    const formFrame = await findFrame(page, 'form[name="formulario"] #rut', 18000);
+    if (formFrame) return; // formulario cargado
+    flog(`form no cargó (intento ${attempt + 1}), reintentando…`);
   }
+  throw new Error("No se cargó el formulario de Factura (no apareció el campo R.U.T.)");
 }
 
 /* ─────────── 2) LLENAR ENCABEZADO + DETALLE ─────────── */

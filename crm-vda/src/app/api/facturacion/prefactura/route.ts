@@ -7,7 +7,8 @@ import { emitirFactura } from "@/lib/facturacion/emitir";
 // Genera la PREFACTURA y la devuelve como PDF inline. Pensado para abrirse en una
 // pestaña nueva (window.open) — funciona nativo en móvil (ver/guardar/compartir).
 export const runtime = "nodejs";
-export const maxDuration = 60; // límite de Vercel Hobby
+// 60 = tope de Hobby. Si mercado-nacional pasa a Pro, subir a 180 (como Notifica).
+export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {

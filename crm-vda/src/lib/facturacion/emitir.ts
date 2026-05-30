@@ -68,39 +68,6 @@ export interface FacturaResult {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const flog = (m: string) => console.log(`[fact] ${m}`);
 
-/**
- * Espera (polling) hasta que `predicate` (evaluado en el frame) sea true, o hasta
- * `capMs`. Devuelve true si la condición se cumplió. Permite reemplazar sleeps
- * fijos: avanza apenas el sitio responde en vez de esperar siempre lo peor.
- */
-async function waitUntil(fr: Frame, predicate: () => boolean, capMs = 4000, pollMs = 100): Promise<boolean> {
-  const deadline = Date.now() + capMs;
-  while (Date.now() < deadline) {
-    try {
-      if (await fr.evaluate(predicate)) return true;
-    } catch {
-      /* frame navegando */
-    }
-    await sleep(pollMs);
-  }
-  return false;
-}
-
-/** Espera hasta que el N° de filas de tablas en el frame supere `threshold` (línea insertada). */
-async function waitUntilRows(fr: Frame, threshold: number, capMs = 3500, pollMs = 100): Promise<boolean> {
-  const deadline = Date.now() + capMs;
-  while (Date.now() < deadline) {
-    try {
-      const n = await fr.evaluate(() => document.querySelectorAll("table tr").length);
-      if (n > threshold) return true;
-    } catch {
-      /* frame navegando */
-    }
-    await sleep(pollMs);
-  }
-  return false;
-}
-
 /* ───────────────────────── LOGIN (implementado) ───────────────────────── */
 
 async function loginFacturacionCl(page: Page): Promise<boolean> {
@@ -132,7 +99,8 @@ async function loginFacturacionCl(page: Page): Promise<boolean> {
   }
 
   await page.click("#trigger");
-  await sleep(1200);
+  // Sin sleep fijo: el waitForFunction de abajo ya espera la confirmación de login.
+  await sleep(200);
 
   // Confirmar sesión: el form de login desaparece o aparece el menú.
   const logged = await page
@@ -221,7 +189,7 @@ async function setVal(fr: Frame, selector: string, value: string): Promise<void>
 async function navegarFormularioEmision(page: Page): Promise<void> {
   // 1) Menú "Ventas".
   await clickByTextVisible(page, "Ventas");
-  await sleep(800);
+  await sleep(500);
 
   // Clic en LA "Factura" de VENTAS (DTE 33). OJO: existe otra "Factura" con el
   // mismo título bajo COMPRAS (form/compra/) — hay que elegir la de VENTAS por su
@@ -454,14 +422,7 @@ async function llenarDetalle(page: Page, input: FacturaInput): Promise<void> {
     await fr.evaluate(() => { const el = document.querySelector("#p_codigo") as HTMLInputElement | null; if (el) { el.value = ""; el.focus(); } });
     await fr.type("#p_codigo", linea.sku, { delay: 0 });
     await page.keyboard.press("Enter");
-    // Esperar el autocompletado del maestro (descripción/precio) en vez de un sleep
-    // fijo: avanza apenas el sitio responde → mucho más rápido con muchos SKU.
-    const filled = await waitUntil(fr, () => {
-      const d = document.querySelector("#p_descripcion") as HTMLInputElement | null;
-      const u = document.querySelector("#p_unitario") as HTMLInputElement | null;
-      return (!!d && d.value.trim().length > 0) || (!!u && parseFloat(u.value || "0") > 0);
-    }, 5000, 90);
-    if (!filled) await sleep(350); // fallback corto si no detectamos el autocompletado
+    await sleep(900);
     flog(`línea SKU '${linea.sku}' x${linea.cantidad_unidades}`);
 
     // Cantidad (unidades) y Precio Unitario = NETO BASE (siempre el base).
@@ -474,12 +435,9 @@ async function llenarDetalle(page: Page, input: FacturaInput): Promise<void> {
       await setVal(fr, "#descuento", String(linea.descuento_pct));
     }
 
-    // Insertar la línea y esperar a que la grilla la acepte (crece el N° de filas)
-    // en vez de un sleep fijo. Fallback corto si no se detecta.
-    const rowsBefore = await fr.evaluate(() => document.querySelectorAll("table tr").length).catch(() => 0);
+    // Insertar la línea en la grilla.
     await fr.evaluate(() => (document.querySelector("#agregar") as HTMLButtonElement | null)?.click());
-    const inserted = await waitUntilRows(fr, rowsBefore, 3500, 90);
-    if (!inserted) await sleep(450);
+    await sleep(700);
   }
 }
 

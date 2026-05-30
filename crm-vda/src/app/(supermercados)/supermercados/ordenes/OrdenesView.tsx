@@ -23,6 +23,15 @@ export interface OrdenRow {
   chain_name: string;
   oc_status: "al_dia" | "por_vencer" | "vencida";
   days_overdue: number;     // positivo si vencida, negativo si por vencer
+  nv_pending: number;       // NV emitidas APROBADO sin folio (pendientes de facturación)
+  nv_facturada: number;     // NV ya facturadas (con folio)
+}
+
+/** Estado de NV de la OC para el badge de la lista. */
+function nvBadge(o: OrdenRow): { label: string; cls: string } | null {
+  if (o.nv_pending > 0) return { label: "NV pendiente", cls: "bg-info-soft text-info" };
+  if (o.nv_facturada > 0) return { label: "Facturada", cls: "bg-pos-soft text-pos" };
+  return null;
 }
 
 export interface ChainGroup {
@@ -363,7 +372,7 @@ export function OrdenesView({
                 {isOpen && (
                   <>
                     {/* Desktop header */}
-                    <div className="hidden lg:grid grid-cols-[14px_140px_1fr_70px_90px_70px_85px_85px_55px_24px_18px] gap-2 px-4 py-2 border-b border-line text-[9px] uppercase tracking-wider text-ink-3 font-medium">
+                    <div className="hidden lg:grid grid-cols-[12px_120px_1fr_52px_84px_60px_78px_78px_46px_98px_22px_14px] gap-2 px-4 py-1.5 border-b border-line text-[9px] uppercase tracking-wider text-ink-3 font-medium">
                       <div></div>
                       <div>N° OC</div>
                       <div>Comprador</div>
@@ -373,6 +382,7 @@ export function OrdenesView({
                       <div className="text-right">Monto</div>
                       <div className="text-right">Pendiente</div>
                       <div className="text-right">Cumpl.</div>
+                      <div>NV</div>
                       <div className="text-center">PDF</div>
                       <div></div>
                     </div>
@@ -382,50 +392,55 @@ export function OrdenesView({
                       const bgRow = o.oc_status === "vencida" ? "bg-neg-soft/20" : "";
                       const cumplBg = cumpl >= 85 ? "bg-pos-soft text-pos" : cumpl >= 50 ? "bg-warn-soft text-warn" : "bg-neg-soft text-neg";
                       const ageCls = o.age_days >= 30 ? "text-neg font-medium" : o.age_days >= 14 ? "text-warn" : "text-ink-2";
+                      const nv = nvBadge(o);
                       return (
-                        <div key={o.id} className={`block border-b border-line last:border-b-0 hover:bg-bg-subtle group ${bgRow}`}>
-                          {/* Desktop */}
-                          <div className="hidden lg:grid grid-cols-[14px_140px_1fr_70px_90px_70px_85px_85px_55px_24px_18px] gap-2 px-4 py-2.5 items-center">
-                            <Link href={`/supermercados/oc/${o.id}`} prefetch className="contents">
-                              <span className={`w-2 h-2 rounded-full ${dotColor}`}></span>
-                              <span className="text-[11px] font-mono text-wine truncate min-w-0 block" title={o.order_number}>{o.order_number}</span>
-                              <span className="text-[11px] text-ink-2 truncate min-w-0 block" title={o.buyer ?? ""}>{o.buyer ?? "—"}</span>
-                              <span className={`text-[11px] tabular text-right ${ageCls}`}>{o.age_days}d</span>
-                              <div className="text-[11px] tabular">
-                                {o.oc_status === "vencida" ? (
-                                  <><span className="text-neg font-medium">{fmtDate(o.cancellation_date)}</span><span className="text-[10px] text-neg ml-1">+{o.days_overdue}d</span></>
-                                ) : o.oc_status === "por_vencer" ? (
-                                  <><span className="text-warn font-medium">{fmtDate(o.cancellation_date)}</span><span className="text-[10px] text-warn ml-1">{Math.abs(o.days_overdue)}d</span></>
-                                ) : (
-                                  <span className="text-ink-2">{fmtDate(o.cancellation_date)}</span>
-                                )}
-                              </div>
-                              <span className="text-[11px] tabular text-right text-ink-2">
-                                {o.boxes_invoiced > 0 ? <><span className="text-ink font-medium">{fmtNum(o.boxes_invoiced)}</span><span className="text-ink-3">/{fmtNum(o.boxes_total)}</span></> : fmtNum(o.boxes_total)}
-                              </span>
-                              <span className="text-xs font-medium tabular text-right text-ink">{fmtClpCompact(o.total_amount)}</span>
-                              <span className={`text-[11px] tabular text-right ${o.pendiente > 0 ? (o.oc_status === "vencida" ? "text-neg font-medium" : "text-warn") : "text-ink-3"}`}>
-                                {o.pendiente > 0 ? fmtClpCompact(o.pendiente) : "—"}
-                              </span>
-                              <span className="text-right">
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded-sm font-medium tabular ${cumplBg}`}>{cumpl}%</span>
-                              </span>
-                            </Link>
+                        <div key={o.id} className={`relative block border-b border-line last:border-b-0 hover:bg-bg-subtle group ${bgRow}`}>
+                          {/* Desktop — Link overlay absoluto (toda la fila navegable, sin <a> anidado) */}
+                          <div className="hidden lg:grid grid-cols-[12px_120px_1fr_52px_84px_60px_78px_78px_46px_98px_22px_14px] gap-2 px-4 py-1.5 items-center text-[11px]">
+                            <Link href={`/supermercados/oc/${o.id}`} prefetch aria-label={`OC ${o.order_number}`} className="absolute inset-0 z-0" />
+                            <span className={`relative pointer-events-none w-2 h-2 rounded-full ${dotColor}`}></span>
+                            <span className="relative pointer-events-none font-mono text-wine truncate min-w-0 block" title={o.order_number}>{o.order_number}</span>
+                            <span className="relative pointer-events-none text-ink-2 truncate min-w-0 block" title={o.buyer ?? ""}>{o.buyer ?? "—"}</span>
+                            <span className={`relative pointer-events-none tabular text-right ${ageCls}`}>{o.age_days}d</span>
+                            <div className="relative pointer-events-none tabular">
+                              {o.oc_status === "vencida" ? (
+                                <><span className="text-neg font-medium">{fmtDate(o.cancellation_date)}</span><span className="text-[10px] text-neg ml-1">+{o.days_overdue}d</span></>
+                              ) : o.oc_status === "por_vencer" ? (
+                                <><span className="text-warn font-medium">{fmtDate(o.cancellation_date)}</span><span className="text-[10px] text-warn ml-1">{Math.abs(o.days_overdue)}d</span></>
+                              ) : (
+                                <span className="text-ink-2">{fmtDate(o.cancellation_date)}</span>
+                              )}
+                            </div>
+                            <span className="relative pointer-events-none tabular text-right text-ink-2">
+                              {o.boxes_invoiced > 0 ? <><span className="text-ink font-medium">{fmtNum(o.boxes_invoiced)}</span><span className="text-ink-3">/{fmtNum(o.boxes_total)}</span></> : fmtNum(o.boxes_total)}
+                            </span>
+                            <span className="relative pointer-events-none font-medium tabular text-right text-ink">{fmtClpCompact(o.total_amount)}</span>
+                            <span className={`relative pointer-events-none tabular text-right ${o.pendiente > 0 ? (o.oc_status === "vencida" ? "text-neg font-medium" : "text-warn") : "text-ink-3"}`}>
+                              {o.pendiente > 0 ? fmtClpCompact(o.pendiente) : "—"}
+                            </span>
+                            <span className="relative pointer-events-none text-right">
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-sm font-medium tabular ${cumplBg}`}>{cumpl}%</span>
+                            </span>
+                            <span className="relative pointer-events-none">
+                              {nv
+                                ? <span className={`text-[9px] px-1.5 py-0.5 rounded-sm font-medium whitespace-nowrap ${nv.cls}`}>{nv.label}</span>
+                                : <span className="text-[10px] text-ink-3">—</span>}
+                            </span>
                             {o.source_pdf ? (
                               <a
                                 href={o.source_pdf}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="text-ink-3 hover:text-wine inline-flex justify-center"
+                                className="relative z-10 pointer-events-auto text-ink-3 hover:text-wine inline-flex justify-center"
                                 title="Abrir PDF de OC"
                               >
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg>
                               </a>
-                            ) : <span className="text-ink-3 text-center">—</span>}
-                            <Link href={`/supermercados/oc/${o.id}`} prefetch>
+                            ) : <span className="relative pointer-events-none text-ink-3 text-center">—</span>}
+                            <span className="relative pointer-events-none">
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-ink-3 group-hover:text-ink-2"><path d="M9 6l6 6-6 6"/></svg>
-                            </Link>
+                            </span>
                           </div>
                           {/* Mobile */}
                           <Link href={`/supermercados/oc/${o.id}`} prefetch className="block lg:hidden px-3 py-2.5">
@@ -434,6 +449,7 @@ export function OrdenesView({
                                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor}`}></span>
                                 <span className="text-xs font-mono text-wine">{o.order_number}</span>
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded-sm font-medium tabular ${cumplBg}`}>{cumpl}%</span>
+                                {nv && <span className={`text-[9px] px-1.5 py-0.5 rounded-sm font-medium whitespace-nowrap ${nv.cls}`}>{nv.label}</span>}
                               </div>
                               <span className="text-xs font-medium tabular text-ink">{fmtClpCompact(o.total_amount)}</span>
                             </div>

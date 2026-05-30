@@ -387,7 +387,7 @@ export interface OcDetailLine {
     ila_rate: number;
     iva_rate: number;
   } | null;
-  // Asignación actual (al menos 1 si está asignada)
+  // Asignación actual (al menos 1 si está asignada) — última factura (compat)
   assignment: {
     invoice_id: string;
     invoice_number: string;
@@ -395,9 +395,25 @@ export interface OcDetailLine {
     boxes_invoiced: number;
     amount_invoiced: number;
   } | null;
+  // Agregados de cumplimiento (suman todas las facturas/NV ligadas)
+  invoicedBoxes: number;        // cajas ya facturadas (folio asignado vía writeback)
+  invoicedAmount: number;       // monto facturado de la línea
+  pendingNvBoxes: number;       // cajas en NV APROBADO (pendiente de facturación)
+  pendingNvNumbers: string[];   // N° de NV pendientes que cubren esta línea
+  invoiceNumbers: string[];     // folios reales asignados a esta línea
   // Venta perdida marcada manualmente
   lost_sale_reason: string | null;
   lost_sale_marked_at: string | null;
+}
+
+export interface OcLinkedNv {
+  id: string;
+  nv_number: string;
+  status: string;
+  invoice_number: string | null;
+  nv_date: string;
+  boxes: number;
+  amount: number;
 }
 
 export interface OcAssignedInvoice {
@@ -422,6 +438,7 @@ export interface OcDetail {
   chain: { id: string; name: string } | null;
   items: OcDetailLine[];
   invoices: OcAssignedInvoice[];
+  salesNotes: OcLinkedNv[];   // NV generadas desde esta OC (pendientes + facturadas)
   totalFacturado: number;
   totalLostSale: number;  // monto $ en líneas marcadas como venta perdida
   cumplim: number;        // 0..100
@@ -432,7 +449,7 @@ export interface OcDetail {
 export async function loadOcDetail(id: string): Promise<OcDetail | null> {
   const supabase = await createClient();
 
-  const [{ data: oc, error: ocErr }, { data: invoices }] = await Promise.all([
+  const [{ data: oc, error: ocErr }, { data: invoices }, { data: linkedNvs }] = await Promise.all([
     supabase
       .from("purchase_orders")
       .select(`
@@ -455,13 +472,23 @@ export async function loadOcDetail(id: string): Promise<OcDetail | null> {
         items:oc_invoice_items(id, purchase_order_item_id, boxes_invoiced, amount_invoiced)
       `)
       .eq("purchase_order_id", id),
+    supabase
+      .from("sales_notes")
+      .select(`
+        id, nv_number, status, invoice_number, nv_date, total_amount,
+        items:sales_note_items(purchase_order_item_id, quantity_boxes)
+      `)
+      .eq("purchase_order_id", id),
   ]);
 
   if (ocErr) console.error("[loadOcDetail] query error:", ocErr.message, ocErr.details, ocErr.hint);
   if (!oc) return null;
 
-  // Mapear assignment por línea (1 OC line → 1 assignment según la regla legacy)
+  // ── Facturas reales asignadas (vía writeback) → agregados por línea ──
   const assignmentByLine = new Map<string, OcDetailLine["assignment"]>();
+  const invoicedBoxesByLine = new Map<string, number>();
+  const invoicedAmountByLine = new Map<string, number>();
+  const invoiceNumbersByLine = new Map<string, Set<string>>();
   const assignedInvoices: OcAssignedInvoice[] = [];
 
   type InvWithItems = {
@@ -476,13 +503,18 @@ export async function loadOcDetail(id: string): Promise<OcDetail | null> {
     for (const it of inv.items ?? []) {
       invTotalAmount += it.amount_invoiced || 0;
       invTotalBoxes += it.boxes_invoiced || 0;
-      assignmentByLine.set(it.purchase_order_item_id, {
+      const lid = it.purchase_order_item_id;
+      assignmentByLine.set(lid, {
         invoice_id: inv.id,
         invoice_number: inv.invoice_number,
         invoice_date: inv.invoice_date,
         boxes_invoiced: it.boxes_invoiced,
         amount_invoiced: it.amount_invoiced,
       });
+      invoicedBoxesByLine.set(lid, (invoicedBoxesByLine.get(lid) ?? 0) + (it.boxes_invoiced || 0));
+      invoicedAmountByLine.set(lid, (invoicedAmountByLine.get(lid) ?? 0) + (it.amount_invoiced || 0));
+      if (!invoiceNumbersByLine.has(lid)) invoiceNumbersByLine.set(lid, new Set());
+      invoiceNumbersByLine.get(lid)!.add(inv.invoice_number);
     }
     if ((inv.items ?? []).length > 0) {
       assignedInvoices.push({
@@ -496,17 +528,55 @@ export async function loadOcDetail(id: string): Promise<OcDetail | null> {
     }
   }
 
-  const itemsRaw = (oc.items ?? []) as unknown as Array<Omit<OcDetailLine, "assignment">>;
+  // ── NV ligadas a la OC: cajas en NV pendiente de facturación (status APROBADO) ──
+  type NvWithItems = {
+    id: string; nv_number: string; status: string; invoice_number: string | null;
+    nv_date: string; total_amount: number;
+    items: Array<{ purchase_order_item_id: string | null; quantity_boxes: number }>;
+  };
+  const pendingNvBoxesByLine = new Map<string, number>();
+  const pendingNvNumbersByLine = new Map<string, Set<string>>();
+  const salesNotes: OcLinkedNv[] = [];
+  for (const nv of ((linkedNvs ?? []) as unknown as NvWithItems[])) {
+    const boxes = (nv.items ?? []).reduce((s, it) => s + (it.quantity_boxes || 0), 0);
+    salesNotes.push({
+      id: nv.id, nv_number: nv.nv_number, status: nv.status,
+      invoice_number: nv.invoice_number, nv_date: nv.nv_date,
+      boxes, amount: nv.total_amount || 0,
+    });
+    // Solo las NV aún no facturadas suman a "pendiente de facturación".
+    if (nv.status === "APROBADO" && !nv.invoice_number) {
+      for (const it of nv.items ?? []) {
+        if (!it.purchase_order_item_id) continue;
+        const lid = it.purchase_order_item_id;
+        pendingNvBoxesByLine.set(lid, (pendingNvBoxesByLine.get(lid) ?? 0) + (it.quantity_boxes || 0));
+        if (!pendingNvNumbersByLine.has(lid)) pendingNvNumbersByLine.set(lid, new Set());
+        pendingNvNumbersByLine.get(lid)!.add(nv.nv_number);
+      }
+    }
+  }
+
+  type RawLine = Omit<OcDetailLine, "assignment" | "invoicedBoxes" | "invoicedAmount" | "pendingNvBoxes" | "pendingNvNumbers" | "invoiceNumbers">;
+  const itemsRaw = (oc.items ?? []) as unknown as RawLine[];
   const items: OcDetailLine[] = itemsRaw
-    .map((it) => ({ ...it, assignment: assignmentByLine.get(it.id) ?? null }))
+    .map((it) => ({
+      ...it,
+      assignment: assignmentByLine.get(it.id) ?? null,
+      invoicedBoxes: invoicedBoxesByLine.get(it.id) ?? 0,
+      invoicedAmount: invoicedAmountByLine.get(it.id) ?? 0,
+      pendingNvBoxes: pendingNvBoxesByLine.get(it.id) ?? 0,
+      pendingNvNumbers: Array.from(pendingNvNumbersByLine.get(it.id) ?? []),
+      invoiceNumbers: Array.from(invoiceNumbersByLine.get(it.id) ?? []),
+    }))
     .sort((a, b) => (a.line_number ?? 0) - (b.line_number ?? 0));
 
   assignedInvoices.sort((a, b) => (a.invoice_date ?? "").localeCompare(b.invoice_date ?? ""));
+  salesNotes.sort((a, b) => (a.nv_date ?? "").localeCompare(b.nv_date ?? ""));
 
-  const totalFacturado = items.reduce((s, it) => s + (it.assignment?.amount_invoiced ?? 0), 0);
+  const totalFacturado = items.reduce((s, it) => s + it.invoicedAmount, 0);
   const totalLostSale = items
     .filter((it) => it.lost_sale_reason)
-    .reduce((s, it) => s + Math.max(0, (it.line_amount || 0) - (it.assignment?.amount_invoiced ?? 0)), 0);
+    .reduce((s, it) => s + Math.max(0, (it.line_amount || 0) - it.invoicedAmount), 0);
 
   const cumplim = oc.total_amount > 0 ? Math.round((totalFacturado / oc.total_amount) * 100) : 0;
   const today = new Date();
@@ -527,6 +597,7 @@ export async function loadOcDetail(id: string): Promise<OcDetail | null> {
     chain: oc.chain as unknown as { id: string; name: string } | null,
     items,
     invoices: assignedInvoices,
+    salesNotes,
     totalFacturado,
     totalLostSale,
     cumplim,

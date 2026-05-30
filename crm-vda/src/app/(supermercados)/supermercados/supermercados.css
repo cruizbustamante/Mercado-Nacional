@@ -983,6 +983,7 @@
 .status-tag.warn     { background: var(--warning-soft); color: var(--warning); }
 .status-tag.danger   { background: var(--danger-soft);  color: var(--danger); }
 .status-tag.muted    { background: var(--surface-2);    color: var(--text-3); }
+.status-tag.info     { background: var(--info-soft);    color: var(--info); }
 
 .oc-detail-source {
   font-family: var(--f-mono);

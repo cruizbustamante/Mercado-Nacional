@@ -29,9 +29,10 @@ export async function buildFacturaInputFromNv(
     .from("sales_notes")
     .select(
       `id, nv_number, status, requires_vb_financiero, vb_financiero_status, invoice_number,
-       delivery_address, observations, total_units, total_logistics,
+       delivery_address, observations, total_units, total_logistics, purchase_order_id,
        client:clients(name, rut_body, rut_dv, address, commune, city),
        payment_term:payment_terms(name),
+       purchase_order:purchase_orders(order_number, order_date),
        items:sales_note_items(line_number, product_sku, product_name, quantity_units, price_net_base, price_net_final)`
     )
     .eq("id", nvId)
@@ -77,6 +78,21 @@ export async function buildFacturaInputFromNv(
   const ddmmyyyy = `${String(hoy.getDate()).padStart(2, "0")}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${hoy.getFullYear()}`;
   const term = (nv.payment_term as unknown as { name: string } | null)?.name ?? "";
 
+  // Referencia del documento:
+  //  - NV de supermercado (tiene OC de origen) → ORDEN DE COMPRA (SII 801) con el
+  //    N° y fecha de la OC (ej. factura real: "ORDEN DE COMPRA: Nro. 3350728457 del 28-05-2026").
+  //  - NV manual → NOTA DE PEDIDO (802) con el N° de NV.
+  const oc = nv.purchase_order as unknown as { order_number: string; order_date: string | null } | null;
+  let referencia: FacturaInput["referencia"];
+  if (nv.purchase_order_id && oc?.order_number) {
+    const ocFecha = oc.order_date
+      ? oc.order_date.split("T")[0].split("-").reverse().join("-")  // yyyy-mm-dd → dd-mm-yyyy
+      : ddmmyyyy;
+    referencia = { tipo: "801", folio: oc.order_number, fecha: ocFecha };
+  } else {
+    referencia = { tipo: "802", folio: nv.nv_number.replace(/\D/g, "") || nv.nv_number, fecha: ddmmyyyy };
+  }
+
   const input: FacturaInput = {
     rut_receptor: `${client.rut_body}-${client.rut_dv}`,
     razon_social: client.name,
@@ -85,7 +101,7 @@ export async function buildFacturaInputFromNv(
     ciudad: client.city ?? undefined,
     forma_pago: "CREDITO",
     observaciones: [term, nv.observations].filter(Boolean).join(" — ") || undefined,
-    referencia: { tipo: "802", folio: nv.nv_number.replace(/\D/g, "") || nv.nv_number, fecha: ddmmyyyy },
+    referencia,
     lineas,
     modo,
   };

@@ -49,7 +49,8 @@ export default async function OrdenesPage({
       id, order_number, order_date, cancellation_date, total_amount, status, buyer, source_pdf,
       chain:supermarket_chains(id, name),
       items:purchase_order_items(id, line_amount, quantity_boxes),
-      invoices:oc_invoices(oc_invoice_items(amount_invoiced, boxes_invoiced))
+      invoices:oc_invoices(oc_invoice_items(amount_invoiced, boxes_invoiced)),
+      nvs:sales_notes(status, invoice_number)
     `)
     .gte("order_date", start)
     .lte("order_date", end)
@@ -68,6 +69,7 @@ export default async function OrdenesPage({
     chain: { id: string; name: string } | null;
     items: { id: string; line_amount: number; quantity_boxes: number }[];
     invoices: { oc_invoice_items: { amount_invoiced: number; boxes_invoiced: number }[] }[];
+    nvs: { status: string; invoice_number: string | null }[];
   };
   const all = (ordersData ?? []) as unknown as Row[];
 
@@ -86,6 +88,8 @@ export default async function OrdenesPage({
         0
       );
       const boxes_total = o.items.reduce((acc, it) => acc + (it.quantity_boxes || 0), 0);
+      const nv_pending = (o.nvs ?? []).filter((n) => n.status === "APROBADO" && !n.invoice_number).length;
+      const nv_facturada = (o.nvs ?? []).filter((n) => n.status === "FACTURADO" || n.status === "DESPACHADO" || !!n.invoice_number).length;
       const issueDate = new Date(o.order_date);
       issueDate.setHours(0, 0, 0, 0);
       const age_days = Math.max(0, Math.floor((today.getTime() - issueDate.getTime()) / 86400000));
@@ -123,6 +127,8 @@ export default async function OrdenesPage({
         chain_name: o.chain!.name,
         oc_status,
         days_overdue,
+        nv_pending,
+        nv_facturada,
       };
     });
 

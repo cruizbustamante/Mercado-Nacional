@@ -2,193 +2,50 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
 
-export interface LineUpdate {
+/* ============================================================
+   Marcar / quitar venta perdida (sin tocar asignaciones)
+   ============================================================ */
+
+export interface LostSaleUpdate {
   lineId: string;
-  boxesInvoiced: number | null;   // null = quitar asignación
-  invoiceNumber: string | null;
-  invoiceDate: string | null;     // ISO yyyy-mm-dd
-  lostSaleReason: string | null;  // null = quitar marca de pérdida
-}
-
-export interface SaveResult {
-  ok: boolean;
-  updatedLines: number;
-  invoicesAffected: number;
-  errors: string[];
+  reason: string | null;   // null = quitar la marca de venta perdida
 }
 
 /**
- * Guarda un batch de cambios sobre las líneas de una OC.
- *
- * Reglas:
- * - Si boxesInvoiced > 0 y hay invoiceNumber → crea/actualiza assignment
- * - Si boxesInvoiced === null o 0 → borra el assignment existente para esa línea
- * - Si lostSaleReason existe → lo marca; si es null → lo quita
- *
- * El amount_invoiced se calcula proporcional a las cajas: line.unit_price * units_per_pack * boxes
+ * Actualiza SOLO la marca de venta perdida de líneas de OC. A diferencia de
+ * saveOcLineUpdates, NO crea ni borra asignaciones de factura — las asignaciones
+ * ahora llegan por writeback desde el módulo Facturación al facturar la NV.
  */
-export async function saveOcLineUpdates(
+export async function setLostSaleReasons(
   ocId: string,
-  updates: LineUpdate[]
-): Promise<SaveResult> {
-  console.log("[saveOcLineUpdates] ocId:", ocId, "updates:", updates.length);
+  updates: LostSaleUpdate[]
+): Promise<{ ok: boolean; updated: number; error?: string }> {
+  const profile = await getCurrentProfile();
+  if (!profile) return { ok: false, updated: 0, error: "No autenticado" };
+  if (updates.length === 0) return { ok: true, updated: 0 };
+
   const supabase = await createClient();
-  const errors: string[] = [];
-  const affectedInvoices = new Set<string>();
-  let updatedLines = 0;
-
-  // Cargar líneas actuales para validar y calcular amount_invoiced
-  const { data: lines } = await supabase
-    .from("purchase_order_items")
-    .select("id, unit_price, units_per_pack, quantity_boxes, purchase_order_id")
-    .eq("purchase_order_id", ocId);
-
-  const linesMap = new Map((lines ?? []).map((l) => [l.id, l]));
-
-  // Cache de facturas: invoiceNumber → invoiceId (creadas o existentes)
-  const invoiceIdCache = new Map<string, string>();
-
-  async function getOrCreateInvoice(invoiceNumber: string, invoiceDate: string | null): Promise<string | null> {
-    const key = `${invoiceNumber}|${invoiceDate ?? ""}`;
-    if (invoiceIdCache.has(key)) return invoiceIdCache.get(key)!;
-
-    const { data: existing } = await supabase
-      .from("oc_invoices")
-      .select("id")
-      .eq("purchase_order_id", ocId)
-      .eq("invoice_number", invoiceNumber)
-      .maybeSingle();
-
-    if (existing) {
-      invoiceIdCache.set(key, existing.id);
-      return existing.id;
-    }
-
-    const { data: created, error } = await supabase
-      .from("oc_invoices")
-      .insert({
-        purchase_order_id: ocId,
-        invoice_number: invoiceNumber,
-        invoice_date: invoiceDate,
-      })
-      .select("id")
-      .single();
-
-    if (error || !created) {
-      errors.push(`Factura ${invoiceNumber}: ${error?.message ?? "no se pudo crear"}`);
-      return null;
-    }
-    invoiceIdCache.set(key, created.id);
-    return created.id;
-  }
+  let updated = 0;
 
   for (const u of updates) {
-    const line = linesMap.get(u.lineId);
-    if (!line) {
-      errors.push(`Línea ${u.lineId.slice(0, 8)} no encontrada`);
-      continue;
-    }
-
-    // 1) Manejar venta perdida (independiente de la asignación)
-    const lostSaleUpdate: Record<string, unknown> = {};
-    if (u.lostSaleReason !== undefined) {
-      lostSaleUpdate.lost_sale_reason = u.lostSaleReason || null;
-      lostSaleUpdate.lost_sale_marked_at = u.lostSaleReason ? new Date().toISOString() : null;
-    }
-    if (Object.keys(lostSaleUpdate).length > 0) {
-      const { error } = await supabase
-        .from("purchase_order_items")
-        .update(lostSaleUpdate)
-        .eq("id", u.lineId);
-      if (error) errors.push(`Línea ${line.id.slice(0, 8)} pérdida: ${error.message}`);
-    }
-
-    // 2) Limpiar asignaciones previas de esta línea (para rehacer)
-    const { data: prevAssignments } = await supabase
-      .from("oc_invoice_items")
-      .select("id, oc_invoice_id")
-      .eq("purchase_order_item_id", u.lineId);
-
-    if (prevAssignments && prevAssignments.length > 0) {
-      const prevIds = prevAssignments.map((a) => a.id);
-      const prevInvoiceIds = prevAssignments.map((a) => a.oc_invoice_id);
-      const { error: delError } = await supabase.from("oc_invoice_items").delete().in("id", prevIds);
-      if (delError) console.error("[saveOcLineUpdates] delete prev:", delError.message);
-      prevInvoiceIds.forEach((id) => affectedInvoices.add(id));
-    }
-
-    // 3) Crear nueva asignación si corresponde
-    const boxes = u.boxesInvoiced ?? 0;
-    if (boxes > 0 && u.invoiceNumber?.trim()) {
-      const invoiceId = await getOrCreateInvoice(u.invoiceNumber.trim(), u.invoiceDate);
-      if (invoiceId) {
-        const amount = boxes * line.unit_price;
-        console.log("[saveOcLineUpdates] insert item:", { invoiceId, lineId: u.lineId, boxes, amount });
-        const { error } = await supabase.from("oc_invoice_items").insert({
-          oc_invoice_id: invoiceId,
-          purchase_order_item_id: u.lineId,
-          boxes_invoiced: boxes,
-          amount_invoiced: amount,
-        });
-        if (error) {
-          errors.push(`Línea ${line.id.slice(0, 8)} asignar: ${error.message}`);
-        } else {
-          affectedInvoices.add(invoiceId);
-          updatedLines++;
-        }
-      }
-    } else if (boxes === 0 && (prevAssignments?.length ?? 0) > 0) {
-      // Se borró la asignación, contar como update
-      updatedLines++;
-    }
-  }
-
-  // Limpiar facturas que quedaron sin items (cleanup)
-  for (const invId of affectedInvoices) {
-    const { count } = await supabase
-      .from("oc_invoice_items")
-      .select("id", { count: "exact", head: true })
-      .eq("oc_invoice_id", invId);
-    if ((count ?? 0) === 0) {
-      await supabase.from("oc_invoices").delete().eq("id", invId);
-    }
-  }
-
-  // Actualizar status de la OC según facturación total
-  const { data: lineAmounts } = await supabase
-    .from("purchase_order_items")
-    .select("line_amount")
-    .eq("purchase_order_id", ocId);
-  const { data: invAmounts } = await supabase
-    .from("oc_invoice_items")
-    .select("amount_invoiced, oc_invoice:oc_invoices!inner(purchase_order_id)")
-    .eq("oc_invoice.purchase_order_id", ocId);
-
-  const totalOc = (lineAmounts ?? []).reduce((s, l) => s + (l.line_amount || 0), 0);
-  const totalFact = (invAmounts ?? []).reduce((s, l) => s + (l.amount_invoiced || 0), 0);
-
-  let newStatus: string | null = null;
-  if (totalFact === 0) newStatus = "ACTIVA";
-  else if (totalFact >= totalOc * 0.99) newStatus = "COMPLETADA";
-  else newStatus = "PARCIAL";
-
-  if (newStatus) {
-    await supabase.from("purchase_orders").update({ status: newStatus }).eq("id", ocId);
+    const { error } = await supabase
+      .from("purchase_order_items")
+      .update({
+        lost_sale_reason: u.reason || null,
+        lost_sale_marked_at: u.reason ? new Date().toISOString() : null,
+      })
+      .eq("id", u.lineId)
+      .eq("purchase_order_id", ocId);
+    if (error) return { ok: false, updated, error: error.message };
+    updated++;
   }
 
   revalidatePath(`/supermercados/oc/${ocId}`);
   revalidatePath("/supermercados/ordenes");
   revalidatePath("/supermercados");
-  revalidatePath("/supermercados/analisis");
-  revalidatePath("/nota-venta");
-
-  return {
-    ok: errors.length === 0,
-    updatedLines,
-    invoicesAffected: affectedInvoices.size,
-    errors,
-  };
+  return { ok: true, updated };
 }
 
 /* ============================================================
@@ -196,6 +53,7 @@ export async function saveOcLineUpdates(
    ============================================================ */
 
 export interface SupermarketNvLine {
+  ocLineId: string;        // purchase_order_items.id de origen (para writeback de cumplimiento)
   productId: string;
   productSku: string;
   productName: string;
@@ -211,8 +69,7 @@ export interface SupermarketNvLine {
 
 export interface SupermarketNvInput {
   ocId: string;
-  invoiceNumber: string;
-  invoiceDate: string;
+  invoiceDate: string;     // fecha de la NV (normalmente hoy)
   chainId: string;
   lines: SupermarketNvLine[];
   totalNetProduct: number;
@@ -229,6 +86,9 @@ export interface NvCreateResult {
 }
 
 export async function createSupermarketNv(input: SupermarketNvInput): Promise<NvCreateResult> {
+  const profile = await getCurrentProfile();
+  if (!profile) return { ok: false, nvNumber: null, error: "No autenticado" };
+
   const supabase = await createClient();
 
   // 1) Resolve chain → client
@@ -257,6 +117,56 @@ export async function createSupermarketNv(input: SupermarketNvInput): Promise<Nv
     return { ok: false, nvNumber: null, error: "Canal 'supermercado' no encontrado." };
   }
 
+  // 2.b) GUARDA anti-doble-facturación: las cajas pedidas no pueden superarse
+  //      sumando lo ya facturado + lo que ya está en una NV pendiente. Evita que
+  //      se genere otra NV por las mismas cajas (UI + ventana de refresh).
+  {
+    const ocLineIds = input.lines.map((l) => l.ocLineId).filter(Boolean);
+    if (ocLineIds.length === 0) {
+      return { ok: false, nvNumber: null, error: "La NV no tiene líneas ligadas a la OC." };
+    }
+
+    const [{ data: ocLines }, { data: invItems }, { data: pendItems }] = await Promise.all([
+      supabase.from("purchase_order_items").select("id, quantity_boxes").in("id", ocLineIds),
+      supabase.from("oc_invoice_items").select("purchase_order_item_id, boxes_invoiced").in("purchase_order_item_id", ocLineIds),
+      supabase
+        .from("sales_note_items")
+        .select("purchase_order_item_id, quantity_boxes, sales_note:sales_notes!inner(status, invoice_number, purchase_order_id)")
+        .in("purchase_order_item_id", ocLineIds)
+        .eq("sales_note.purchase_order_id", input.ocId)
+        .eq("sales_note.status", "APROBADO")
+        .is("sales_note.invoice_number", null),
+    ]);
+
+    const qtyByLine = new Map((ocLines ?? []).map((l) => [l.id as string, l.quantity_boxes as number]));
+    const committedByLine = new Map<string, number>();
+    for (const it of invItems ?? []) {
+      const k = it.purchase_order_item_id as string;
+      committedByLine.set(k, (committedByLine.get(k) ?? 0) + (it.boxes_invoiced || 0));
+    }
+    for (const it of pendItems ?? []) {
+      const k = it.purchase_order_item_id as string;
+      committedByLine.set(k, (committedByLine.get(k) ?? 0) + (it.quantity_boxes || 0));
+    }
+
+    const over: string[] = [];
+    for (const l of input.lines) {
+      const qty = qtyByLine.get(l.ocLineId) ?? 0;
+      const committed = committedByLine.get(l.ocLineId) ?? 0;
+      const disponible = Math.max(0, qty - committed);
+      if (l.boxes > disponible) {
+        over.push(`${l.productSku || l.productName}: pides ${l.boxes}, disponible ${disponible}`);
+      }
+    }
+    if (over.length > 0) {
+      return {
+        ok: false,
+        nvNumber: null,
+        error: `Cajas ya comprometidas (facturadas o en NV pendiente) — ${over.join(" · ")}. Refresca la OC.`,
+      };
+    }
+  }
+
   // 3) Generate NV number atomically
   const { data: newCorr, error: rpcErr } = await supabase.rpc("increment_channel_correlative", {
     p_channel_id: channel.id,
@@ -268,17 +178,8 @@ export async function createSupermarketNv(input: SupermarketNvInput): Promise<Nv
 
   const nvNumber = `${channel.nv_prefix}-${String(newCorr).padStart(6, "0")}`;
 
-  // 4) Get current user
-  const { data: { user } } = await supabase.auth.getUser();
-  let salespersonId: string | null = null;
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("auth_user_id", user.id)
-      .single();
-    salespersonId = profile?.id ?? null;
-  }
+  // 4) Vendedor = usuario actual
+  const salespersonId: string | null = profile.id;
 
   // 5) Get warehouse (default first, then any)
   const { data: wh } = await supabase
@@ -292,6 +193,10 @@ export async function createSupermarketNv(input: SupermarketNvInput): Promise<Nv
   const totalUnits = input.lines.reduce((s, l) => s + l.boxes * l.unitsPerBox, 0);
 
   // 6) Insert sales_note
+  // La OC de supermercado es venta firme con precios pactados → la NV nace
+  // APROBADA (sin V°B°), pendiente de facturación. El folio NO se setea aquí:
+  // se factura desde el módulo Facturación y el folio vuelve por writeback.
+  const nowIso = new Date().toISOString();
   const { data: nv, error: nvErr } = await supabase
     .from("sales_notes")
     .insert({
@@ -301,10 +206,11 @@ export async function createSupermarketNv(input: SupermarketNvInput): Promise<Nv
       salesperson_id: salespersonId,
       nv_date: input.invoiceDate || new Date().toISOString().split("T")[0],
       warehouse_id: wh?.id ?? null,
-      status: "FACTURADO",
-      invoice_number: input.invoiceNumber,
-      invoiced_at: new Date().toISOString(),
-      invoiced_by: salespersonId,
+      status: "APROBADO",
+      purchase_order_id: input.ocId,
+      requires_vb_financiero: false,
+      approved_by: salespersonId,
+      approved_at: nowIso,
       total_base_net: input.totalNetProduct,
       total_discount: 0,
       total_net: input.totalNetProduct,
@@ -343,6 +249,7 @@ export async function createSupermarketNv(input: SupermarketNvInput): Promise<Nv
     const lineTotal = lineNet + l.logisticsTotal + lineIla + lineIva;
     return {
       sales_note_id: nv.id,
+      purchase_order_item_id: l.ocLineId,
       product_id: l.productId,
       line_number: i + 1,
       quantity_boxes: l.boxes,
@@ -377,6 +284,10 @@ export async function createSupermarketNv(input: SupermarketNvInput): Promise<Nv
   }
 
   revalidatePath("/nota-venta");
+  revalidatePath("/facturacion");
+  revalidatePath(`/supermercados/oc/${input.ocId}`);
+  revalidatePath("/supermercados/ordenes");
+  revalidatePath("/supermercados");
 
   return { ok: true, nvNumber, error: null };
 }

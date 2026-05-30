@@ -371,20 +371,20 @@ export function OrdenesView({
                 {/* Tabla expandible */}
                 {isOpen && (
                   <>
-                    {/* Desktop header */}
-                    <div className="hidden lg:grid grid-cols-[12px_120px_1fr_52px_84px_60px_78px_78px_46px_98px_22px_14px] gap-2 px-4 py-1.5 border-b border-line text-[9px] uppercase tracking-wider text-ink-3 font-medium">
-                      <div></div>
-                      <div>N° OC</div>
-                      <div>Comprador</div>
-                      <div className="text-right">Edad</div>
-                      <div>Vence</div>
-                      <div className="text-right">Cajas</div>
-                      <div className="text-right">Monto</div>
-                      <div className="text-right">Pendiente</div>
-                      <div className="text-right">Cumpl.</div>
-                      <div>NV</div>
-                      <div className="text-center">PDF</div>
-                      <div></div>
+                    {/* Desktop header — flex con anchos fijos (mismos que las filas) */}
+                    <div className="hidden lg:flex items-center gap-2 px-4 py-1.5 border-b border-line text-[9px] uppercase tracking-wider text-ink-3 font-medium">
+                      <div className="w-3 flex-shrink-0"></div>
+                      <div className="w-[124px] flex-shrink-0">N° OC</div>
+                      <div className="flex-1 min-w-0">Comprador</div>
+                      <div className="w-[44px] flex-shrink-0 text-right">Edad</div>
+                      <div className="w-[86px] flex-shrink-0">Vence</div>
+                      <div className="w-[58px] flex-shrink-0 text-right">Cajas</div>
+                      <div className="w-[74px] flex-shrink-0 text-right">Monto</div>
+                      <div className="w-[74px] flex-shrink-0 text-right">Pendiente</div>
+                      <div className="w-[44px] flex-shrink-0 text-right">Cumpl.</div>
+                      <div className="w-[92px] flex-shrink-0">NV</div>
+                      <div className="w-[20px] flex-shrink-0 text-center">PDF</div>
+                      <div className="w-[14px] flex-shrink-0"></div>
                     </div>
                     {rows.map((o) => {
                       const cumpl = o.total_amount > 0 ? Math.round((o.facturado / o.total_amount) * 100) : 0;
@@ -394,15 +394,17 @@ export function OrdenesView({
                       const ageCls = o.age_days >= 30 ? "text-neg font-medium" : o.age_days >= 14 ? "text-warn" : "text-ink-2";
                       const nv = nvBadge(o);
                       return (
-                        <div key={o.id} className={`relative block border-b border-line last:border-b-0 hover:bg-bg-subtle group ${bgRow}`}>
-                          {/* Desktop — Link overlay absoluto (toda la fila navegable, sin <a> anidado) */}
-                          <div className="hidden lg:grid grid-cols-[12px_120px_1fr_52px_84px_60px_78px_78px_46px_98px_22px_14px] gap-2 px-4 py-1.5 items-center text-[11px]">
+                        <div key={o.id} className={`relative border-b border-line last:border-b-0 hover:bg-bg-subtle group ${bgRow}`}>
+                          {/* Desktop — flex con altura fija (sin espacio muerto). Link overlay absoluto. */}
+                          <div className="hidden lg:flex items-center gap-2 px-4 h-11 text-xs">
                             <Link href={`/supermercados/oc/${o.id}`} prefetch aria-label={`OC ${o.order_number}`} className="absolute inset-0 z-0" />
-                            <span className={`relative pointer-events-none w-2 h-2 rounded-full ${dotColor}`}></span>
-                            <span className="relative pointer-events-none font-mono text-wine truncate min-w-0 block" title={o.order_number}>{o.order_number}</span>
-                            <span className="relative pointer-events-none text-ink-2 truncate min-w-0 block" title={o.buyer ?? ""}>{o.buyer ?? "—"}</span>
-                            <span className={`relative pointer-events-none tabular text-right ${ageCls}`}>{o.age_days}d</span>
-                            <div className="relative pointer-events-none tabular">
+                            <span className="w-3 flex-shrink-0 flex items-center">
+                              <span className={`pointer-events-none w-2 h-2 rounded-full ${dotColor}`}></span>
+                            </span>
+                            <span className="w-[124px] flex-shrink-0 pointer-events-none font-mono text-wine truncate" title={o.order_number}>{o.order_number}</span>
+                            <span className="flex-1 min-w-0 pointer-events-none text-ink-2 truncate" title={o.buyer ?? ""}>{o.buyer ?? "—"}</span>
+                            <span className={`w-[44px] flex-shrink-0 pointer-events-none tabular text-right ${ageCls}`}>{o.age_days}d</span>
+                            <span className="w-[86px] flex-shrink-0 pointer-events-none tabular whitespace-nowrap">
                               {o.oc_status === "vencida" ? (
                                 <><span className="text-neg font-medium">{fmtDate(o.cancellation_date)}</span><span className="text-[10px] text-neg ml-1">+{o.days_overdue}d</span></>
                               ) : o.oc_status === "por_vencer" ? (
@@ -410,18 +412,18 @@ export function OrdenesView({
                               ) : (
                                 <span className="text-ink-2">{fmtDate(o.cancellation_date)}</span>
                               )}
-                            </div>
-                            <span className="relative pointer-events-none tabular text-right text-ink-2">
+                            </span>
+                            <span className="w-[58px] flex-shrink-0 pointer-events-none tabular text-right text-ink-2">
                               {o.boxes_invoiced > 0 ? <><span className="text-ink font-medium">{fmtNum(o.boxes_invoiced)}</span><span className="text-ink-3">/{fmtNum(o.boxes_total)}</span></> : fmtNum(o.boxes_total)}
                             </span>
-                            <span className="relative pointer-events-none font-medium tabular text-right text-ink">{fmtClpCompact(o.total_amount)}</span>
-                            <span className={`relative pointer-events-none tabular text-right ${o.pendiente > 0 ? (o.oc_status === "vencida" ? "text-neg font-medium" : "text-warn") : "text-ink-3"}`}>
+                            <span className="w-[74px] flex-shrink-0 pointer-events-none font-medium tabular text-right text-ink">{fmtClpCompact(o.total_amount)}</span>
+                            <span className={`w-[74px] flex-shrink-0 pointer-events-none tabular text-right ${o.pendiente > 0 ? (o.oc_status === "vencida" ? "text-neg font-medium" : "text-warn") : "text-ink-3"}`}>
                               {o.pendiente > 0 ? fmtClpCompact(o.pendiente) : "—"}
                             </span>
-                            <span className="relative pointer-events-none text-right">
+                            <span className="w-[44px] flex-shrink-0 pointer-events-none text-right">
                               <span className={`text-[10px] px-1.5 py-0.5 rounded-sm font-medium tabular ${cumplBg}`}>{cumpl}%</span>
                             </span>
-                            <span className="relative pointer-events-none">
+                            <span className="w-[92px] flex-shrink-0 pointer-events-none">
                               {nv
                                 ? <span className={`text-[9px] px-1.5 py-0.5 rounded-sm font-medium whitespace-nowrap ${nv.cls}`}>{nv.label}</span>
                                 : <span className="text-[10px] text-ink-3">—</span>}
@@ -432,13 +434,13 @@ export function OrdenesView({
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="relative z-10 pointer-events-auto text-ink-3 hover:text-wine inline-flex justify-center"
+                                className="w-[20px] flex-shrink-0 relative z-10 pointer-events-auto text-ink-3 hover:text-wine inline-flex justify-center"
                                 title="Abrir PDF de OC"
                               >
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg>
                               </a>
-                            ) : <span className="relative pointer-events-none text-ink-3 text-center">—</span>}
-                            <span className="relative pointer-events-none">
+                            ) : <span className="w-[20px] flex-shrink-0 pointer-events-none text-ink-3 text-center">—</span>}
+                            <span className="w-[14px] flex-shrink-0 pointer-events-none inline-flex justify-end">
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-ink-3 group-hover:text-ink-2"><path d="M9 6l6 6-6 6"/></svg>
                             </span>
                           </div>

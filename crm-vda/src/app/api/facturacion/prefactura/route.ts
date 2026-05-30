@@ -35,6 +35,15 @@ export async function GET(req: NextRequest) {
     return new NextResponse(result.error ?? "No se pudo generar la prefactura", { status: 502 });
   }
 
+  // Marca que la prefactura ya se generó (para el check en el módulo Facturación).
+  // No bloquea volver a generarla; solo deja registro. No pisa NV ya facturadas.
+  await supabase
+    .from("sales_notes")
+    .update({ invoice_job_status: "PREFACTURA", invoice_attempted_at: new Date().toISOString() })
+    .eq("id", nvId)
+    .eq("status", "APROBADO")
+    .is("invoice_number", null);
+
   const pdf = Buffer.from(result.pdf_base64, "base64");
   return new NextResponse(pdf, {
     status: 200,

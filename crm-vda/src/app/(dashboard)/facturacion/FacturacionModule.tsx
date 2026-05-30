@@ -434,8 +434,21 @@ function FragmentRow({
           {r.invoice_number ? (
             <span style={{ fontFamily: "var(--f-mono)", fontSize: 12 }}>Folio {r.invoice_number}</span>
           ) : canEmit && r.lista ? (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <button className="btn btn-ghost" style={{ minHeight: 38, fontSize: 12.5 }} onClick={onPrefactura}>Prefactura ↗</button>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <button
+                className="btn btn-ghost"
+                style={{
+                  minHeight: 38,
+                  fontSize: 12.5,
+                  ...(r.invoice_job_status === "PREFACTURA"
+                    ? { borderColor: "var(--success)", color: "var(--success)" }
+                    : {}),
+                }}
+                onClick={onPrefactura}
+                title={r.invoice_job_status === "PREFACTURA" ? "Prefactura ya generada — puedes volver a generarla" : undefined}
+              >
+                {r.invoice_job_status === "PREFACTURA" ? "✓ Prefactura ↗" : "Prefactura ↗"}
+              </button>
               <button className="btn btn-ghost" style={{ minHeight: 38, fontSize: 12.5 }} onClick={onMarcar}>Marcar fact.</button>
             </div>
           ) : (
